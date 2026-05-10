@@ -34,6 +34,5 @@ After each session, users are prompted to rate their focus on a scale from 1 to 
 - **Backend:** Firebase (Firestore for data persistence)
 - **Deployment:** GitHub Pages
 
-## Getting Started
+<img width="1792" height="1001" alt="image" src="https://github.com/user-attachments/assets/1264a259-bfca-40fd-aac6-4a50fd9e8ca0" />
 
-TODO
