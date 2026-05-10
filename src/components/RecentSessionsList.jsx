@@ -46,7 +46,7 @@ export default function RecentSessionsList(props) {
   const visible = filtered.slice(0, 8);
 
   return (
-    <Card>
+    <Card className="sf-card-panel">
       <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>Recent Sessions</span>
         <Form.Select

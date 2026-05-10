@@ -19,7 +19,7 @@ export default function SubjectCard(props) {
   const initial = subject.name?.[0]?.toUpperCase() || '?';
 
   return (
-    <Card className="mb-3">
+    <Card className="mb-3 sf-card-panel">
       <Card.Body>
         <div className="d-flex align-items-start justify-content-between mb-3">
           <div className="d-flex align-items-center gap-3">

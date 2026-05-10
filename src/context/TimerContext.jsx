@@ -6,6 +6,24 @@ const TimerContext = createContext(null);
 const POMODORO_SECONDS = 25 * 60;
 const ORIGINAL_TITLE = 'StudyFlow';
 const TIMER_STORAGE_KEY = 'studyflow-timer';
+const SESSION_LIMITS = {
+  NOTES_MAX: 500,
+  MAX_SESSION_SECONDS: 24 * 60 * 60,
+  SUBJECT_NAME_MAX: 60,
+};
+
+function clampNumber(value, min, max, fallback = min) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(min, Math.min(max, num));
+}
+
+function trimString(value, max) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+}
 
 export function formatClock(totalSeconds, options = {}) {
   const safe = Math.max(0, Math.floor(totalSeconds));
@@ -194,15 +212,26 @@ export function TimerProvider({ children }) {
 
   function saveSession(details) {
     if (!pendingSession) return;
+    const safeSeconds = clampNumber(
+      pendingSession.seconds,
+      1,
+      SESSION_LIMITS.MAX_SESSION_SECONDS,
+      60
+    );
+    const safeRating = clampNumber(details.focusRating, 1, 5, 4);
+    const safeNotes = trimString(details.notes, SESSION_LIMITS.NOTES_MAX);
+    const safeSubjectName =
+      trimString(pendingSession.subjectName, SESSION_LIMITS.SUBJECT_NAME_MAX) ||
+      pendingSession.subjectName;
     const newSession = {
       id: Date.now(),
       subjectId: pendingSession.subjectId,
-      subjectName: pendingSession.subjectName,
+      subjectName: safeSubjectName,
       subjectColor: pendingSession.subjectColor,
-      duration: Math.max(1, Math.ceil(pendingSession.seconds / 60)),
-      durationSeconds: pendingSession.seconds,
-      focusRating: details.focusRating,
-      notes: details.notes,
+      duration: Math.max(1, Math.ceil(safeSeconds / 60)),
+      durationSeconds: safeSeconds,
+      focusRating: safeRating,
+      notes: safeNotes,
       date: new Date().toISOString().slice(0, 10),
     };
 

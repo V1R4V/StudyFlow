@@ -55,6 +55,21 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.06);
+
+  /* Card system tokens (single style) */
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-border: rgba(148, 163, 184, 0.22);
+  --card-border-strong: rgba(59, 130, 246, 0.45);
+  --card-shadow: 0 12px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --card-shadow-hover: 0 18px 40px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.2) 55%, rgba(255, 255, 255, 0) 100%);
+  --card-kpi-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.95) 0%, rgba(235, 242, 255, 0.92) 55%, rgba(255, 255, 255, 0.92) 100%);
+  --card-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 249, 255, 0.96) 100%);
+  --card-timer-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(228, 238, 255, 0.92) 100%);
+  --card-overview-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(255, 255, 255, 0.7) 55%, rgba(14, 116, 144, 0.16) 100%);
+  --card-overview-border: rgba(59, 130, 246, 0.32);
+  --canvas-glow-1: rgba(59, 130, 246, 0.18);
+  --canvas-glow-2: rgba(14, 116, 144, 0.16);
 }
 
 /* ==========================================================================
@@ -78,6 +93,20 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  --card-bg: rgba(12, 14, 20, 0.92);
+  --card-border: rgba(148, 163, 184, 0.16);
+  --card-border-strong: rgba(107, 123, 255, 0.45);
+  --card-shadow: 0 14px 44px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --card-shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.68), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 60%, rgba(255, 255, 255, 0) 100%);
+  --card-kpi-bg: linear-gradient(155deg, rgba(35, 43, 70, 0.9) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(9, 11, 18, 0.98) 100%);
+  --card-panel-bg: linear-gradient(180deg, rgba(22, 26, 36, 0.9) 0%, rgba(9, 11, 18, 0.96) 100%);
+  --card-timer-bg: linear-gradient(180deg, rgba(35, 43, 70, 0.78) 0%, rgba(9, 11, 18, 0.98) 100%);
+  --card-overview-bg: linear-gradient(135deg, rgba(107, 123, 255, 0.22) 0%, rgba(9, 11, 18, 0.9) 60%, rgba(20, 184, 166, 0.12) 100%);
+  --card-overview-border: rgba(107, 123, 255, 0.38);
+  --canvas-glow-1: rgba(107, 123, 255, 0.26);
+  --canvas-glow-2: rgba(20, 184, 166, 0.16);
 }
 
 /* ==========================================================================
@@ -494,8 +523,8 @@ h3, h4, h5, h6 {
    ========================================================================== */
 
 .sf-overview-card {
-  background: rgba(43, 74, 238, 0.04) !important;
-  border-color: rgba(43, 74, 238, 0.15) !important;
+  background: var(--card-overview-bg) !important;
+  border-color: var(--card-overview-border) !important;
 }
 
 .sf-overview-dot {

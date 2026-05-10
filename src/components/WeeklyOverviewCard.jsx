@@ -19,7 +19,7 @@ export default function WeeklyOverviewCard(props) {
     .slice(0, 3);
 
   return (
-    <Card className="sf-overview-card">
+    <Card className="sf-overview-card sf-card-panel">
       <Card.Body className="d-flex justify-content-between align-items-center">
         <div>
           <div className="fw-bold" style={{ color: 'var(--primary)' }}>

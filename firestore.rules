@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isShortString(value, max) {
+      return value is string && value.size() <= max;
+    }
+
+    function isOptionalString(data, field, max) {
+      return !data.keys().hasAny([field]) || isShortString(data[field], max);
+    }
+
+    function isColor(value) {
+      return value is string && value.matches('^#[0-9a-fA-F]{6}$');
+    }
+
+    function isOptionalColor(data, field) {
+      return !data.keys().hasAny([field]) || isColor(data[field]);
+    }
+
+    function isDate(value) {
+      return value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isOptionalDate(data, field) {
+      return !data.keys().hasAny([field]) || isDate(data[field]);
+    }
+
+    function isOptionalNumberInRange(data, field, min, max) {
+      return !data.keys().hasAny([field])
+        || (data[field] is number && data[field] >= min && data[field] <= max);
+    }
+
+    function isOptionalTimestamp(data, field) {
+      return !data.keys().hasAny([field]) || data[field] is timestamp;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasOnly([
+        'uid',
+        'username',
+        'displayName',
+        'email',
+        'createdAt',
+        'totalStudyTime',
+        'currentStreak'
+      ])
+      && isOptionalString(data, 'uid', 128)
+      && isOptionalString(data, 'username', 80)
+      && isOptionalString(data, 'displayName', 80)
+      && isOptionalString(data, 'email', 120)
+      && isOptionalNumberInRange(data, 'totalStudyTime', 0, 1000000)
+      && isOptionalNumberInRange(data, 'currentStreak', 0, 3650)
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidSubject(data) {
+      return data.keys().hasOnly([
+        'id',
+        'name',
+        'color',
+        'dailyGoal',
+        'weeklyGoal',
+        'totalTimeSpent',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && isShortString(data.name, 60)
+      && isOptionalColor(data, 'color')
+      && isOptionalNumberInRange(data, 'dailyGoal', 0, 24)
+      && isOptionalNumberInRange(data, 'weeklyGoal', 0, 168)
+      && isOptionalNumberInRange(data, 'totalTimeSpent', 0, 1000000)
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidSession(data, userId) {
+      return data.keys().hasOnly([
+        'id',
+        'subjectId',
+        'subjectName',
+        'subjectColor',
+        'duration',
+        'durationSeconds',
+        'focusRating',
+        'notes',
+        'date',
+        'userId',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && (data.subjectId is number || data.subjectId is string)
+      && isShortString(data.subjectName, 60)
+      && isOptionalColor(data, 'subjectColor')
+      && isOptionalNumberInRange(data, 'duration', 1, 1440)
+      && isOptionalNumberInRange(data, 'durationSeconds', 1, 86400)
+      && isOptionalNumberInRange(data, 'focusRating', 1, 5)
+      && isOptionalString(data, 'notes', 500)
+      && isOptionalDate(data, 'date')
+      && isOptionalTimestamp(data, 'createdAt')
+      && data.userId == userId;
+    }
+
+    match /studyflow_v1/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      match /subjects/{subjectId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidSubject(request.resource.data);
+        allow delete: if isOwner(userId);
+
+        match /sessions/{sessionId} {
+          allow read: if isOwner(userId);
+          allow create, update: if isOwner(userId)
+            && isValidSession(request.resource.data, request.auth.uid);
+          allow delete: if isOwner(userId);
+        }
+      }
+    }
+  }
+}

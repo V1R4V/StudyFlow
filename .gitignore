@@ -29,10 +29,17 @@ CLAUDE.md
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
+.env.staging
 
 # Firebase (if you ever use Firebase CLI or Admin SDK)
 firebase-debug.log
 .firebase/
 serviceAccountKey.json
 *-service-account*.json
+
+# Vercel local metadata (keep vercel.json in repo)
+.vercel/
 

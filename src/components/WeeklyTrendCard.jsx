@@ -20,7 +20,7 @@ export default function WeeklyTrendCard(props) {
   const barWidth = (chartWidth - barGap * 7) / 7;
 
   return (
-    <Card className="h-100">
+    <Card className="h-100 sf-card-panel">
       <Card.Body>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h2 className="h5 mb-0">Weekly Trend</h2>

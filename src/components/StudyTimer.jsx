@@ -26,7 +26,7 @@ export default function StudyTimer(props) {
   }
 
   return (
-    <Card className="h-100 text-center">
+    <Card className="h-100 text-center sf-card-panel sf-card-timer">
       <Card.Body className="p-4 d-flex flex-column">
         <h2 className="h4 mb-1">Smart Timer</h2>
         <p style={{ color: 'var(--muted-strong)' }} className="mb-3">{subtitle}</p>

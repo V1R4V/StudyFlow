@@ -2,7 +2,7 @@ import { Card } from 'react-bootstrap';
 
 export default function StatsCard(props) {
   return (
-    <Card className="h-100">
+    <Card className="h-100 sf-card-kpi">
       <Card.Body>
         <div className="d-flex justify-content-between align-items-start mb-3">
           <span className="text-muted small" style={{ fontWeight: 600, letterSpacing: '0.02em' }}>

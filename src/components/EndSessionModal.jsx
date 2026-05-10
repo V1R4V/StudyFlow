@@ -1,8 +1,16 @@
 import { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
+const MAX_NOTES = 500;
+
+function clampRating(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 4;
+  return Math.min(5, Math.max(1, Math.round(num)));
+}
+
 export default function EndSessionModal(props) {
-  const [rating, setRating] = useState(props.initialRating || 4);
+  const [rating, setRating] = useState(() => clampRating(props.initialRating ?? 4));
   const [notes, setNotes] = useState(props.initialNotes || '');
 
   function formatDurationText() {
@@ -80,6 +88,7 @@ export default function EndSessionModal(props) {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="What did you work on? Any reflections?"
+              maxLength={MAX_NOTES}
             />
           </Form.Group>
         </Modal.Body>

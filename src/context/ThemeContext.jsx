@@ -17,6 +17,7 @@ export function ThemeProvider({ children }) {
     localStorage.setItem('studyflow-theme', theme);
   }, [theme]);
 
+
   function toggleTheme() {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   }

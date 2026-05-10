@@ -10,6 +10,10 @@ const COLOR_OPTIONS = [
   { value: '#0e7490', name: 'teal' },
 ];
 
+const MAX_NAME = 60;
+const MAX_DAILY_GOAL = 24;
+const MAX_WEEKLY_GOAL = 168;
+
 export default function SubjectForm(props) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(COLOR_OPTIONS[0].value);
@@ -19,17 +23,24 @@ export default function SubjectForm(props) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (name.trim().length === 0) {
+    const trimmedName = name.trim();
+    if (trimmedName.length === 0) {
       setError('Please enter a subject name.');
       return;
     }
+    if (trimmedName.length > MAX_NAME) {
+      setError(`Subject name must be ${MAX_NAME} characters or less.`);
+      return;
+    }
     setError('');
+    const safeDaily = Math.min(MAX_DAILY_GOAL, Math.max(0, Number(dailyGoal) || 0));
+    const safeWeekly = Math.min(MAX_WEEKLY_GOAL, Math.max(0, Number(weeklyGoal) || 0));
     props.onAdd({
       id: Date.now(),
-      name: name.trim(),
+      name: trimmedName,
       color: color,
-      dailyGoal: Number(dailyGoal) || 0,
-      weeklyGoal: Number(weeklyGoal) || 0,
+      dailyGoal: safeDaily,
+      weeklyGoal: safeWeekly,
       totalTimeSpent: 0,
     });
     setName('');
@@ -69,6 +80,7 @@ export default function SubjectForm(props) {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Organic Chemistry"
+              maxLength={MAX_NAME}
               required
               aria-required="true"
             />
@@ -103,6 +115,7 @@ export default function SubjectForm(props) {
                 <Form.Control
                   type="number"
                   min={0}
+                  max={MAX_DAILY_GOAL}
                   step={0.5}
                   value={dailyGoal}
                   onChange={e => setDailyGoal(e.target.value)}
@@ -115,6 +128,7 @@ export default function SubjectForm(props) {
                 <Form.Control
                   type="number"
                   min={0}
+                  max={MAX_WEEKLY_GOAL}
                   step={0.5}
                   value={weeklyGoal}
                   onChange={e => setWeeklyGoal(e.target.value)}
