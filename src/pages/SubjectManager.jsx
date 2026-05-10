@@ -1,74 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
 import SubjectForm from '../components/SubjectForm';
 import SubjectCard from '../components/SubjectCard';
 import WeeklyOverviewCard from '../components/WeeklyOverviewCard';
+import { useStudyData } from '../context/StudyDataContext';
 
-const DEFAULT_SUBJECTS = [
-  { id: 1, name: 'Mathematics', color: '#4f46e5', dailyGoal: 2, weeklyGoal: 10, totalTimeSpent: 0 },
-  { id: 2, name: 'Computer Science', color: '#10b981', dailyGoal: 2, weeklyGoal: 15, totalTimeSpent: 0 },
-  { id: 3, name: 'Economics', color: '#f59e0b', dailyGoal: 1, weeklyGoal: 8, totalTimeSpent: 0 },
-];
+const IconPlus = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M8 3v10M3 8h10" />
+  </svg>
+);
+
+function getSessionMinutes(session) {
+  if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
+  if (typeof session.duration === 'number') return session.duration;
+  return 0;
+}
 
 export default function SubjectManager() {
-  const [subjects, setSubjects] = useState(() => {
-    const saved = localStorage.getItem('studyflow-subjects');
-    return saved ? JSON.parse(saved) : DEFAULT_SUBJECTS;
-  });
-
-  const [sessions, setSessions] = useState(() => {
-    const saved = localStorage.getItem('studyflow-sessions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Capture "now" once on mount so render stays pure
+  const { subjects, sessions, addSubject, deleteSubject } = useStudyData();
+  const [showForm, setShowForm] = useState(false);
   const [now] = useState(() => Date.now());
 
-  const [showForm, setShowForm] = useState(true);
-
-  useEffect(() => {
-    localStorage.setItem('studyflow-subjects', JSON.stringify(subjects));
-  }, [subjects]);
-
-  function getSessionMinutes(session) {
-    if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
-    if (typeof session.duration === 'number') return session.duration;
-    return 0;
-  }
-
-  useEffect(() => {
-    function refreshFromStorage() {
-      const savedSessions = localStorage.getItem('studyflow-sessions');
-      const savedSubjects = localStorage.getItem('studyflow-subjects');
-      setSessions(savedSessions ? JSON.parse(savedSessions) : []);
-      setSubjects(savedSubjects ? JSON.parse(savedSubjects) : DEFAULT_SUBJECTS);
-    }
-
-    window.addEventListener('studyflow:data-changed', refreshFromStorage);
-    window.addEventListener('storage', refreshFromStorage);
-    return () => {
-      window.removeEventListener('studyflow:data-changed', refreshFromStorage);
-      window.removeEventListener('storage', refreshFromStorage);
-    };
-  }, []);
-
-  // Compute this week's minutes per subject (last 7 days)
-  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const weekAgo = now - 7 * 86400000;
   const weeklyMinutesBySubject = {};
   sessions.forEach(s => {
-    const sessionTime = new Date(s.date).getTime();
-    if (sessionTime >= weekAgo) {
+    if (new Date(s.date).getTime() >= weekAgo) {
       weeklyMinutesBySubject[s.subjectId] =
         (weeklyMinutesBySubject[s.subjectId] || 0) + getSessionMinutes(s);
     }
   });
 
   function handleAdd(newSubject) {
-    setSubjects(prev => [...prev, newSubject]);
+    addSubject(newSubject);
+    setShowForm(false);
   }
 
   function handleDelete(id) {
-    setSubjects(prev => prev.filter(s => s.id !== id));
+    deleteSubject(id);
   }
 
   return (
@@ -77,50 +46,67 @@ export default function SubjectManager() {
         <div>
           <h1 className="mb-1">Subjects</h1>
           <p className="text-muted mb-0">
-            Track your learning progress and study targets.
+            What you're tracking. Set goals. Watch progress compound.
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => setShowForm(prev => !prev)}
-          aria-expanded={showForm}
-          aria-controls="subject-form-region"
-        >
-          {showForm ? 'Close form' : 'Add new subject'}
-        </Button>
+        {!showForm && (
+          <Button
+            variant="primary"
+            onClick={() => setShowForm(true)}
+            className="d-flex align-items-center gap-2"
+          >
+            <IconPlus />
+            New subject
+          </Button>
+        )}
       </div>
 
-      <Row className="g-4" id="subject-form-region">
+      {/* Collapsible create-subject card — unfolds inline */}
+      <div className={`sf-collapsible${showForm ? ' sf-collapsible-open' : ''}`}>
         {showForm && (
-          <Col lg={4}>
-            <SubjectForm onAdd={handleAdd} />
-          </Col>
+          <div className="mb-4">
+            <SubjectForm
+              onAdd={handleAdd}
+              onCancel={() => setShowForm(false)}
+            />
+          </div>
         )}
+      </div>
 
-        <Col lg={showForm ? 8 : 12}>
-          {subjects.length === 0 ? (
-            <div className="text-center text-muted py-5">
-              No subjects yet — add one on the left!
-            </div>
-          ) : (
-            subjects.map(subject => (
-              <SubjectCard
-                key={subject.id}
-                subject={subject}
-                weeklyMinutes={weeklyMinutesBySubject[subject.id] || 0}
-                onDelete={handleDelete}
-              />
-            ))
+      {subjects.length === 0 ? (
+        <div className="sf-empty-card">
+          <h2 className="sf-empty-title-sm">No subjects yet.</h2>
+          <p className="text-muted mb-3">
+            Add your first subject to start tracking real study time.
+          </p>
+          {!showForm && (
+            <Button variant="primary" onClick={() => setShowForm(true)}>
+              <IconPlus /> Create your first subject
+            </Button>
           )}
+        </div>
+      ) : (
+        <>
+          <Row className="g-3">
+            {subjects.map(subject => (
+              <Col key={subject.id} md={6} lg={4}>
+                <SubjectCard
+                  subject={subject}
+                  weeklyMinutes={weeklyMinutesBySubject[subject.id] || 0}
+                  onDelete={handleDelete}
+                />
+              </Col>
+            ))}
+          </Row>
 
-          {subjects.length > 0 && (
+          <div className="mt-4">
             <WeeklyOverviewCard
               subjects={subjects}
               weeklyMinutesBySubject={weeklyMinutesBySubject}
             />
-          )}
-        </Col>
-      </Row>
+          </div>
+        </>
+      )}
     </Container>
   );
 }

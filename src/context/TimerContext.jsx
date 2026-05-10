@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useStudyData } from './StudyDataContext';
 
 const TimerContext = createContext(null);
 
 const POMODORO_SECONDS = 25 * 60;
-const ORIGINAL_TITLE = 'StudyFlow - Track Your Study Sessions';
+const ORIGINAL_TITLE = 'StudyFlow';
 const TIMER_STORAGE_KEY = 'studyflow-timer';
 
 export function formatClock(totalSeconds, options = {}) {
@@ -26,16 +27,9 @@ function readTimerFromStorage() {
   }
 }
 
-function readSubjectsFromStorage() {
-  try {
-    const raw = localStorage.getItem('studyflow-subjects');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
 export function TimerProvider({ children }) {
+  const { subjects, addSession } = useStudyData();
+
   const storedTimer = readTimerFromStorage();
   const [mode, setMode] = useState(storedTimer?.mode ?? 'pomodoro');
   const [customH, setCustomH] = useState(storedTimer?.customH ?? 0);
@@ -54,7 +48,7 @@ export function TimerProvider({ children }) {
   const autoEndedRef = useRef(false);
   const elapsedAtAutoEndRef = useRef(0);
 
-  // Tick every second while running (based on wall clock to survive tab throttling)
+  // Tick every second while running (wall-clock based to survive tab throttling).
   useEffect(() => {
     if (!isRunning || !startEpochMs) return;
     const tick = () => {
@@ -73,15 +67,15 @@ export function TimerProvider({ children }) {
     return () => clearInterval(id);
   }, [isRunning, startEpochMs, targetSeconds]);
 
-  // Tab title — show countdown / count-up while active, restore when idle
+  // Tab title reflects timer state.
   useEffect(() => {
     const display = targetSeconds > 0 ? targetSeconds - secondsElapsed : secondsElapsed;
     if (isRunning) {
-      document.title = `${formatClock(display)} • StudyFlow`;
+      document.title = `${formatClock(display)} · StudyFlow`;
     } else if (pendingSession) {
-      document.title = `✓ Save your session • StudyFlow`;
+      document.title = `✓ Save session · StudyFlow`;
     } else if (secondsElapsed > 0) {
-      document.title = `${formatClock(display)} (paused) • StudyFlow`;
+      document.title = `${formatClock(display)} (paused) · StudyFlow`;
     } else {
       document.title = ORIGINAL_TITLE;
     }
@@ -94,28 +88,21 @@ export function TimerProvider({ children }) {
     }
   }, [isRunning, startEpochMs, secondsElapsed]);
 
-  // Persist timer state so it survives navigation/reloads
+  // Persist timer state across reloads.
   useEffect(() => {
     const payload = {
-      mode,
-      customH,
-      customM,
-      customS,
-      targetSeconds,
-      secondsElapsed,
-      isRunning,
-      subjectId,
-      startEpochMs,
+      mode, customH, customM, customS,
+      targetSeconds, secondsElapsed, isRunning,
+      subjectId, startEpochMs,
     };
     try {
       localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(payload));
     } catch { /* noop */ }
   }, [mode, customH, customM, customS, targetSeconds, secondsElapsed, isRunning, subjectId, startEpochMs]);
 
-  // When the countdown auto-ends, prompt the save modal
   useEffect(() => {
     if (autoEndedRef.current && !isRunning && secondsElapsed === elapsedAtAutoEndRef.current) {
-      setLiveMessage('Session complete. Time is up.');
+      setLiveMessage('Session complete.');
       autoEndedRef.current = false;
       promptSave(elapsedAtAutoEndRef.current);
     }
@@ -152,7 +139,6 @@ export function TimerProvider({ children }) {
 
   function start() {
     if (!subjectId) {
-      const subjects = readSubjectsFromStorage();
       if (subjects.length > 0) {
         setSubjectId(String(subjects[0].id));
       } else {
@@ -187,8 +173,7 @@ export function TimerProvider({ children }) {
       setError('Start the timer first.');
       return;
     }
-    const subjects = readSubjectsFromStorage();
-    const subject = subjects.find(s => String(s.id) === subjectId);
+    const subject = subjects.find(s => String(s.id) === String(subjectId));
     if (!subject) {
       setError('Pick a subject first.');
       return;
@@ -221,25 +206,10 @@ export function TimerProvider({ children }) {
       date: new Date().toISOString().slice(0, 10),
     };
 
-    try {
-      const sessionsRaw = localStorage.getItem('studyflow-sessions');
-      const prev = sessionsRaw ? JSON.parse(sessionsRaw) : [];
-      localStorage.setItem('studyflow-sessions', JSON.stringify([newSession, ...prev]));
-    } catch { /* noop */ }
+    // Single write path. The StudyDataContext routes this to Firestore (when
+    // signed in) or localStorage (when guest) and refreshes state for all pages.
+    addSession(pendingSession.subjectId, newSession);
 
-    try {
-      const subjectsRaw = localStorage.getItem('studyflow-subjects');
-      const prevSubjects = subjectsRaw ? JSON.parse(subjectsRaw) : [];
-      localStorage.setItem('studyflow-subjects', JSON.stringify(
-        prevSubjects.map(s =>
-          s.id === pendingSession.subjectId
-            ? { ...s, totalTimeSpent: (s.totalTimeSpent || 0) + pendingSession.minutes }
-            : s
-        )
-      ));
-    } catch { /* noop */ }
-
-    window.dispatchEvent(new Event('studyflow:data-changed'));
     setPendingSession(null);
     setSecondsElapsed(0);
   }

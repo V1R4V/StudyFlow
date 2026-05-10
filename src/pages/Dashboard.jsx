@@ -1,86 +1,68 @@
-import { useState, useEffect } from 'react';
-import { Container, Row, Col } from 'react-bootstrap';
+import { useState } from 'react';
+import { Container, Row, Col, Button } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import StreakBanner from '../components/StreakBanner';
 import StatsCard from '../components/StatsCard';
 import StudyTimer from '../components/StudyTimer';
 import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
-import EndSessionModal from '../components/EndSessionModal';
+import { useStudyData } from '../context/StudyDataContext';
 
-const DEFAULT_SUBJECTS = [
-  { id: 1, name: 'Mathematics', color: '#4f46e5', dailyGoal: 2, weeklyGoal: 10, totalTimeSpent: 0 },
-  { id: 2, name: 'Computer Science', color: '#10b981', dailyGoal: 2, weeklyGoal: 15, totalTimeSpent: 0 },
-  { id: 3, name: 'Economics', color: '#f59e0b', dailyGoal: 1, weeklyGoal: 8, totalTimeSpent: 0 },
-];
+const IconClock = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M10 6v4l2.5 2.5" />
+  </svg>
+);
+
+const IconFlame = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2C12 2 13.5 5 12 7.5C14.5 6 16 8 14.5 10.5C16 9.5 17 11 16 13C16 16 13.5 18 10 18C6.5 18 4 16 4 13C4 10.5 5.5 9 7 8.5C7 10.5 8 11.5 9 12C8.5 10 9 7 12 2Z" />
+  </svg>
+);
+
+const IconCheck = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M7 10.5l2.5 2.5L13 8" />
+  </svg>
+);
+
+const IconTarget = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="10" cy="10" r="7.5" />
+    <circle cx="10" cy="10" r="4" />
+    <circle cx="10" cy="10" r="1.25" fill="currentColor" />
+  </svg>
+);
 
 const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const DAILY_SESSION_GOAL = 4;
+
+function getSessionMinutes(session) {
+  if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
+  if (typeof session.duration === 'number') return session.duration;
+  return 0;
+}
 
 export default function Dashboard() {
-  const [subjects, setSubjects] = useState(() => {
-    const saved = localStorage.getItem('studyflow-subjects');
-    return saved ? JSON.parse(saved) : DEFAULT_SUBJECTS;
-  });
-
-  const [sessions, setSessions] = useState(() => {
-    const saved = localStorage.getItem('studyflow-sessions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Capture "now" once on mount so render stays pure
+  const { subjects, sessions } = useStudyData();
   const [now] = useState(() => Date.now());
 
-  const [pendingSession, setPendingSession] = useState(null);
-
-  useEffect(() => {
-    localStorage.setItem('studyflow-sessions', JSON.stringify(sessions));
-  }, [sessions]);
-
-  useEffect(() => {
-    localStorage.setItem('studyflow-subjects', JSON.stringify(subjects));
-  }, [subjects]);
-
-  function getSessionMinutes(session) {
-    if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
-    if (typeof session.duration === 'number') return session.duration;
-    return 0;
-  }
-
-  useEffect(() => {
-    function refreshFromStorage() {
-      const savedSessions = localStorage.getItem('studyflow-sessions');
-      const savedSubjects = localStorage.getItem('studyflow-subjects');
-      if (savedSessions) setSessions(JSON.parse(savedSessions));
-      if (savedSubjects) setSubjects(JSON.parse(savedSubjects));
-    }
-
-    window.addEventListener('studyflow:data-changed', refreshFromStorage);
-    window.addEventListener('storage', refreshFromStorage);
-    return () => {
-      window.removeEventListener('studyflow:data-changed', refreshFromStorage);
-      window.removeEventListener('storage', refreshFromStorage);
-    };
-  }, []);
-
-  // --- Compute dashboard stats ---
+  // Today's focus
   const today = new Date(now).toISOString().slice(0, 10);
   const todaysSessions = sessions.filter(s => s.date === today);
   const todaysMinutes = todaysSessions.reduce((acc, s) => acc + getSessionMinutes(s), 0);
   const todaysHours = (todaysMinutes / 60).toFixed(1);
 
   // Yesterday comparison
-  const yesterday = new Date(now - 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const yesterday = new Date(now - 86400000).toISOString().slice(0, 10);
   const yesterdaysMinutes = sessions
     .filter(s => s.date === yesterday)
     .reduce((acc, s) => acc + getSessionMinutes(s), 0);
   let focusChangeText = 'No data yesterday';
   let focusChangeColor = 'var(--muted-strong)';
   if (yesterdaysMinutes > 0) {
-    const diff = Math.round(
-      ((todaysMinutes - yesterdaysMinutes) / yesterdaysMinutes) * 100
-    );
+    const diff = Math.round(((todaysMinutes - yesterdaysMinutes) / yesterdaysMinutes) * 100);
     focusChangeText = `${diff >= 0 ? '+' : ''}${diff}% vs yesterday`;
     focusChangeColor = diff >= 0 ? 'var(--success-text)' : 'var(--danger-text)';
   }
@@ -90,25 +72,22 @@ export default function Dashboard() {
   let streak = 0;
   if (uniqueDates.length > 0) {
     let cursor = new Date(now);
-    if (uniqueDates[0] !== today) {
-      // If no session today, start from yesterday so streak isn't broken
-      cursor = new Date(now - 24 * 60 * 60 * 1000);
-    }
+    if (uniqueDates[0] !== today) cursor = new Date(now - 86400000);
     for (const dateStr of uniqueDates) {
       const cursorStr = cursor.toISOString().slice(0, 10);
       if (dateStr === cursorStr) {
         streak++;
-        cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+        cursor = new Date(cursor.getTime() - 86400000);
       } else {
         break;
       }
     }
   }
 
-  // Weekly trend — last 7 days
+  // Weekly trend: last 7 days
   const weeklyData = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now - i * 24 * 60 * 60 * 1000);
+    const d = new Date(now - i * 86400000);
     const dateStr = d.toISOString().slice(0, 10);
     const mins = sessions
       .filter(s => s.date === dateStr)
@@ -116,91 +95,105 @@ export default function Dashboard() {
     weeklyData.push({ date: dateStr, label: DAY_LABELS[d.getDay()], minutes: mins });
   }
 
+  // Weekly progress: this week's minutes vs sum of subjects' weeklyGoal hours
+  const weekStart = now - 6 * 86400000;
+  const thisWeekMinutes = sessions
+    .filter(s => new Date(s.date).getTime() >= weekStart)
+    .reduce((acc, s) => acc + getSessionMinutes(s), 0);
+  const thisWeekHours = thisWeekMinutes / 60;
+  const totalWeeklyGoalHours = subjects.reduce(
+    (acc, s) => acc + (Number(s.weeklyGoal) || 0),
+    0
+  );
+  const weeklyPct = totalWeeklyGoalHours > 0
+    ? Math.min(100, Math.round((thisWeekHours / totalWeeklyGoalHours) * 100))
+    : 0;
+
+  // Daily session goal derived from subjects' dailyGoal hours
+  const totalDailyGoalHours = subjects.reduce(
+    (acc, s) => acc + (Number(s.dailyGoal) || 0),
+    0
+  );
   const sessionsToday = todaysSessions.length;
-  const goalPct = Math.round((sessionsToday / DAILY_SESSION_GOAL) * 100);
+  const dailySessionGoal = totalDailyGoalHours > 0
+    ? Math.max(1, Math.round(totalDailyGoalHours))
+    : 4;
+  const goalPct = Math.round((sessionsToday / dailySessionGoal) * 100);
 
-  // --- Callbacks ---
-  function handleTimerEnd(minutesStudied, subjectId) {
-    const subject = subjects.find(s => s.id === subjectId);
-    if (!subject) return;
-    setPendingSession({
-      minutes: minutesStudied,
-      subjectId: subject.id,
-      subjectName: subject.name,
-      subjectColor: subject.color,
-    });
-  }
-
-  function handleSaveSession(details) {
-    const newSession = {
-      id: Date.now(),
-      subjectId: pendingSession.subjectId,
-      subjectName: pendingSession.subjectName,
-      subjectColor: pendingSession.subjectColor,
-      duration: Math.max(1, Math.ceil(pendingSession.seconds / 60)),
-      durationSeconds: pendingSession.seconds,
-      focusRating: details.focusRating,
-      notes: details.notes,
-      date: new Date().toISOString().slice(0, 10),
-    };
-    setSessions(prev => [newSession, ...prev]);
-    setSubjects(prev =>
-      prev.map(s =>
-        s.id === pendingSession.subjectId
-          ? { ...s, totalTimeSpent: s.totalTimeSpent + pendingSession.minutes }
-          : s
-      )
+  // Empty-state CTA: no subjects yet → push the user to Subjects to create one
+  if (subjects.length === 0) {
+    return (
+      <Container fluid className="sf-page">
+        <div className="sf-empty-hero">
+          <h1 className="sf-empty-title">Set up your first subject.</h1>
+          <p className="sf-empty-sub">
+            Track real focus time, set goals, build the streak.
+          </p>
+          <Button as={Link} to="/subjects" variant="primary" size="lg">
+            Create a subject
+          </Button>
+        </div>
+      </Container>
     );
-    setPendingSession(null);
   }
 
   return (
     <Container fluid className="sf-page">
-      <div className="d-flex flex-wrap justify-content-between align-items-start mb-4 gap-2">
-        <div>
-          <h1 className="mb-2">Welcome back!</h1>
-          <StreakBanner streak={streak} />
-        </div>
+      <div className="mb-4">
+        <h1 className="mb-2">Welcome back.</h1>
+        <StreakBanner streak={streak} />
       </div>
 
       <Row className="g-3 mb-4">
-        <Col md={4}>
+        <Col md={6} lg={3}>
           <StatsCard
             title="Today's Focus"
             value={todaysHours}
-            unit="Hours"
-            icon="⏱"
+            unit="hrs"
+            icon={<IconClock />}
             iconBg="rgba(43, 74, 238, 0.1)"
+            iconColor="var(--primary)"
             subtitle={focusChangeText}
             subtitleColor={focusChangeColor}
           />
         </Col>
-        <Col md={4}>
+        <Col md={6} lg={3}>
           <StatsCard
             title="Daily Streak"
             value={streak}
-            unit="Days"
-            icon="🔥"
+            unit={streak === 1 ? 'day' : 'days'}
+            icon={<IconFlame />}
             iconBg="rgba(245, 158, 11, 0.15)"
-            subtitle={
-              streak > 0 ? 'Consecutive active days' : 'Study today to start one!'
-            }
+            iconColor="var(--warning-text)"
+            subtitle={streak > 0 ? 'Active days in a row' : 'Study today to start'}
           />
         </Col>
-        <Col md={4}>
+        <Col md={6} lg={3}>
           <StatsCard
             title="Sessions Today"
-            value={`${sessionsToday}/${DAILY_SESSION_GOAL}`}
-            icon="✓"
+            value={`${sessionsToday}/${dailySessionGoal}`}
+            icon={<IconCheck />}
             iconBg="rgba(16, 185, 129, 0.15)"
-            subtitle={`${Math.min(100, goalPct)}% of your daily goal`}
+            iconColor="var(--success-text)"
+            subtitle={`${Math.min(100, goalPct)}% of daily goal`}
+          />
+        </Col>
+        <Col md={6} lg={3}>
+          <StatsCard
+            title="Weekly Goal"
+            value={thisWeekHours.toFixed(1)}
+            unit={totalWeeklyGoalHours > 0 ? `/ ${totalWeeklyGoalHours}h` : 'hrs'}
+            icon={<IconTarget />}
+            iconBg="rgba(124, 58, 237, 0.12)"
+            iconColor="#7c3aed"
+            subtitle={totalWeeklyGoalHours > 0 ? `${weeklyPct}% this week` : 'Set goals on Subjects'}
           />
         </Col>
       </Row>
 
       <Row className="g-3 mb-4">
         <Col lg={7}>
-          <StudyTimer subjects={subjects} onEndSession={handleTimerEnd} />
+          <StudyTimer subjects={subjects} />
         </Col>
         <Col lg={5}>
           <WeeklyTrendCard dailyMinutes={weeklyData} />
@@ -209,21 +202,9 @@ export default function Dashboard() {
 
       <Row>
         <Col>
-          <RecentSessionsList
-            sessions={sessions.slice(0, 5)}
-            subjects={subjects}
-          />
+          <RecentSessionsList sessions={sessions} subjects={subjects} />
         </Col>
       </Row>
-
-      {pendingSession && (
-        <EndSessionModal
-          show={true}
-          minutes={pendingSession.minutes}
-          onSave={handleSaveSession}
-          onDiscard={() => setPendingSession(null)}
-        />
-      )}
     </Container>
   );
 }

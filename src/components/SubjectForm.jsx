@@ -41,7 +41,19 @@ export default function SubjectForm(props) {
   return (
     <Card>
       <Card.Body>
-        <h2 className="h5 mb-4">Create New Subject</h2>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h2 className="h5 mb-0">New subject</h2>
+          {props.onCancel && (
+            <Button
+              variant="link"
+              className="p-0 text-muted"
+              onClick={props.onCancel}
+              style={{ textDecoration: 'none', fontSize: '0.85rem' }}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
 
         <Form onSubmit={handleSubmit} noValidate>
           {error && (
@@ -112,7 +124,7 @@ export default function SubjectForm(props) {
           </Row>
 
           <Button type="submit" variant="primary" className="w-100">
-            Save Subject
+            Save subject
           </Button>
         </Form>
       </Card.Body>
