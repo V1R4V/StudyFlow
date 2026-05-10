@@ -1,4 +1,6 @@
-### Please access this repo through [Link](https://p26-neon.vercel.app)
+
+<img width="1792" height="1001" alt="image" src="https://github.com/user-attachments/assets/1264a259-bfca-40fd-aac6-4a50fd9e8ca0" />
+
 # StudyFlow
 
 StudyFlow is a web application designed to help students track and improve their study habits. The app allows users to record study sessions, organize them by subject, and view visual summaries of their productivity. Its goal is to provide a simple and motivating tool that works like a smartphone screen-time dashboard, but specifically for studying.
@@ -34,5 +36,4 @@ After each session, users are prompted to rate their focus on a scale from 1 to 
 - **Backend:** Firebase (Firestore for data persistence)
 - **Deployment:** GitHub Pages
 
-<img width="1792" height="1001" alt="image" src="https://github.com/user-attachments/assets/1264a259-bfca-40fd-aac6-4a50fd9e8ca0" />
 
