@@ -1,14 +1,14 @@
 import {
   collection,
-  collectionGroup,
   addDoc,
   updateDoc,
   deleteDoc,
   doc,
   getDocs,
   query,
-  where,
   orderBy,
+  limit,
+  startAfter,
   Timestamp,
   setDoc,
   getDoc,
@@ -82,6 +82,7 @@ function normalizeSession(raw) {
   const notes = trimString(raw.notes, LIMITS.NOTES_MAX);
   const date = normalizeDate(raw.date);
   const id = raw.id ?? Date.now();
+
   return {
     id,
     subjectId,
@@ -98,34 +99,43 @@ function normalizeSession(raw) {
 function normalizeSubjectUpdates(updates) {
   if (!updates || typeof updates !== 'object') return null;
   const safe = {};
+
   if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
     const name = trimString(updates.name, LIMITS.SUBJECT_NAME_MAX);
     if (name) safe.name = name;
   }
+
   if (Object.prototype.hasOwnProperty.call(updates, 'color')) {
     if (isHexColor(updates.color)) safe.color = updates.color;
   }
+
   if (Object.prototype.hasOwnProperty.call(updates, 'dailyGoal')) {
     safe.dailyGoal = clampNumber(updates.dailyGoal, 0, LIMITS.MAX_DAILY_GOAL, 0);
   }
+
   if (Object.prototype.hasOwnProperty.call(updates, 'weeklyGoal')) {
     safe.weeklyGoal = clampNumber(updates.weeklyGoal, 0, LIMITS.MAX_WEEKLY_GOAL, 0);
   }
+
   if (Object.prototype.hasOwnProperty.call(updates, 'totalTimeSpent')) {
     safe.totalTimeSpent = clampNumber(updates.totalTimeSpent, 0, LIMITS.MAX_TOTAL_MINUTES, 0);
   }
+
   return Object.keys(safe).length > 0 ? safe : null;
 }
 
 function normalizeSessionUpdates(updates) {
   if (!updates || typeof updates !== 'object') return null;
   const safe = {};
+
   if (Object.prototype.hasOwnProperty.call(updates, 'focusRating')) {
     safe.focusRating = clampNumber(updates.focusRating, 1, 5, 4);
   }
+
   if (Object.prototype.hasOwnProperty.call(updates, 'notes')) {
     safe.notes = trimString(updates.notes, LIMITS.NOTES_MAX);
   }
+
   return Object.keys(safe).length > 0 ? safe : null;
 }
 
@@ -136,6 +146,7 @@ function normalizeSessionUpdates(updates) {
 export const initializeUserProfile = async (userId, userData) => {
   try {
     const userRef = doc(db, 'studyflow_v1', userId);
+
     await setDoc(userRef, {
       displayName: userData.displayName || '',
       email: userData.email || '',
@@ -165,11 +176,14 @@ export const addSubject = async (userId, subjectData) => {
   try {
     const safeSubject = normalizeSubject(subjectData);
     if (!safeSubject) return null;
+
     const subjectsRef = collection(db, 'studyflow_v1', userId, 'subjects');
+
     const docRef = await addDoc(subjectsRef, {
       ...safeSubject,
       createdAt: Timestamp.now(),
     });
+
     return { firestoreId: docRef.id, ...safeSubject };
   } catch (err) {
     console.error('addSubject error:', err);
@@ -182,6 +196,7 @@ export const getSubjects = async (userId) => {
     const subjectsRef = collection(db, 'studyflow_v1', userId, 'subjects');
     const q = query(subjectsRef, orderBy('createdAt', 'asc'));
     const snapshot = await getDocs(q);
+
     return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
   } catch (err) {
     console.error('getSubjects error:', err);
@@ -193,6 +208,7 @@ export const updateSubject = async (userId, subjectId, updates) => {
   try {
     const safeUpdates = normalizeSubjectUpdates(updates);
     if (!safeUpdates) return;
+
     const subjectRef = doc(db, 'studyflow_v1', userId, 'subjects', subjectId);
     await updateDoc(subjectRef, safeUpdates);
   } catch (err) {
@@ -211,58 +227,101 @@ export const deleteSubject = async (userId, subjectId) => {
 
 // ============================================================================
 // Sessions
-// Every session doc carries a `userId` field so a single collectionGroup
-// query can fetch ALL of a user's sessions in one round trip instead of one
-// query per subject (N+1).
+// New structure:
+// studyflow_v1/{userId}/sessions/{sessionId}
+// This avoids collectionGroup queries and loads recent sessions by default.
 // ============================================================================
 
 export const addSession = async (userId, subjectId, sessionData) => {
   try {
-    const safeSession = normalizeSession(sessionData);
+    const safeSession = normalizeSession({
+      ...sessionData,
+      subjectId: sessionData.subjectId ?? subjectId,
+    });
+
     if (!safeSession) return null;
-    const sessionsRef = collection(
-      db,
-      'studyflow_v1', userId, 'subjects', subjectId, 'sessions'
-    );
+
+    const sessionsRef = collection(db, 'studyflow_v1', userId, 'sessions');
+
     const docRef = await addDoc(sessionsRef, {
       ...safeSession,
+      subjectId,
       userId,
       createdAt: Timestamp.now(),
     });
-    return { firestoreId: docRef.id, ...safeSession };
+
+    return {
+      firestoreId: docRef.id,
+      ...safeSession,
+      subjectId,
+      userId,
+    };
   } catch (err) {
     console.error('addSession error:', err);
     return null;
   }
 };
 
-// One collectionGroup query across the entire `sessions` collection group,
-// filtered to the current user. Requires a Firestore composite index that
-// the console will prompt for on first run.
-export const getAllSessions = async (userId) => {
+export const getRecentSessions = async (userId, pageSize = 50) => {
   try {
+    const sessionsRef = collection(db, 'studyflow_v1', userId, 'sessions');
+
     const q = query(
-      collectionGroup(db, 'sessions'),
-      where('userId', '==', userId)
+      sessionsRef,
+      orderBy('date', 'desc'),
+      limit(pageSize)
     );
+
     const snapshot = await getDocs(q);
-    const all = snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
-    all.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    return all;
+
+    return {
+      sessions: snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() })),
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+    };
   } catch (err) {
-    console.error('getAllSessions error:', err);
-    return [];
+    console.error('getRecentSessions error:', err);
+    return { sessions: [], lastDoc: null };
   }
+};
+
+export const getMoreSessions = async (userId, lastDoc, pageSize = 50) => {
+  try {
+    if (!lastDoc) return { sessions: [], lastDoc: null };
+
+    const sessionsRef = collection(db, 'studyflow_v1', userId, 'sessions');
+
+    const q = query(
+      sessionsRef,
+      orderBy('date', 'desc'),
+      startAfter(lastDoc),
+      limit(pageSize)
+    );
+
+    const snapshot = await getDocs(q);
+
+    return {
+      sessions: snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() })),
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+    };
+  } catch (err) {
+    console.error('getMoreSessions error:', err);
+    return { sessions: [], lastDoc: null };
+  }
+};
+
+// Backward-compatible name so existing imports do not break.
+// This now returns only the most recent 50 sessions.
+export const getAllSessions = async (userId) => {
+  const { sessions } = await getRecentSessions(userId, 50);
+  return sessions;
 };
 
 export const updateSession = async (userId, subjectId, sessionId, updates) => {
   try {
     const safeUpdates = normalizeSessionUpdates(updates);
     if (!safeUpdates) return;
-    const sessionRef = doc(
-      db,
-      'studyflow_v1', userId, 'subjects', subjectId, 'sessions', sessionId
-    );
+
+    const sessionRef = doc(db, 'studyflow_v1', userId, 'sessions', sessionId);
     await updateDoc(sessionRef, safeUpdates);
   } catch (err) {
     console.error('updateSession error:', err);
@@ -271,10 +330,7 @@ export const updateSession = async (userId, subjectId, sessionId, updates) => {
 
 export const deleteSession = async (userId, subjectId, sessionId) => {
   try {
-    const sessionRef = doc(
-      db,
-      'studyflow_v1', userId, 'subjects', subjectId, 'sessions', sessionId
-    );
+    const sessionRef = doc(db, 'studyflow_v1', userId, 'sessions', sessionId);
     await deleteDoc(sessionRef);
   } catch (err) {
     console.error('deleteSession error:', err);
@@ -282,16 +338,13 @@ export const deleteSession = async (userId, subjectId, sessionId) => {
 };
 
 // ============================================================================
-// Sync helpers (called from AuthContext)
+// Sync helpers
 // ============================================================================
 
 const SUBJECTS_KEY = 'studyflow-subjects';
 const SESSIONS_KEY = 'studyflow-sessions';
 const TIMER_KEY = 'studyflow-timer';
 
-// On login: migrate any pre-existing guest localStorage data up to Firestore
-// (only if the account is empty), then mirror Firestore back into the cache.
-// Uses writeBatch for migration so it's atomic and a single round trip.
 export async function syncUserDataOnLogin(userId, userInfo) {
   try {
     await initializeUserProfile(userId, userInfo);
@@ -301,11 +354,14 @@ export async function syncUserDataOnLogin(userId, userInfo) {
     if (fsSubjects.length === 0) {
       const localSubjects = JSON.parse(localStorage.getItem(SUBJECTS_KEY) || '[]');
       const localSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
+
       const safeSubjects = localSubjects
         .map(normalizeSubject)
         .filter(Boolean)
         .slice(0, LIMITS.MAX_SUBJECTS);
+
       const safeSubjectIds = new Set(safeSubjects.map(s => String(s.id)));
+
       const safeSessions = localSessions
         .map(normalizeSession)
         .filter(Boolean)
@@ -313,35 +369,44 @@ export async function syncUserDataOnLogin(userId, userInfo) {
         .slice(0, LIMITS.MAX_SESSIONS);
 
       if (safeSubjects.length > 0) {
-        // Sequential subject writes because we need the firestoreId mapping.
         const idMap = {};
+
         for (const subject of safeSubjects) {
           const result = await addSubject(userId, subject);
           if (result?.firestoreId) idMap[String(subject.id)] = result.firestoreId;
         }
 
-        // Sessions can be batched (500 ops per batch is Firestore's limit).
         if (safeSessions.length > 0) {
-          const batch = writeBatch(db);
+          let batch = writeBatch(db);
+          const batches = [];
           let opsInBatch = 0;
-          const batches = [batch];
+
           for (const session of safeSessions) {
             const fsSubjectId = idMap[String(session.subjectId)];
             if (!fsSubjectId) continue;
-            const sessionRef = doc(
-              collection(db, 'studyflow_v1', userId, 'subjects', fsSubjectId, 'sessions')
-            );
-            batches[batches.length - 1].set(sessionRef, {
+
+            const sessionRef = doc(collection(db, 'studyflow_v1', userId, 'sessions'));
+
+            batch.set(sessionRef, {
               ...session,
+              subjectId: fsSubjectId,
               userId,
               createdAt: Timestamp.now(),
             });
+
             opsInBatch++;
+
             if (opsInBatch >= 450) {
-              batches.push(writeBatch(db));
+              batches.push(batch);
+              batch = writeBatch(db);
               opsInBatch = 0;
             }
           }
+
+          if (opsInBatch > 0) {
+            batches.push(batch);
+          }
+
           await Promise.all(batches.map(b => b.commit()));
         }
 
@@ -349,12 +414,13 @@ export async function syncUserDataOnLogin(userId, userInfo) {
       }
     }
 
-    const fsSessions = await getAllSessions(userId);
+    const { sessions: fsSessions } = await getRecentSessions(userId, 50);
 
     localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));
 
     window.dispatchEvent(new Event('studyflow:data-changed'));
+
     return { subjects: fsSubjects, sessions: fsSessions };
   } catch (err) {
     console.error('syncUserDataOnLogin error:', err);
