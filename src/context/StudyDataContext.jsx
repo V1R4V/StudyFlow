@@ -143,9 +143,8 @@ export function StudyDataProvider({ children }) {
   async function updateSession(sessionLocalId, updates) {
     if (user) {
       const sess = sessions.find(s => s.id === sessionLocalId);
-      const subj = subjects.find(s => s.id === sess?.subjectId);
-      if (subj?.firestoreId && sess?.firestoreId) {
-        await fsUpdateSession(user.uid, subj.firestoreId, sess.firestoreId, updates);
+      if (sess?.firestoreId) {
+        await fsUpdateSession(user.uid, sess.subjectId, sess.firestoreId, updates);
         await refresh();
       }
     } else {
@@ -156,9 +155,8 @@ export function StudyDataProvider({ children }) {
   async function deleteSession(sessionLocalId) {
     if (user) {
       const sess = sessions.find(s => s.id === sessionLocalId);
-      const subj = subjects.find(s => s.id === sess?.subjectId);
-      if (subj?.firestoreId && sess?.firestoreId) {
-        await fsDeleteSession(user.uid, subj.firestoreId, sess.firestoreId);
+      if (sess?.firestoreId) {
+        await fsDeleteSession(user.uid, sess.subjectId, sess.firestoreId);
         await refresh();
       }
     } else {
