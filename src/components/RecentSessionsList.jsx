@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Card, Form } from 'react-bootstrap';
+import { sessionMatchesSubject } from '../utils/sessions';
 
 function getSessionSeconds(session) {
   if (typeof session.durationSeconds === 'number') return session.durationSeconds;
@@ -70,7 +71,7 @@ export default function RecentSessionsList(props) {
       ) : (
         <div className="list-group list-group-flush">
           {visible.map(s => {
-            const subject = subjects.find(sub => sub.id === s.subjectId);
+            const subject = subjects.find(sub => sessionMatchesSubject(s, sub));
             const color = subject?.color || s.subjectColor || '#6b7280';
             const initial = s.subjectName?.[0]?.toUpperCase() || '?';
             return (

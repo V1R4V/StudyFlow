@@ -4,6 +4,7 @@ import SubjectForm from '../components/SubjectForm';
 import SubjectCard from '../components/SubjectCard';
 import WeeklyOverviewCard from '../components/WeeklyOverviewCard';
 import { useStudyData } from '../context/StudyDataContext';
+import { sessionMatchesSubject, getSessionMinutes } from '../utils/sessions';
 
 const IconPlus = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -11,24 +12,20 @@ const IconPlus = () => (
   </svg>
 );
 
-function getSessionMinutes(session) {
-  if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
-  if (typeof session.duration === 'number') return session.duration;
-  return 0;
-}
-
 export default function SubjectManager() {
-  const { subjects, sessions, addSubject, deleteSubject } = useStudyData();
+  const { subjects, sessions, addSubject, updateSubject, deleteSubject } = useStudyData();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [now] = useState(() => Date.now());
 
   const weekAgo = now - 7 * 86400000;
+  const recentSessions = sessions.filter(s => new Date(s.date).getTime() >= weekAgo);
   const weeklyMinutesBySubject = {};
-  sessions.forEach(s => {
-    if (new Date(s.date).getTime() >= weekAgo) {
-      weeklyMinutesBySubject[s.subjectId] =
-        (weeklyMinutesBySubject[s.subjectId] || 0) + getSessionMinutes(s);
-    }
+  subjects.forEach(subject => {
+    const mins = recentSessions
+      .filter(sess => sessionMatchesSubject(sess, subject))
+      .reduce((acc, sess) => acc + getSessionMinutes(sess), 0);
+    weeklyMinutesBySubject[subject.id] = mins;
   });
 
   function handleAdd(newSubject) {
@@ -40,6 +37,18 @@ export default function SubjectManager() {
     deleteSubject(id);
   }
 
+  function handleEditOpen(subject) {
+    setEditingId(subject.id);
+    setShowForm(false);
+  }
+
+  function handleEditSave(updates) {
+    if (editingId !== null) updateSubject(editingId, updates);
+    setEditingId(null);
+  }
+
+  const editingSubject = subjects.find(s => s.id === editingId) || null;
+
   return (
     <Container fluid className="sf-page">
       <div className="d-flex flex-wrap justify-content-between align-items-start mb-4 gap-2">
@@ -49,10 +58,10 @@ export default function SubjectManager() {
             What you're tracking. Set goals. Watch progress compound.
           </p>
         </div>
-        {!showForm && (
+        {!showForm && !editingSubject && (
           <Button
             variant="primary"
-            onClick={() => setShowForm(true)}
+            onClick={() => { setShowForm(true); setEditingId(null); }}
             className="d-flex align-items-center gap-2"
           >
             <IconPlus />
@@ -68,6 +77,19 @@ export default function SubjectManager() {
             <SubjectForm
               onAdd={handleAdd}
               onCancel={() => setShowForm(false)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Edit-subject card — same component, edit mode */}
+      <div className={`sf-collapsible${editingSubject ? ' sf-collapsible-open' : ''}`}>
+        {editingSubject && (
+          <div className="mb-4">
+            <SubjectForm
+              initial={editingSubject}
+              onSave={handleEditSave}
+              onCancel={() => setEditingId(null)}
             />
           </div>
         )}
@@ -94,6 +116,7 @@ export default function SubjectManager() {
                   subject={subject}
                   weeklyMinutes={weeklyMinutesBySubject[subject.id] || 0}
                   onDelete={handleDelete}
+                  onEdit={handleEditOpen}
                 />
               </Col>
             ))}

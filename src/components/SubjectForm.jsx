@@ -15,10 +15,13 @@ const MAX_DAILY_GOAL = 24;
 const MAX_WEEKLY_GOAL = 168;
 
 export default function SubjectForm(props) {
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(COLOR_OPTIONS[0].value);
-  const [dailyGoal, setDailyGoal] = useState(2);
-  const [weeklyGoal, setWeeklyGoal] = useState(10);
+  const { initial, onAdd, onSave, onCancel } = props;
+  const isEdit = Boolean(initial);
+
+  const [name, setName] = useState(initial?.name ?? '');
+  const [color, setColor] = useState(initial?.color ?? COLOR_OPTIONS[0].value);
+  const [dailyGoal, setDailyGoal] = useState(initial?.dailyGoal ?? 2);
+  const [weeklyGoal, setWeeklyGoal] = useState(initial?.weeklyGoal ?? 10);
   const [error, setError] = useState('');
 
   function handleSubmit(e) {
@@ -35,7 +38,18 @@ export default function SubjectForm(props) {
     setError('');
     const safeDaily = Math.min(MAX_DAILY_GOAL, Math.max(0, Number(dailyGoal) || 0));
     const safeWeekly = Math.min(MAX_WEEKLY_GOAL, Math.max(0, Number(weeklyGoal) || 0));
-    props.onAdd({
+
+    if (isEdit) {
+      onSave({
+        name: trimmedName,
+        color,
+        dailyGoal: safeDaily,
+        weeklyGoal: safeWeekly,
+      });
+      return;
+    }
+
+    onAdd({
       id: Date.now(),
       name: trimmedName,
       color: color,
@@ -53,12 +67,12 @@ export default function SubjectForm(props) {
     <Card>
       <Card.Body>
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 className="h5 mb-0">New subject</h2>
-          {props.onCancel && (
+          <h2 className="h5 mb-0">{isEdit ? 'Edit subject' : 'New subject'}</h2>
+          {onCancel && (
             <Button
               variant="link"
               className="p-0 text-muted"
-              onClick={props.onCancel}
+              onClick={onCancel}
               style={{ textDecoration: 'none', fontSize: '0.85rem' }}
             >
               Cancel
@@ -138,7 +152,7 @@ export default function SubjectForm(props) {
           </Row>
 
           <Button type="submit" variant="primary" className="w-100">
-            Save subject
+            {isEdit ? 'Save changes' : 'Save subject'}
           </Button>
         </Form>
       </Card.Body>

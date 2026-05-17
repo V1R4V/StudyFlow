@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Container, Card, Form, Table, Button } from 'react-bootstrap';
 import EndSessionModal from '../components/EndSessionModal';
 import { useStudyData } from '../context/StudyDataContext';
+import { sessionMatchesSubject } from '../utils/sessions';
 
 function getSessionSeconds(session) {
   if (typeof session.durationSeconds === 'number') return session.durationSeconds;
@@ -72,7 +73,7 @@ export default function Sessions() {
             >
               <option value="all">All subjects</option>
               {subjects.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.firestoreId ?? s.id}>{s.name}</option>
               ))}
             </Form.Select>
           </Form.Group>
@@ -98,7 +99,7 @@ export default function Sessions() {
             </thead>
             <tbody>
               {filtered.map(s => {
-                const subj = subjects.find(sub => sub.id === s.subjectId);
+                const subj = subjects.find(sub => sessionMatchesSubject(s, sub));
                 const color = subj?.color || s.subjectColor || '#6b7280';
                 return (
                   <tr key={s.id}>

@@ -1,7 +1,7 @@
 import { Card, Button } from 'react-bootstrap';
 
 export default function SubjectCard(props) {
-  const { subject, weeklyMinutes } = props;
+  const { subject, weeklyMinutes, onEdit } = props;
   const weeklyGoal = subject.weeklyGoal || 0;
   const weeklyGoalMin = weeklyGoal * 60;
   const hoursStudied = (weeklyMinutes / 60).toFixed(1);
@@ -36,9 +36,16 @@ export default function SubjectCard(props) {
               </small>
             </div>
           </div>
-          <Button size="sm" variant="outline-danger" onClick={handleDelete}>
-            Delete
-          </Button>
+          <div className="d-flex gap-2">
+            {onEdit && (
+              <Button size="sm" variant="outline-secondary" onClick={() => onEdit(subject)}>
+                Edit
+              </Button>
+            )}
+            <Button size="sm" variant="outline-danger" onClick={handleDelete}>
+              Delete
+            </Button>
+          </div>
         </div>
 
         <div className="d-flex justify-content-between small mb-1">

@@ -1,11 +1,6 @@
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import { useStudyData } from '../context/StudyDataContext';
-
-function getSessionMinutes(session) {
-  if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
-  if (typeof session.duration === 'number') return session.duration;
-  return 0;
-}
+import { sessionMatchesSubject, getSessionMinutes } from '../utils/sessions';
 
 // Builds an SVG donut chart from { label, value, color } items.
 // Center shows the total. Returns an empty state when total is 0.
@@ -149,7 +144,7 @@ export default function Statistics() {
 
   const breakdown = subjects
     .map(s => {
-      const subjSessions = sessions.filter(sess => sess.subjectId === s.id);
+      const subjSessions = sessions.filter(sess => sessionMatchesSubject(sess, s));
       const minutes = subjSessions.reduce((acc, sess) => acc + getSessionMinutes(sess), 0);
       const avgFocus =
         subjSessions.length > 0

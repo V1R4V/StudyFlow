@@ -6,6 +6,7 @@ import StatsCard from '../components/StatsCard';
 import StudyTimer from '../components/StudyTimer';
 import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
+import DailyPlanner from '../components/DailyPlanner';
 import { useStudyData } from '../context/StudyDataContext';
 
 const IconClock = () => (
@@ -192,11 +193,14 @@ export default function Dashboard() {
       </Row>
 
       <Row className="g-3 mb-4">
-        <Col lg={7}>
+        <Col lg={3} md={6}>
+          <WeeklyTrendCard dailyMinutes={weeklyData} />
+        </Col>
+        <Col lg={6} md={12}>
           <StudyTimer subjects={subjects} />
         </Col>
-        <Col lg={5}>
-          <WeeklyTrendCard dailyMinutes={weeklyData} />
+        <Col lg={3} md={6}>
+          <DailyPlanner />
         </Col>
       </Row>
 

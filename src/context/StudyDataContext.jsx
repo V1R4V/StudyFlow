@@ -9,6 +9,10 @@ import {
   addSession as fsAddSession,
   updateSession as fsUpdateSession,
   deleteSession as fsDeleteSession,
+  getAllTodos,
+  addTodo as fsAddTodo,
+  updateTodo as fsUpdateTodo,
+  deleteTodo as fsDeleteTodo,
 } from '../services/firebaseService';
 
 // Single shared store for subjects + sessions. One fetch per session,
@@ -19,6 +23,7 @@ const Context = createContext(null);
 
 const SUBJECTS_KEY = 'studyflow-subjects';
 const SESSIONS_KEY = 'studyflow-sessions';
+const TODOS_KEY = 'studyflow-todos';
 
 function readGuestSubjects() {
   try {
@@ -38,27 +43,41 @@ function readGuestSessions() {
   }
 }
 
+function readGuestTodos() {
+  try {
+    const raw = localStorage.getItem(TODOS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function StudyDataProvider({ children }) {
   const { user, loading: authLoading } = useAuthContext();
 
   // Hydrate immediately from the cache so the UI doesn't flash empty.
   const [subjects, setSubjects] = useState(readGuestSubjects);
   const [sessions, setSessions] = useState(readGuestSessions);
+  const [todos, setTodos] = useState(readGuestTodos);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (user) {
-      const [fsSubjects, fsSessions] = await Promise.all([
+      const [fsSubjects, fsSessions, fsTodos] = await Promise.all([
         getSubjects(user.uid),
         getAllSessions(user.uid),
+        getAllTodos(user.uid),
       ]);
       setSubjects(fsSubjects);
       setSessions(fsSessions);
+      setTodos(fsTodos);
       localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));
+      localStorage.setItem(TODOS_KEY, JSON.stringify(fsTodos));
     } else {
       setSubjects(readGuestSubjects());
       setSessions(readGuestSessions());
+      setTodos(readGuestTodos());
     }
   }, [user]);
 
@@ -91,6 +110,11 @@ export function StudyDataProvider({ children }) {
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
     }
   }, [sessions, user, authLoading]);
+  useEffect(() => {
+    if (!user && !authLoading) {
+      localStorage.setItem(TODOS_KEY, JSON.stringify(todos));
+    }
+  }, [todos, user, authLoading]);
 
   // ---------- Mutations ----------
 
@@ -164,11 +188,48 @@ export function StudyDataProvider({ children }) {
     }
   }
 
+  // ---------- Todos ----------
+
+  async function addTodo(todoData) {
+    if (user) {
+      await fsAddTodo(user.uid, todoData);
+      await refresh();
+    } else {
+      const id = Date.now();
+      setTodos(prev => [{ ...todoData, id, done: Boolean(todoData.done) }, ...prev]);
+    }
+  }
+
+  async function updateTodo(todoLocalId, updates) {
+    if (user) {
+      const t = todos.find(x => x.id === todoLocalId);
+      if (t?.firestoreId) {
+        await fsUpdateTodo(user.uid, t.firestoreId, updates);
+        await refresh();
+      }
+    } else {
+      setTodos(prev => prev.map(t => t.id === todoLocalId ? { ...t, ...updates } : t));
+    }
+  }
+
+  async function deleteTodo(todoLocalId) {
+    if (user) {
+      const t = todos.find(x => x.id === todoLocalId);
+      if (t?.firestoreId) {
+        await fsDeleteTodo(user.uid, t.firestoreId);
+        await refresh();
+      }
+    } else {
+      setTodos(prev => prev.filter(t => t.id !== todoLocalId));
+    }
+  }
+
   return (
     <Context.Provider value={{
-      subjects, sessions, loading,
+      subjects, sessions, todos, loading,
       addSubject, updateSubject, deleteSubject,
       addSession, updateSession, deleteSession,
+      addTodo, updateTodo, deleteTodo,
       refresh,
     }}>
       {children}

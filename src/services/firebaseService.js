@@ -21,6 +21,7 @@ const LIMITS = {
   MAX_SESSIONS: 2000,
   SUBJECT_NAME_MAX: 60,
   NOTES_MAX: 500,
+  TODO_TEXT_MAX: 200,
   MAX_DAILY_GOAL: 24,
   MAX_WEEKLY_GOAL: 168,
   MAX_SESSION_SECONDS: 24 * 60 * 60,
@@ -432,5 +433,103 @@ export function clearLocalDataOnLogout() {
   localStorage.removeItem(SUBJECTS_KEY);
   localStorage.removeItem(SESSIONS_KEY);
   localStorage.removeItem(TIMER_KEY);
+  localStorage.removeItem(TODOS_KEY);
   window.dispatchEvent(new Event('studyflow:data-changed'));
 }
+
+// ============================================================================
+// Todos (Daily Planner)
+// studyflow_v1/{userId}/todos/{todoId}
+// Each todo belongs to a single date (YYYY-MM-DD), optionally tagged to a subject.
+// ============================================================================
+
+const TODOS_KEY = 'studyflow-todos';
+
+function normalizeTodo(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const text = trimString(raw.text, LIMITS.TODO_TEXT_MAX);
+  if (!text) return null;
+  const date = normalizeDate(raw.date);
+  const done = Boolean(raw.done);
+  // subjectId is optional; if missing keep null so we can render an untagged todo
+  const subjectId = raw.subjectId ? String(raw.subjectId) : null;
+  const subjectName = subjectId ? trimString(raw.subjectName, LIMITS.SUBJECT_NAME_MAX) : null;
+  const subjectColor = subjectId && isHexColor(raw.subjectColor) ? raw.subjectColor : null;
+  const id = raw.id ?? Date.now();
+  return { id, text, date, done, subjectId, subjectName, subjectColor };
+}
+
+function normalizeTodoUpdates(updates) {
+  if (!updates || typeof updates !== 'object') return null;
+  const safe = {};
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'text')) {
+    const text = trimString(updates.text, LIMITS.TODO_TEXT_MAX);
+    if (text) safe.text = text;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'done')) {
+    safe.done = Boolean(updates.done);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'subjectId')) {
+    safe.subjectId = updates.subjectId ? String(updates.subjectId) : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'subjectName')) {
+    safe.subjectName = updates.subjectName
+      ? trimString(updates.subjectName, LIMITS.SUBJECT_NAME_MAX)
+      : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'subjectColor')) {
+    safe.subjectColor = isHexColor(updates.subjectColor) ? updates.subjectColor : null;
+  }
+
+  return Object.keys(safe).length > 0 ? safe : null;
+}
+
+export const addTodo = async (userId, todoData) => {
+  try {
+    const safe = normalizeTodo(todoData);
+    if (!safe) return null;
+
+    const todosRef = collection(db, 'studyflow_v1', userId, 'todos');
+    const docRef = await addDoc(todosRef, {
+      ...safe,
+      createdAt: Timestamp.now(),
+    });
+    return { firestoreId: docRef.id, ...safe };
+  } catch (err) {
+    console.error('addTodo error:', err);
+    return null;
+  }
+};
+
+export const getAllTodos = async (userId) => {
+  try {
+    const todosRef = collection(db, 'studyflow_v1', userId, 'todos');
+    const q = query(todosRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getAllTodos error:', err);
+    return [];
+  }
+};
+
+export const updateTodo = async (userId, todoId, updates) => {
+  try {
+    const safe = normalizeTodoUpdates(updates);
+    if (!safe) return;
+    const todoRef = doc(db, 'studyflow_v1', userId, 'todos', todoId);
+    await updateDoc(todoRef, safe);
+  } catch (err) {
+    console.error('updateTodo error:', err);
+  }
+};
+
+export const deleteTodo = async (userId, todoId) => {
+  try {
+    const todoRef = doc(db, 'studyflow_v1', userId, 'todos', todoId);
+    await deleteDoc(todoRef);
+  } catch (err) {
+    console.error('deleteTodo error:', err);
+  }
+};
