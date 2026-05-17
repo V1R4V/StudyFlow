@@ -10,6 +10,18 @@ function getSessionSeconds(session) {
   return 0;
 }
 
+function formatTime(createdAt) {
+  if (!createdAt) return null;
+  let ms = null;
+  if (typeof createdAt.toMillis === 'function') ms = createdAt.toMillis();
+  else if (typeof createdAt.seconds === 'number') ms = createdAt.seconds * 1000;
+  if (ms === null) return null;
+  return new Date(ms).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function formatDuration(seconds) {
   const total = Math.max(0, Math.floor(seconds));
   if (total < 60) return `${total} sec`;
@@ -104,7 +116,12 @@ export default function Sessions() {
                 const color = subj?.color || s.subjectColor || '#6b7280';
                 return (
                   <tr key={s.id}>
-                    <td>{s.date}</td>
+                    <td>
+                      <div>{s.date}</div>
+                      {formatTime(s.createdAt) && (
+                        <div className="text-muted small">{formatTime(s.createdAt)}</div>
+                      )}
+                    </td>
                     <td>
                       <span className="d-inline-flex align-items-center gap-2">
                         <span
