@@ -10,16 +10,26 @@ function getSessionSeconds(session) {
   return 0;
 }
 
-function formatTime(createdAt) {
-  if (!createdAt) return null;
-  let ms = null;
-  if (typeof createdAt.toMillis === 'function') ms = createdAt.toMillis();
-  else if (typeof createdAt.seconds === 'number') ms = createdAt.seconds * 1000;
-  if (ms === null) return null;
+function toMillis(ts) {
+  if (!ts) return null;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+  return null;
+}
+
+function formatClock(ms) {
   return new Date(ms).toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function formatTimeRange(session) {
+  const endMs = toMillis(session.createdAt);
+  if (endMs === null) return null;
+  const durSec = getSessionSeconds(session);
+  const startMs = endMs - durSec * 1000;
+  return `${formatClock(startMs)} – ${formatClock(endMs)}`;
 }
 
 function formatDuration(seconds) {
@@ -118,8 +128,8 @@ export default function Sessions() {
                   <tr key={s.id}>
                     <td>
                       <div>{s.date}</div>
-                      {formatTime(s.createdAt) && (
-                        <div className="text-muted small">{formatTime(s.createdAt)}</div>
+                      {formatTimeRange(s) && (
+                        <div className="text-muted small">{formatTimeRange(s)}</div>
                       )}
                     </td>
                     <td>
