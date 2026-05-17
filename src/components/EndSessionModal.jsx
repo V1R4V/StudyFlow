@@ -9,9 +9,14 @@ function clampRating(value) {
   return Math.min(5, Math.max(1, Math.round(num)));
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function EndSessionModal(props) {
   const [rating, setRating] = useState(() => clampRating(props.initialRating ?? 4));
   const [notes, setNotes] = useState(props.initialNotes || '');
+  const [date, setDate] = useState(props.initialDate || todayISO());
 
   function formatDurationText() {
     if (typeof props.seconds === 'number') {
@@ -39,7 +44,9 @@ export default function EndSessionModal(props) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    props.onSave({ focusRating: rating, notes: notes.trim() });
+    const payload = { focusRating: rating, notes: notes.trim() };
+    if (props.showDateField) payload.date = date;
+    props.onSave(payload);
   }
 
   return (
@@ -53,6 +60,21 @@ export default function EndSessionModal(props) {
             <p className="text-muted mb-3">
               You studied for <strong>{formatDurationText()}</strong>. How was your focus?
             </p>
+          )}
+
+          {props.showDateField && (
+            <Form.Group controlId="session-date" className="mb-4">
+              <Form.Label>Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={date}
+                max={todayISO()}
+                onChange={e => setDate(e.target.value)}
+              />
+              <Form.Text className="text-muted">
+                When did this session happen?
+              </Form.Text>
+            </Form.Group>
           )}
 
           <fieldset className="mb-4">

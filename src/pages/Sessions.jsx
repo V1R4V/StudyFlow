@@ -43,6 +43,7 @@ export default function Sessions() {
     updateSession(editing.id, {
       focusRating: details.focusRating,
       notes: details.notes,
+      date: details.date,
     });
     setEditing(null);
   }
@@ -162,6 +163,8 @@ export default function Sessions() {
           seconds={getSessionSeconds(editing)}
           initialRating={editing.focusRating}
           initialNotes={editing.notes}
+          initialDate={editing.date}
+          showDateField={true}
           saveLabel="Save changes"
           discardLabel="Cancel"
           onSave={handleEditSave}

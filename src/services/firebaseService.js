@@ -136,6 +136,9 @@ function normalizeSessionUpdates(updates) {
   if (Object.prototype.hasOwnProperty.call(updates, 'notes')) {
     safe.notes = trimString(updates.notes, LIMITS.NOTES_MAX);
   }
+  if (Object.prototype.hasOwnProperty.call(updates, 'date')) {
+    safe.date = normalizeDate(updates.date);
+  }
 
   return Object.keys(safe).length > 0 ? safe : null;
 }
@@ -275,8 +278,17 @@ export const getRecentSessions = async (userId, pageSize = 50) => {
 
     const snapshot = await getDocs(q);
 
+    const sessions = snapshot.docs
+      .map(d => ({ firestoreId: d.id, ...d.data() }))
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        const aMs = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const bMs = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return bMs - aMs;
+      });
+
     return {
-      sessions: snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() })),
+      sessions,
       lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
     };
   } catch (err) {
