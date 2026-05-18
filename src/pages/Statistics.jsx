@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Container, Row, Col, Card, Form } from 'react-bootstrap';
 import { useStudyData } from '../context/StudyDataContext';
-import { sessionMatchesSubject, getSessionMinutes, localDateString } from '../utils/sessions';
+import {
+  sessionMatchesSubject,
+  getSessionMinutes,
+  localDateString,
+  shiftDateStr,
+} from '../utils/sessions';
 
 const RANGE_OPTIONS = [
+  { value: 'day', label: 'Single day' },
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: '90d', label: 'Last 90 days' },
@@ -12,14 +18,12 @@ const RANGE_OPTIONS = [
 ];
 
 const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function shiftDateStr(dateStr, deltaDays) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setDate(d.getDate() + deltaDays);
-  return localDateString(d);
-}
 
 function daysBetween(startStr, endStr) {
   const start = new Date(`${startStr}T00:00:00`).getTime();
@@ -27,9 +31,14 @@ function daysBetween(startStr, endStr) {
   return Math.max(1, Math.round((end - start) / MS_PER_DAY) + 1);
 }
 
-function rangeBoundaries(range, sessions) {
+function rangeBoundaries(range, sessions, selectedDay) {
   const today = new Date();
   const endDate = localDateString(today);
+
+  if (range === 'day') {
+    const safeDay = selectedDay && selectedDay <= endDate ? selectedDay : endDate;
+    return { startDate: safeDay, endDate: safeDay, days: 1 };
+  }
 
   if (range === 'all') {
     if (sessions.length === 0) {
@@ -70,11 +79,38 @@ function formatDurationMinutes(minutes) {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function formatDurationSeconds(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  if (total < 60) return `${total}s`;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return s > 0 ? `${h}h ${m}m ${s}s` : `${h}h ${m}m`;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+function getSessionSeconds(session) {
+  if (typeof session.durationSeconds === 'number') return session.durationSeconds;
+  if (typeof session.duration === 'number') return session.duration * 60;
+  return 0;
+}
+
 // "Apr 1" — chart labels and best-day pills.
 function formatShortDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatPrettyDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T00:00:00`);
+  return d.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 // Percent change vs previous period. Returns null when no comparison makes
@@ -213,7 +249,6 @@ function DailyActivityChart({ sessions, startDate, days }) {
     return result;
   }, [sessions, startDate, days]);
 
-  // Label every Nth bar so the x-axis stays legible at long ranges.
   let labelEvery = 1;
   if (days > 14 && days <= 31) labelEvery = 3;
   else if (days > 31 && days <= 90) labelEvery = 7;
@@ -225,8 +260,6 @@ function DailyActivityChart({ sessions, startDate, days }) {
   const chartHeight = 160;
   const gap = days <= 14 ? 6 : days <= 31 ? 4 : days <= 90 ? 2 : 1;
   const barWidth = Math.max(1, (chartWidth - gap * (days - 1)) / days);
-
-  // Reference gridlines at 25/50/75/100% so users can read minutes by eye.
   const gridFractions = [0.25, 0.5, 0.75, 1];
 
   return (
@@ -234,7 +267,7 @@ function DailyActivityChart({ sessions, startDate, days }) {
       viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`}
       width="100%"
       role="img"
-      aria-label={`Daily study minutes from ${startDate} to ${shiftDateStr(startDate, days - 1)}`}
+      aria-label={`Daily study minutes from ${startDate} for ${days} days`}
     >
       {gridFractions.map(p => (
         <line
@@ -285,11 +318,9 @@ function DailyActivityChart({ sessions, startDate, days }) {
   );
 }
 
-// Total minutes per weekday across the filtered range. Reveals "I never
-// actually study on Sundays" kind of patterns.
+// Total minutes per weekday across the filtered range.
 function DayOfWeekChart({ sessions }) {
   const buckets = useMemo(() => {
-    // JS getDay: 0=Sun..6=Sat. Reorder to Mon-first for nicer UX.
     const raw = [0, 0, 0, 0, 0, 0, 0];
     sessions.forEach(s => {
       if (!s.date) return;
@@ -353,6 +384,261 @@ function DayOfWeekChart({ sessions }) {
   );
 }
 
+// GitHub-style contribution graph: 52 weeks × 7 days, intensity = minutes.
+// Cells are clickable to drill into a single-day view.
+function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
+  const weeksToShow = 52;
+  const cellSize = 12;
+  const cellGap = 3;
+  const cellStride = cellSize + cellGap;
+  const leftPad = 28;
+  const topPad = 18;
+
+  const { weeks, monthLabels, totalMinutes, activeDays } = useMemo(() => {
+    const today = new Date(`${todayStr}T00:00:00`);
+    // Anchor on Monday of the current week.
+    const todayDow = today.getDay();
+    const daysSinceMon = todayDow === 0 ? 6 : todayDow - 1;
+    const thisWeekMon = new Date(today.getTime() - daysSinceMon * MS_PER_DAY);
+    const firstMon = new Date(thisWeekMon.getTime() - (weeksToShow - 1) * 7 * MS_PER_DAY);
+
+    const minutesByDate = new Map();
+    sessions.forEach(s => {
+      minutesByDate.set(s.date, (minutesByDate.get(s.date) || 0) + getSessionMinutes(s));
+    });
+
+    const weeksOut = [];
+    for (let w = 0; w < weeksToShow; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(firstMon.getTime() + (w * 7 + d) * MS_PER_DAY);
+        const dateStr = localDateString(date);
+        const isFuture = dateStr > todayStr;
+        week.push({
+          date: dateStr,
+          minutes: isFuture ? null : minutesByDate.get(dateStr) || 0,
+          isFuture,
+          month: date.getMonth(),
+        });
+      }
+      weeksOut.push(week);
+    }
+
+    // One month label per month, placed at the first week whose Monday lands
+    // in that month after the previous label.
+    const labels = [];
+    let lastMonth = weeksOut[0]?.[0]?.month ?? -1;
+    weeksOut.forEach((week, wIdx) => {
+      const monMonth = week[0].month;
+      if (wIdx > 0 && monMonth !== lastMonth) {
+        labels.push({ x: leftPad + wIdx * cellStride, label: MONTH_LABELS[monMonth] });
+        lastMonth = monMonth;
+      }
+    });
+
+    let total = 0;
+    let active = 0;
+    minutesByDate.forEach(mins => {
+      if (mins > 0) {
+        total += mins;
+        active += 1;
+      }
+    });
+
+    return { weeks: weeksOut, monthLabels: labels, totalMinutes: total, activeDays: active };
+  }, [sessions, todayStr]);
+
+  const chartWidth = leftPad + weeksToShow * cellStride;
+  const chartHeight = topPad + 7 * cellStride;
+
+  // Intensity buckets — used to scale opacity on a single primary fill so
+  // colors track the active theme automatically.
+  function opacityFor(mins) {
+    if (mins === null || mins <= 0) return 0;
+    if (mins < 30) return 0.25;
+    if (mins < 60) return 0.5;
+    if (mins < 120) return 0.75;
+    return 1;
+  }
+
+  const legendBuckets = [0, 15, 45, 90, 180];
+
+  // Stable label row hints (every other day to keep the gutter narrow).
+  const dayRowLabels = [
+    { row: 0, label: 'Mon' },
+    { row: 2, label: 'Wed' },
+    { row: 4, label: 'Fri' },
+  ];
+
+  return (
+    <div>
+      <div style={{ overflowX: 'auto' }}>
+        <svg
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          width="100%"
+          style={{ minWidth: 720 }}
+          role="img"
+          aria-label="Activity heatmap for the last 52 weeks"
+        >
+          {monthLabels.map((m, i) => (
+            <text
+              key={i}
+              x={m.x}
+              y={12}
+              fontSize="10"
+              fontWeight="600"
+              fill="var(--text-light)"
+            >
+              {m.label}
+            </text>
+          ))}
+          {dayRowLabels.map(d => (
+            <text
+              key={d.label}
+              x={0}
+              y={topPad + d.row * cellStride + cellSize - 2}
+              fontSize="9"
+              fontWeight="600"
+              fill="var(--text-light)"
+            >
+              {d.label}
+            </text>
+          ))}
+          {weeks.map((week, wIdx) =>
+            week.map((day, dIdx) => {
+              const x = leftPad + wIdx * cellStride;
+              const y = topPad + dIdx * cellStride;
+              const opacity = opacityFor(day.minutes);
+              const isClickable = !day.isFuture;
+              return (
+                <g
+                  key={`${wIdx}-${dIdx}`}
+                  style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                  onClick={() => isClickable && onPickDay && onPickDay(day.date)}
+                >
+                  <title>
+                    {day.isFuture
+                      ? day.date
+                      : `${day.date} · ${formatDurationMinutes(day.minutes)}`}
+                  </title>
+                  <rect
+                    x={x}
+                    y={y}
+                    width={cellSize}
+                    height={cellSize}
+                    rx={2}
+                    fill="var(--bg-light)"
+                    stroke="var(--border-color)"
+                    strokeWidth={0.5}
+                  />
+                  {opacity > 0 && (
+                    <rect
+                      x={x}
+                      y={y}
+                      width={cellSize}
+                      height={cellSize}
+                      rx={2}
+                      fill="var(--primary)"
+                      opacity={opacity}
+                    />
+                  )}
+                </g>
+              );
+            })
+          )}
+        </svg>
+      </div>
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 small text-muted">
+        <span>
+          {activeDays} active {activeDays === 1 ? 'day' : 'days'} ·{' '}
+          {formatDurationMinutes(totalMinutes)} over the last 52 weeks
+        </span>
+        <div className="d-flex align-items-center gap-1">
+          <span>Less</span>
+          {legendBuckets.map(m => {
+            const op = opacityFor(m);
+            return (
+              <span
+                key={m}
+                style={{
+                  position: 'relative',
+                  width: 12,
+                  height: 12,
+                  borderRadius: 2,
+                  background: 'var(--bg-light)',
+                  border: '1px solid var(--border-color)',
+                  display: 'inline-block',
+                }}
+              >
+                {op > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: 2,
+                      background: 'var(--primary)',
+                      opacity: op,
+                    }}
+                  />
+                )}
+              </span>
+            );
+          })}
+          <span>More</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Per-session list used when range is a single day.
+function DaySessionList({ sessions, subjects }) {
+  if (sessions.length === 0) {
+    return <div className="text-muted text-center py-4">No sessions on this day.</div>;
+  }
+  // Newest sessions first using the synthetic id (Date.now() in guest mode)
+  // or fall back to insertion order when ids are Firestore strings.
+  const sorted = [...sessions].sort((a, b) => {
+    const ai = typeof a.id === 'number' ? a.id : 0;
+    const bi = typeof b.id === 'number' ? b.id : 0;
+    return bi - ai;
+  });
+  return (
+    <div className="list-group list-group-flush">
+      {sorted.map(s => {
+        const subject = subjects.find(sub => sessionMatchesSubject(s, sub));
+        const color = subject?.color || s.subjectColor || '#6b7280';
+        const initial = (s.subjectName || '?')[0]?.toUpperCase() || '?';
+        return (
+          <div
+            key={s.id}
+            className="list-group-item d-flex justify-content-between align-items-center"
+          >
+            <div className="d-flex align-items-center gap-3">
+              <div className="sf-subject-icon" style={{ background: color }}>
+                {initial}
+              </div>
+              <div>
+                <div className="fw-semibold">{s.subjectName}</div>
+                {s.notes && (
+                  <small className="text-muted">
+                    {s.notes.slice(0, 60)}
+                    {s.notes.length > 60 ? '…' : ''}
+                  </small>
+                )}
+              </div>
+            </div>
+            <div className="text-end">
+              <div className="fw-semibold">{formatDurationSeconds(getSessionSeconds(s))}</div>
+              <small className="text-muted">Focus: {s.focusRating}/5</small>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function KpiCard({ label, value, sub, delta }) {
   return (
     <Card className="h-100">
@@ -377,15 +663,15 @@ function KpiCard({ label, value, sub, delta }) {
 
 export default function Statistics() {
   const { subjects, sessions } = useStudyData();
-  const [range, setRange] = useState('30d');
-
   const todayStr = localDateString();
+  const [range, setRange] = useState('30d');
+  const [selectedDay, setSelectedDay] = useState(todayStr);
 
-  // Current and previous range boundaries. Prev period is same length, ending
-  // the day before the current range starts — apples-to-apples comparison.
+  const isDay = range === 'day';
+
   const { startDate, endDate, days } = useMemo(
-    () => rangeBoundaries(range, sessions),
-    [range, sessions]
+    () => rangeBoundaries(range, sessions, selectedDay),
+    [range, sessions, selectedDay]
   );
   const { prevStart, prevEnd } = useMemo(() => {
     const pEnd = shiftDateStr(startDate, -1);
@@ -402,8 +688,6 @@ export default function Statistics() {
     [sessions, prevStart, prevEnd]
   );
 
-  // Per-subject totals within the current range. Subjects with zero minutes
-  // are kept so the breakdown shows "this subject got 0 attention" honestly.
   const breakdown = useMemo(() => {
     return subjects
       .map(s => {
@@ -421,7 +705,6 @@ export default function Statistics() {
       .sort((a, b) => b.minutes - a.minutes);
   }, [subjects, rangedSessions]);
 
-  // Headline numbers for the current range + previous range (for deltas).
   const totalMinutes = rangedSessions.reduce((acc, s) => acc + getSessionMinutes(s), 0);
   const prevTotalMinutes = prevSessions.reduce((acc, s) => acc + getSessionMinutes(s), 0);
 
@@ -441,7 +724,6 @@ export default function Statistics() {
   const prevAvgSessionMinutes =
     prevTotalSessions > 0 ? prevTotalMinutes / prevTotalSessions : 0;
 
-  // Best day within range.
   const dailyTotals = useMemo(() => {
     const map = new Map();
     rangedSessions.forEach(s => {
@@ -455,25 +737,21 @@ export default function Statistics() {
     if (minutes > bestDay.minutes) bestDay = { date, minutes };
   });
 
-  // Longest single session within range.
   const longestSession = rangedSessions.reduce(
     (acc, s) => {
       const mins = getSessionMinutes(s);
-      return mins > acc.minutes ? { minutes: mins, subjectName: s.subjectName, date: s.date } : acc;
+      return mins > acc.minutes
+        ? { minutes: mins, subjectName: s.subjectName, date: s.date }
+        : acc;
     },
     { minutes: 0, subjectName: '', date: '' }
   );
 
-  // Streak is global, not range-scoped — "you've shown up N days in a row" is
-  // always about right now, regardless of which range the user is viewing.
   const streak = useMemo(() => currentStreakDays(sessions, todayStr), [sessions, todayStr]);
 
-  // Active days within range: how many of the N days had at least one session.
   const activeDays = dailyTotals.size;
   const activeDaysPct = days > 0 ? Math.round((activeDays / days) * 100) : 0;
 
-  // Subject-level avg focus, sorted highest first. Surfaces what the user
-  // actually concentrates on vs what just eats clock time.
   const focusBySubject = useMemo(() => {
     return breakdown
       .filter(b => b.count > 0)
@@ -497,31 +775,58 @@ export default function Statistics() {
   const isEmpty = sessions.length === 0;
   const rangeEmpty = !isEmpty && rangedSessions.length === 0;
 
+  // Clicking a heatmap cell jumps to single-day view for that date.
+  function handleHeatmapPick(date) {
+    setSelectedDay(date);
+    setRange('day');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  const headerSub = isEmpty
+    ? 'Start a session on the Dashboard to see stats here.'
+    : isDay
+    ? formatPrettyDate(selectedDay)
+    : `${rangeLabel} · ${startDate} → ${endDate}`;
+
   return (
     <Container fluid className="sf-page">
       <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
         <div>
           <h1 className="mb-1">Statistics</h1>
-          <p className="text-muted mb-0">
-            {isEmpty
-              ? 'Start a session on the Dashboard to see stats here.'
-              : `${rangeLabel} · ${startDate} → ${endDate}`}
-          </p>
+          <p className="text-muted mb-0">{headerSub}</p>
         </div>
-        <Form.Select
-          size="sm"
-          value={range}
-          onChange={e => setRange(e.target.value)}
-          style={{ width: 200 }}
-          aria-label="Statistics time range"
-          disabled={isEmpty}
-        >
-          {RANGE_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Form.Select>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          {isDay && (
+            <Form.Control
+              type="date"
+              size="sm"
+              value={selectedDay}
+              max={todayStr}
+              onChange={e => {
+                const val = e.target.value;
+                if (val && val <= todayStr) setSelectedDay(val);
+              }}
+              style={{ width: 160 }}
+              aria-label="Pick a day"
+            />
+          )}
+          <Form.Select
+            size="sm"
+            value={range}
+            onChange={e => setRange(e.target.value)}
+            style={{ width: 180 }}
+            aria-label="Statistics time range"
+            disabled={isEmpty}
+          >
+            {RANGE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Form.Select>
+        </div>
       </div>
 
       {isEmpty ? (
@@ -535,13 +840,12 @@ export default function Statistics() {
         </Card>
       ) : (
         <>
-          {/* Headline KPIs with prev-period deltas */}
           <Row className="g-3 mb-3">
             <Col md={3} sm={6}>
               <KpiCard
-                label="Total Time"
+                label={isDay ? 'Focus' : 'Total Time'}
                 value={`${totalHours}h`}
-                sub={`${formatDurationMinutes(totalMinutes)} in range`}
+                sub={`${formatDurationMinutes(totalMinutes)} ${isDay ? 'on this day' : 'in range'}`}
                 delta={totalMinutesDelta}
               />
             </Col>
@@ -580,15 +884,16 @@ export default function Statistics() {
             </Col>
           </Row>
 
-          {/* Secondary KPIs — range-aware highlights */}
           <Row className="g-3 mb-4">
-            <Col md={3} sm={6}>
-              <KpiCard
-                label="Best Day"
-                value={bestDay.minutes > 0 ? formatDurationMinutes(bestDay.minutes) : '—'}
-                sub={bestDay.minutes > 0 ? formatShortDate(bestDay.date) : 'no sessions yet'}
-              />
-            </Col>
+            {!isDay && (
+              <Col md={3} sm={6}>
+                <KpiCard
+                  label="Best Day"
+                  value={bestDay.minutes > 0 ? formatDurationMinutes(bestDay.minutes) : '—'}
+                  sub={bestDay.minutes > 0 ? formatShortDate(bestDay.date) : 'no sessions yet'}
+                />
+              </Col>
+            )}
             <Col md={3} sm={6}>
               <KpiCard
                 label="Longest Session"
@@ -599,7 +904,7 @@ export default function Statistics() {
                 }
                 sub={
                   longestSession.minutes > 0
-                    ? `${longestSession.subjectName} · ${formatShortDate(longestSession.date)}`
+                    ? `${longestSession.subjectName}${isDay ? '' : ` · ${formatShortDate(longestSession.date)}`}`
                     : 'no sessions yet'
                 }
               />
@@ -611,13 +916,27 @@ export default function Statistics() {
                 sub={streak > 0 ? 'keep it alive' : 'study today to start'}
               />
             </Col>
-            <Col md={3} sm={6}>
-              <KpiCard
-                label="Days Studied"
-                value={`${activeDays} / ${days}`}
-                sub={`${activeDaysPct}% of the range`}
-              />
-            </Col>
+            {!isDay ? (
+              <Col md={3} sm={6}>
+                <KpiCard
+                  label="Days Studied"
+                  value={`${activeDays} / ${days}`}
+                  sub={`${activeDaysPct}% of the range`}
+                />
+              </Col>
+            ) : (
+              <Col md={3} sm={6}>
+                <KpiCard
+                  label="Subjects Touched"
+                  value={breakdown.filter(b => b.count > 0).length}
+                  sub={
+                    breakdown.filter(b => b.count > 0).length > 0
+                      ? `of ${subjects.length} total`
+                      : 'none on this day'
+                  }
+                />
+              </Col>
+            )}
           </Row>
 
           {/* Distribution row */}
@@ -707,21 +1026,23 @@ export default function Statistics() {
             </Col>
           </Row>
 
-          {/* Daily activity chart */}
+          {/* Daily activity or single-day session list */}
           <Card className="mb-4">
             <Card.Header className="d-flex justify-content-between align-items-center">
-              <span>Daily Activity</span>
+              <span>{isDay ? 'Sessions on this day' : 'Daily Activity'}</span>
               <span className="small text-muted">
-                {bestDay.minutes > 0
+                {isDay
+                  ? formatPrettyDate(selectedDay)
+                  : bestDay.minutes > 0
                   ? `Peak: ${formatShortDate(bestDay.date)} (${formatDurationMinutes(bestDay.minutes)})`
                   : rangeLabel}
               </span>
             </Card.Header>
             <Card.Body>
-              {rangeEmpty ? (
-                <div className="text-muted text-center py-4">
-                  No sessions in this range.
-                </div>
+              {isDay ? (
+                <DaySessionList sessions={rangedSessions} subjects={subjects} />
+              ) : rangeEmpty ? (
+                <div className="text-muted text-center py-4">No sessions in this range.</div>
               ) : (
                 <DailyActivityChart
                   sessions={rangedSessions}
@@ -732,17 +1053,19 @@ export default function Statistics() {
             </Card.Body>
           </Card>
 
-          {/* Day-of-week + focus quality */}
-          <Row className="g-3">
-            <Col lg={6}>
-              <Card className="h-100">
-                <Card.Header>By Day of Week</Card.Header>
-                <Card.Body>
-                  <DayOfWeekChart sessions={rangedSessions} />
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col lg={6}>
+          {/* Day-of-week + focus quality. Day-of-week hidden for single-day view. */}
+          <Row className="g-3 mb-4">
+            {!isDay && (
+              <Col lg={6}>
+                <Card className="h-100">
+                  <Card.Header>By Day of Week</Card.Header>
+                  <Card.Body>
+                    <DayOfWeekChart sessions={rangedSessions} />
+                  </Card.Body>
+                </Card>
+              </Col>
+            )}
+            <Col lg={isDay ? 12 : 6}>
               <Card className="h-100">
                 <Card.Header>Focus Quality</Card.Header>
                 <Card.Body>
@@ -792,6 +1115,22 @@ export default function Statistics() {
               </Card>
             </Col>
           </Row>
+
+          {/* Always-on calendar heatmap. Independent of the range filter so it
+              gives a long-horizon view; click any cell to jump to that day. */}
+          <Card>
+            <Card.Header className="d-flex justify-content-between align-items-center">
+              <span>Activity Heatmap</span>
+              <span className="small text-muted">Last 52 weeks · click a day to inspect</span>
+            </Card.Header>
+            <Card.Body>
+              <CalendarHeatmap
+                sessions={sessions}
+                todayStr={todayStr}
+                onPickDay={handleHeatmapPick}
+              />
+            </Card.Body>
+          </Card>
         </>
       )}
     </Container>

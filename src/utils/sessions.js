@@ -27,3 +27,11 @@ export function localDateString(input) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+// Shift a YYYY-MM-DD string by N days, staying in local time so we never
+// cross a DST boundary the wrong way.
+export function shiftDateStr(dateStr, deltaDays) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + deltaDays);
+  return localDateString(d);
+}
