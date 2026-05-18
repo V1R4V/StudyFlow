@@ -80,6 +80,33 @@ service cloud.firestore {
       && isOptionalTimestamp(data, 'createdAt');
     }
 
+    function isValidTodo(data) {
+      return data.keys().hasOnly([
+        'id',
+        'text',
+        'date',
+        'done',
+        'subjectId',
+        'subjectName',
+        'subjectColor',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && isShortString(data.text, 200)
+      && isOptionalDate(data, 'date')
+      && data.done is bool
+      && (!data.keys().hasAny(['subjectId'])
+          || data.subjectId == null
+          || data.subjectId is string)
+      && (!data.keys().hasAny(['subjectName'])
+          || data.subjectName == null
+          || isShortString(data.subjectName, 60))
+      && (!data.keys().hasAny(['subjectColor'])
+          || data.subjectColor == null
+          || isColor(data.subjectColor))
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
     function isValidSession(data, userId) {
       return data.keys().hasOnly([
         'id',
@@ -123,6 +150,13 @@ service cloud.firestore {
             && isValidSession(request.resource.data, request.auth.uid);
           allow delete: if isOwner(userId);
         }
+      }
+
+      match /todos/{todoId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidTodo(request.resource.data);
+        allow delete: if isOwner(userId);
       }
     }
   }

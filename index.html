@@ -4,7 +4,32 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>StudyFlow - Track Your Study Sessions</title>
+    <script>
+      // Apply theme before any paint so dark-mode users don't see a white
+      // flash while React mounts and the ThemeProvider's effect runs. Keep
+      // this in sync with src/context/ThemeContext.jsx and the bg-light
+      // tokens in src/styles/variables.css.
+      (function () {
+        try {
+          var saved = localStorage.getItem('studyflow-theme');
+          var theme =
+            saved === 'dark' || saved === 'light'
+              ? saved
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          var root = document.documentElement;
+          root.setAttribute('data-theme', theme);
+          root.setAttribute('data-bs-theme', theme);
+          root.style.colorScheme = theme;
+          root.style.backgroundColor = theme === 'dark' ? '#0e0e10' : '#f5f5f7';
+        } catch (e) {
+          /* localStorage may be blocked — fall through to CSS defaults */
+        }
+      })();
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
