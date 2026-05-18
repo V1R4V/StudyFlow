@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Container, Row, Col, Card, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, ButtonGroup } from 'react-bootstrap';
 import { useStudyData } from '../context/StudyDataContext';
 import {
   sessionMatchesSubject,
@@ -113,16 +113,62 @@ function formatPrettyDate(dateStr) {
   });
 }
 
-// Percent change vs previous period. Returns null when no comparison makes
-// sense (e.g. zero prior data and zero current data).
+// Percent change vs previous period. Returns null when there's no real
+// baseline to compare against — a loud "New" badge on every card during the
+// user's first weeks is noise, not insight.
 function computeDelta(current, prev) {
-  if (prev === 0 && current === 0) return null;
-  if (prev === 0) return { text: 'New', positive: true };
+  if (prev <= 0) return null;
   const diff = Math.round(((current - prev) / prev) * 100);
   return {
-    text: `${diff >= 0 ? '+' : ''}${diff}% vs prev`,
+    text: `${diff >= 0 ? '+' : ''}${diff}%`,
     positive: diff >= 0,
   };
+}
+
+function median(values) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Longest consecutive-day run across all sessions (not just the current
+// range). Pairs naturally with current streak as a personal best.
+function longestStreakDays(sessions) {
+  if (sessions.length === 0) return 0;
+  const dates = [...new Set(sessions.map(s => s.date))].sort();
+  let longest = 1;
+  let current = 1;
+  for (let i = 1; i < dates.length; i++) {
+    if (dates[i] === shiftDateStr(dates[i - 1], 1)) {
+      current += 1;
+      if (current > longest) longest = current;
+    } else {
+      current = 1;
+    }
+  }
+  return longest;
+}
+
+// Weekday with the most minutes in the range. Returns label + total minutes,
+// or null if there's no data. More actionable than "best calendar date".
+function peakWeekday(sessions) {
+  if (sessions.length === 0) return null;
+  const totals = [0, 0, 0, 0, 0, 0, 0]; // Sun..Sat
+  sessions.forEach(s => {
+    if (!s.date) return;
+    const dow = new Date(`${s.date}T00:00:00`).getDay();
+    totals[dow] += getSessionMinutes(s);
+  });
+  let best = 0;
+  for (let i = 1; i < 7; i++) {
+    if (totals[i] > totals[best]) best = i;
+  }
+  if (totals[best] === 0) return null;
+  const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return { dow: best, minutes: totals[best], label: names[best] };
 }
 
 function currentStreakDays(sessions, todayStr) {
@@ -751,6 +797,40 @@ export default function Statistics() {
 
   const activeDays = dailyTotals.size;
   const activeDaysPct = days > 0 ? Math.round((activeDays / days) * 100) : 0;
+  const prevDailyTotals = useMemo(() => {
+    const map = new Map();
+    prevSessions.forEach(s => {
+      map.set(s.date, (map.get(s.date) || 0) + getSessionMinutes(s));
+    });
+    return map;
+  }, [prevSessions]);
+  const prevActiveDays = prevDailyTotals.size;
+  const prevActiveDaysPct = days > 0 ? Math.round((prevActiveDays / days) * 100) : 0;
+
+  // Real insight metrics — each maps to a single number the user can act on.
+  const sessionMinutesArray = rangedSessions.map(getSessionMinutes);
+  const medianSessionMins = median(sessionMinutesArray);
+  const avgPerActiveDay = activeDays > 0 ? totalMinutes / activeDays : 0;
+  const highFocusCount = rangedSessions.filter(s => (s.focusRating || 0) >= 4).length;
+  // Deep Work Rate: share of sessions ≥ 60min — Cal Newport's threshold for
+  // sustained focus. Tracks the *quality* of work, not just total hours.
+  const deepSessions = rangedSessions.filter(s => getSessionMinutes(s) >= 60).length;
+  const deepRate = totalSessions > 0 ? Math.round((deepSessions / totalSessions) * 100) : 0;
+  const prevDeepSessions = prevSessions.filter(s => getSessionMinutes(s) >= 60).length;
+  const prevDeepRate =
+    prevTotalSessions > 0 ? Math.round((prevDeepSessions / prevTotalSessions) * 100) : 0;
+  const longestStreak = useMemo(() => longestStreakDays(sessions), [sessions]);
+  const peak = useMemo(() => peakWeekday(rangedSessions), [rangedSessions]);
+
+  // For single-day mode: compare today vs the user's typical day over the
+  // last 30 days. More motivating than "57% of the range".
+  const last30AvgDailyMins = useMemo(() => {
+    if (!isDay) return 0;
+    const start = shiftDateStr(todayStr, -29);
+    const recent = sessions.filter(s => s.date >= start && s.date <= todayStr);
+    const total = recent.reduce((acc, s) => acc + getSessionMinutes(s), 0);
+    return total / 30;
+  }, [sessions, todayStr, isDay]);
 
   const focusBySubject = useMemo(() => {
     return breakdown
@@ -770,10 +850,16 @@ export default function Statistics() {
   const totalSessionsDelta = computeDelta(totalSessions, prevTotalSessions);
   const avgFocusDelta = computeDelta(avgFocus, prevAvgFocus);
   const avgSessionDelta = computeDelta(avgSessionMinutes, prevAvgSessionMinutes);
+  const consistencyDelta = computeDelta(activeDaysPct, prevActiveDaysPct);
+  const deepRateDelta = computeDelta(deepRate, prevDeepRate);
 
   const rangeLabel = RANGE_OPTIONS.find(o => o.value === range)?.label || '';
   const isEmpty = sessions.length === 0;
   const rangeEmpty = !isEmpty && rangedSessions.length === 0;
+
+  // Tab choice for the combined Activity card. Both views read from the same
+  // ranged session set, so the toggle is free — no extra work, no reload.
+  const [activityView, setActivityView] = useState('timeline');
 
   // Clicking a heatmap cell jumps to single-day view for that date.
   function handleHeatmapPick(date) {
@@ -845,7 +931,15 @@ export default function Statistics() {
               <KpiCard
                 label={isDay ? 'Focus' : 'Total Time'}
                 value={`${totalHours}h`}
-                sub={`${formatDurationMinutes(totalMinutes)} ${isDay ? 'on this day' : 'in range'}`}
+                sub={
+                  isDay
+                    ? last30AvgDailyMins > 0
+                      ? `30-day avg ${formatDurationMinutes(last30AvgDailyMins)}/day`
+                      : 'no recent baseline'
+                    : avgPerActiveDay > 0
+                    ? `${formatDurationMinutes(avgPerActiveDay)} per active day`
+                    : 'no sessions'
+                }
                 delta={totalMinutesDelta}
               />
             </Col>
@@ -853,7 +947,11 @@ export default function Statistics() {
               <KpiCard
                 label="Sessions"
                 value={totalSessions}
-                sub={totalSessions === 1 ? 'session' : 'sessions'}
+                sub={
+                  totalSessions > 0
+                    ? `median ${formatDurationMinutes(medianSessionMins)}`
+                    : 'no sessions'
+                }
                 delta={totalSessionsDelta}
               />
             </Col>
@@ -870,7 +968,11 @@ export default function Statistics() {
                     '—'
                   )
                 }
-                sub={totalSessions > 0 ? 'across all sessions' : 'no sessions'}
+                sub={
+                  totalSessions > 0
+                    ? `${highFocusCount} of ${totalSessions} rated ≥ 4`
+                    : 'no sessions'
+                }
                 delta={avgFocusDelta}
               />
             </Col>
@@ -878,64 +980,113 @@ export default function Statistics() {
               <KpiCard
                 label="Avg Session"
                 value={totalSessions > 0 ? formatDurationMinutes(avgSessionMinutes) : '—'}
-                sub="per session"
+                sub={
+                  longestSession.minutes > 0
+                    ? `longest ${formatDurationMinutes(longestSession.minutes)}`
+                    : 'per session'
+                }
                 delta={avgSessionDelta}
               />
             </Col>
           </Row>
 
           <Row className="g-3 mb-4">
-            {!isDay && (
-              <Col md={3} sm={6}>
-                <KpiCard
-                  label="Best Day"
-                  value={bestDay.minutes > 0 ? formatDurationMinutes(bestDay.minutes) : '—'}
-                  sub={bestDay.minutes > 0 ? formatShortDate(bestDay.date) : 'no sessions yet'}
-                />
-              </Col>
-            )}
-            <Col md={3} sm={6}>
-              <KpiCard
-                label="Longest Session"
-                value={
-                  longestSession.minutes > 0
-                    ? formatDurationMinutes(longestSession.minutes)
-                    : '—'
-                }
-                sub={
-                  longestSession.minutes > 0
-                    ? `${longestSession.subjectName}${isDay ? '' : ` · ${formatShortDate(longestSession.date)}`}`
-                    : 'no sessions yet'
-                }
-              />
-            </Col>
-            <Col md={3} sm={6}>
-              <KpiCard
-                label="Current Streak"
-                value={`${streak} ${streak === 1 ? 'day' : 'days'}`}
-                sub={streak > 0 ? 'keep it alive' : 'study today to start'}
-              />
-            </Col>
             {!isDay ? (
-              <Col md={3} sm={6}>
-                <KpiCard
-                  label="Days Studied"
-                  value={`${activeDays} / ${days}`}
-                  sub={`${activeDaysPct}% of the range`}
-                />
-              </Col>
+              <>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Consistency"
+                    value={`${activeDaysPct}%`}
+                    sub={`${activeDays} of ${days} days active`}
+                    delta={consistencyDelta}
+                  />
+                </Col>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Deep Work Rate"
+                    value={`${deepRate}%`}
+                    sub={
+                      totalSessions > 0
+                        ? `${deepSessions} of ${totalSessions} sessions ≥ 60m`
+                        : 'no sessions'
+                    }
+                    delta={deepRateDelta}
+                  />
+                </Col>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Current Streak"
+                    value={`${streak} ${streak === 1 ? 'day' : 'days'}`}
+                    sub={
+                      longestStreak > 0
+                        ? `personal best: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}`
+                        : 'study today to start'
+                    }
+                  />
+                </Col>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Peak Weekday"
+                    value={peak ? peak.label.slice(0, 3) : '—'}
+                    sub={
+                      peak
+                        ? `${formatDurationMinutes(peak.minutes)} on ${peak.label}s`
+                        : 'no data'
+                    }
+                  />
+                </Col>
+              </>
             ) : (
-              <Col md={3} sm={6}>
-                <KpiCard
-                  label="Subjects Touched"
-                  value={breakdown.filter(b => b.count > 0).length}
-                  sub={
-                    breakdown.filter(b => b.count > 0).length > 0
-                      ? `of ${subjects.length} total`
-                      : 'none on this day'
-                  }
-                />
-              </Col>
+              <>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="vs Your Average"
+                    value={
+                      last30AvgDailyMins > 0
+                        ? `${Math.round(((totalMinutes - last30AvgDailyMins) / last30AvgDailyMins) * 100) >= 0 ? '+' : ''}${Math.round(((totalMinutes - last30AvgDailyMins) / last30AvgDailyMins) * 100)}%`
+                        : '—'
+                    }
+                    sub={
+                      last30AvgDailyMins > 0
+                        ? `${formatDurationMinutes(last30AvgDailyMins)} typical day`
+                        : 'not enough history'
+                    }
+                  />
+                </Col>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Deep Sessions"
+                    value={deepSessions}
+                    sub={
+                      totalSessions > 0
+                        ? `${deepRate}% of today's sessions`
+                        : 'no sessions'
+                    }
+                  />
+                </Col>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Current Streak"
+                    value={`${streak} ${streak === 1 ? 'day' : 'days'}`}
+                    sub={
+                      longestStreak > 0
+                        ? `personal best: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}`
+                        : 'study today to start'
+                    }
+                  />
+                </Col>
+                <Col md={3} sm={6}>
+                  <KpiCard
+                    label="Subjects Touched"
+                    value={breakdown.filter(b => b.count > 0).length}
+                    sub={
+                      breakdown.filter(b => b.count > 0).length > 0
+                        ? `of ${subjects.length} total`
+                        : 'none on this day'
+                    }
+                  />
+                </Col>
+              </>
             )}
           </Row>
 
@@ -1026,15 +1177,39 @@ export default function Statistics() {
             </Col>
           </Row>
 
-          {/* Daily activity or single-day session list */}
+          {/* Combined activity card: timeline vs day-of-week toggle. Both
+              views are driven by rangedSessions so range filtering "just
+              works" for both. Single-day mode falls back to a session list. */}
           <Card className="mb-4">
-            <Card.Header className="d-flex justify-content-between align-items-center">
-              <span>{isDay ? 'Sessions on this day' : 'Daily Activity'}</span>
+            <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div className="d-flex align-items-center gap-3 flex-wrap">
+                <span>{isDay ? 'Sessions on this day' : 'Activity'}</span>
+                {!isDay && (
+                  <ButtonGroup size="sm" aria-label="Activity view">
+                    <Button
+                      variant={
+                        activityView === 'timeline' ? 'primary' : 'outline-secondary'
+                      }
+                      onClick={() => setActivityView('timeline')}
+                    >
+                      Timeline
+                    </Button>
+                    <Button
+                      variant={activityView === 'dow' ? 'primary' : 'outline-secondary'}
+                      onClick={() => setActivityView('dow')}
+                    >
+                      By Day of Week
+                    </Button>
+                  </ButtonGroup>
+                )}
+              </div>
               <span className="small text-muted">
                 {isDay
                   ? formatPrettyDate(selectedDay)
-                  : bestDay.minutes > 0
+                  : activityView === 'timeline' && bestDay.minutes > 0
                   ? `Peak: ${formatShortDate(bestDay.date)} (${formatDurationMinutes(bestDay.minutes)})`
+                  : activityView === 'dow' && peak
+                  ? `Strongest: ${peak.label}`
                   : rangeLabel}
               </span>
             </Card.Header>
@@ -1043,29 +1218,22 @@ export default function Statistics() {
                 <DaySessionList sessions={rangedSessions} subjects={subjects} />
               ) : rangeEmpty ? (
                 <div className="text-muted text-center py-4">No sessions in this range.</div>
-              ) : (
+              ) : activityView === 'timeline' ? (
                 <DailyActivityChart
                   sessions={rangedSessions}
                   startDate={startDate}
                   days={days}
                 />
+              ) : (
+                <DayOfWeekChart sessions={rangedSessions} />
               )}
             </Card.Body>
           </Card>
 
-          {/* Day-of-week + focus quality. Day-of-week hidden for single-day view. */}
+          {/* Focus quality, full width now that day-of-week lives in the
+              combined activity card. */}
           <Row className="g-3 mb-4">
-            {!isDay && (
-              <Col lg={6}>
-                <Card className="h-100">
-                  <Card.Header>By Day of Week</Card.Header>
-                  <Card.Body>
-                    <DayOfWeekChart sessions={rangedSessions} />
-                  </Card.Body>
-                </Card>
-              </Col>
-            )}
-            <Col lg={isDay ? 12 : 6}>
+            <Col lg={12}>
               <Card className="h-100">
                 <Card.Header>Focus Quality</Card.Header>
                 <Card.Body>
