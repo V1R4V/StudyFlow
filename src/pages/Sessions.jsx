@@ -62,11 +62,18 @@ export default function Sessions() {
   }
 
   function handleEditSave(details) {
-    updateSession(editing.id, {
+    const updates = {
       focusRating: details.focusRating,
       notes: details.notes,
       date: details.date,
-    });
+    };
+    // EndSessionModal only sets durationSeconds when the user edited the
+    // duration inputs — pass it through so the row updates in place.
+    if (typeof details.durationSeconds === 'number') {
+      updates.durationSeconds = details.durationSeconds;
+      updates.duration = details.duration;
+    }
+    updateSession(editing.id, updates);
     setEditing(null);
   }
 

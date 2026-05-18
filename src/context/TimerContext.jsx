@@ -213,12 +213,24 @@ export function TimerProvider({ children }) {
 
   function saveSession(details) {
     if (!pendingSession) return;
-    const safeSeconds = clampNumber(
+    const trackedSeconds = clampNumber(
       pendingSession.seconds,
       1,
       SESSION_LIMITS.MAX_SESSION_SECONDS,
       60
     );
+    // EndSessionModal passes durationSeconds only when the user edited the
+    // "real time spent" inputs. Otherwise we keep the timer's tracked value
+    // (which has second-level precision).
+    const safeSeconds =
+      typeof details.durationSeconds === 'number'
+        ? clampNumber(
+            details.durationSeconds,
+            1,
+            SESSION_LIMITS.MAX_SESSION_SECONDS,
+            trackedSeconds
+          )
+        : trackedSeconds;
     const safeRating = clampNumber(details.focusRating, 1, 5, 4);
     const safeNotes = trimString(details.notes, SESSION_LIMITS.NOTES_MAX);
     const safeSubjectName =

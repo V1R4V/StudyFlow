@@ -143,6 +143,23 @@ function normalizeSessionUpdates(updates) {
   if (Object.prototype.hasOwnProperty.call(updates, 'date')) {
     safe.date = normalizeDate(updates.date);
   }
+  // Allow editing the recorded duration so users can correct inflated
+  // tracked time. Both keys must stay in sync — `duration` is the minutes
+  // copy used by older code paths, `durationSeconds` is the source of truth.
+  if (Object.prototype.hasOwnProperty.call(updates, 'durationSeconds')) {
+    const secs = clampNumber(
+      updates.durationSeconds,
+      1,
+      LIMITS.MAX_SESSION_SECONDS,
+      60
+    );
+    safe.durationSeconds = secs;
+    safe.duration = Math.max(1, Math.ceil(secs / 60));
+  } else if (Object.prototype.hasOwnProperty.call(updates, 'duration')) {
+    const mins = clampNumber(updates.duration, 1, 1440, 1);
+    safe.duration = mins;
+    safe.durationSeconds = mins * 60;
+  }
 
   return Object.keys(safe).length > 0 ? safe : null;
 }

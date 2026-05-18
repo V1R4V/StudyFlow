@@ -1,4 +1,5 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() {
@@ -42,25 +43,6 @@ service cloud.firestore {
       return !data.keys().hasAny([field]) || data[field] is timestamp;
     }
 
-    function isValidUserProfile(data) {
-      return data.keys().hasOnly([
-        'uid',
-        'username',
-        'displayName',
-        'email',
-        'createdAt',
-        'totalStudyTime',
-        'currentStreak'
-      ])
-      && isOptionalString(data, 'uid', 128)
-      && isOptionalString(data, 'username', 80)
-      && isOptionalString(data, 'displayName', 80)
-      && isOptionalString(data, 'email', 120)
-      && isOptionalNumberInRange(data, 'totalStudyTime', 0, 1000000)
-      && isOptionalNumberInRange(data, 'currentStreak', 0, 3650)
-      && isOptionalTimestamp(data, 'createdAt');
-    }
-
     function isValidSubject(data) {
       return data.keys().hasOnly([
         'id',
@@ -77,33 +59,6 @@ service cloud.firestore {
       && isOptionalNumberInRange(data, 'dailyGoal', 0, 24)
       && isOptionalNumberInRange(data, 'weeklyGoal', 0, 168)
       && isOptionalNumberInRange(data, 'totalTimeSpent', 0, 1000000)
-      && isOptionalTimestamp(data, 'createdAt');
-    }
-
-    function isValidTodo(data) {
-      return data.keys().hasOnly([
-        'id',
-        'text',
-        'date',
-        'done',
-        'subjectId',
-        'subjectName',
-        'subjectColor',
-        'createdAt'
-      ])
-      && (data.id is number || data.id is string)
-      && isShortString(data.text, 200)
-      && isOptionalDate(data, 'date')
-      && data.done is bool
-      && (!data.keys().hasAny(['subjectId'])
-          || data.subjectId == null
-          || data.subjectId is string)
-      && (!data.keys().hasAny(['subjectName'])
-          || data.subjectName == null
-          || isShortString(data.subjectName, 60))
-      && (!data.keys().hasAny(['subjectColor'])
-          || data.subjectColor == null
-          || isColor(data.subjectColor))
       && isOptionalTimestamp(data, 'createdAt');
     }
 
@@ -134,22 +89,48 @@ service cloud.firestore {
       && data.userId == userId;
     }
 
+    function isValidTodo(data) {
+      return data.keys().hasOnly([
+        'id',
+        'text',
+        'date',
+        'done',
+        'subjectId',
+        'subjectName',
+        'subjectColor',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && isShortString(data.text, 200)
+      && isOptionalDate(data, 'date')
+      && data.done is bool
+      && (!data.keys().hasAny(['subjectId'])
+          || data.subjectId == null
+          || data.subjectId is string)
+      && (!data.keys().hasAny(['subjectName'])
+          || data.subjectName == null
+          || isShortString(data.subjectName, 60))
+      && (!data.keys().hasAny(['subjectColor'])
+          || data.subjectColor == null
+          || isColor(data.subjectColor))
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
     match /studyflow_v1/{userId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidUserProfile(request.resource.data);
-      allow delete: if isOwner(userId);
+      allow read, write: if isOwner(userId);
 
       match /subjects/{subjectId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidSubject(request.resource.data);
+        allow create, update: if isOwner(userId)
+          && isValidSubject(request.resource.data);
         allow delete: if isOwner(userId);
+      }
 
-        match /sessions/{sessionId} {
-          allow read: if isOwner(userId);
-          allow create, update: if isOwner(userId)
-            && isValidSession(request.resource.data, request.auth.uid);
-          allow delete: if isOwner(userId);
-        }
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidSession(request.resource.data, userId);
+        allow delete: if isOwner(userId);
       }
 
       match /todos/{todoId} {
