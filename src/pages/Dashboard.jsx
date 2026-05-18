@@ -8,6 +8,7 @@ import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
 import DailyPlanner from '../components/DailyPlanner';
 import { useStudyData } from '../context/StudyDataContext';
+import { localDateString } from '../utils/sessions';
 
 const IconClock = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -50,13 +51,13 @@ export default function Dashboard() {
   const [now] = useState(() => Date.now());
 
   // Today's focus
-  const today = new Date(now).toISOString().slice(0, 10);
+  const today = localDateString(now);
   const todaysSessions = sessions.filter(s => s.date === today);
   const todaysMinutes = todaysSessions.reduce((acc, s) => acc + getSessionMinutes(s), 0);
   const todaysHours = (todaysMinutes / 60).toFixed(1);
 
   // Yesterday comparison
-  const yesterday = new Date(now - 86400000).toISOString().slice(0, 10);
+  const yesterday = localDateString(now - 86400000);
   const yesterdaysMinutes = sessions
     .filter(s => s.date === yesterday)
     .reduce((acc, s) => acc + getSessionMinutes(s), 0);
@@ -75,7 +76,7 @@ export default function Dashboard() {
     let cursor = new Date(now);
     if (uniqueDates[0] !== today) cursor = new Date(now - 86400000);
     for (const dateStr of uniqueDates) {
-      const cursorStr = cursor.toISOString().slice(0, 10);
+      const cursorStr = localDateString(cursor);
       if (dateStr === cursorStr) {
         streak++;
         cursor = new Date(cursor.getTime() - 86400000);
@@ -89,7 +90,7 @@ export default function Dashboard() {
   const weeklyData = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now - i * 86400000);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = localDateString(d);
     const mins = sessions
       .filter(s => s.date === dateStr)
       .reduce((acc, s) => acc + getSessionMinutes(s), 0);

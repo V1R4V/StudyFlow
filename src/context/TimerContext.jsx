@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useStudyData } from './StudyDataContext';
+import { localDateString } from '../utils/sessions';
 
 const TimerContext = createContext(null);
 
@@ -232,7 +233,7 @@ export function TimerProvider({ children }) {
       durationSeconds: safeSeconds,
       focusRating: safeRating,
       notes: safeNotes,
-      date: new Date().toISOString().slice(0, 10),
+      date: localDateString(),
     };
 
     // Single write path. The StudyDataContext routes this to Firestore (when

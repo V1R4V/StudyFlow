@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Card, Form } from 'react-bootstrap';
-import { sessionMatchesSubject } from '../utils/sessions';
+import { sessionMatchesSubject, localDateString } from '../utils/sessions';
 
 function getSessionSeconds(session) {
   if (typeof session.durationSeconds === 'number') return session.durationSeconds;
@@ -33,13 +33,11 @@ export default function RecentSessionsList(props) {
   const filtered = useMemo(() => {
     if (range === 'all') return sessions;
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
+    const todayStr = localDateString(now);
     if (range === 'today') {
       return sessions.filter(s => s.date === todayStr);
     }
-    const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const cutoff = localDateString(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     return sessions.filter(s => s.date >= cutoff);
   }, [sessions, range]);
 

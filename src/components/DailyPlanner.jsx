@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Card, Form, Button, Dropdown } from 'react-bootstrap';
 import { useStudyData } from '../context/StudyDataContext';
+import { localDateString } from '../utils/sessions';
 
 const MAX_TODO_LEN = 200;
 
 function todayDateString() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 function shiftDate(dateStr, deltaDays) {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
+  return localDateString(d);
 }
 
 function prettyLabel(dateStr) {

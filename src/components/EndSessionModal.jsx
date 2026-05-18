@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { localDateString } from '../utils/sessions';
 
 const MAX_NOTES = 500;
 
@@ -10,7 +11,7 @@ function clampRating(value) {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 export default function EndSessionModal(props) {
