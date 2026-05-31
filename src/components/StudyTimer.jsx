@@ -27,7 +27,7 @@ export default function StudyTimer(props) {
 
   return (
     <Card className="h-100 text-center sf-card-panel sf-card-timer">
-      <Card.Body className="p-4 d-flex flex-column">
+      <Card.Body className="sf-panel-body text-center">
         <h2 className="h4 mb-1">Smart Timer</h2>
         <p style={{ color: 'var(--muted-strong)' }} className="mb-3">{subtitle}</p>
 
@@ -157,6 +157,22 @@ export default function StudyTimer(props) {
           ) : (
             <Button variant="warning" size="lg" onClick={t.pause}>
               <span aria-hidden="true">⏸ </span>Pause
+            </Button>
+          )}
+
+          {(t.isRunning || isPaused) && (
+            /* Single-tap distraction logger — increments a counter that's
+               saved with the session and shows up in stats. */
+            <Button
+              variant="outline-warning"
+              size="sm"
+              onClick={t.logDistraction}
+              aria-label="Log a distraction"
+            >
+              Got distracted
+              {t.distractions > 0 && (
+                <span className="ms-2 badge bg-warning text-dark">{t.distractions}</span>
+              )}
             </Button>
           )}
 

@@ -64,6 +64,9 @@ export function TimerProvider({ children }) {
   const [error, setError] = useState('');
   const [pendingSession, setPendingSession] = useState(null);
   const [liveMessage, setLiveMessage] = useState('');
+  // Distraction count for the in-flight session — increments via the "I got
+  // distracted" button on the timer, resets after save/discard/reset.
+  const [distractions, setDistractions] = useState(0);
   const autoEndedRef = useRef(false);
   const elapsedAtAutoEndRef = useRef(0);
 
@@ -183,7 +186,13 @@ export function TimerProvider({ children }) {
     setSecondsElapsed(0);
     setStartEpochMs(null);
     setLiveMessage('');
+    setDistractions(0);
     autoEndedRef.current = false;
+  }
+
+  function logDistraction() {
+    setDistractions(d => d + 1);
+    setLiveMessage('Distraction logged.');
   }
 
   function promptSave(elapsedSeconds) {
@@ -203,6 +212,7 @@ export function TimerProvider({ children }) {
       subjectId: subject.id,
       subjectName: subject.name,
       subjectColor: subject.color,
+      distractions,
     });
     setIsRunning(false);
   }
@@ -236,6 +246,11 @@ export function TimerProvider({ children }) {
     const safeSubjectName =
       trimString(pendingSession.subjectName, SESSION_LIMITS.SUBJECT_NAME_MAX) ||
       pendingSession.subjectName;
+    const safeDistractions = Math.max(0, Math.floor(
+      typeof details.distractions === 'number'
+        ? details.distractions
+        : pendingSession.distractions || 0
+    ));
     const newSession = {
       id: Date.now(),
       subjectId: pendingSession.subjectId,
@@ -245,6 +260,7 @@ export function TimerProvider({ children }) {
       durationSeconds: safeSeconds,
       focusRating: safeRating,
       notes: safeNotes,
+      distractions: safeDistractions,
       date: localDateString(),
     };
 
@@ -254,12 +270,14 @@ export function TimerProvider({ children }) {
 
     setPendingSession(null);
     setSecondsElapsed(0);
+    setDistractions(0);
   }
 
   function discardSession() {
     setPendingSession(null);
     setSecondsElapsed(0);
     setStartEpochMs(null);
+    setDistractions(0);
   }
 
   const value = {
@@ -270,6 +288,7 @@ export function TimerProvider({ children }) {
     error,
     pendingSession,
     liveMessage,
+    distractions, logDistraction,
     start, pause, reset, endSession,
     saveSession, discardSession,
   };

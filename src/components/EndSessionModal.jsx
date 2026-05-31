@@ -54,6 +54,9 @@ export default function EndSessionModal(props) {
   const [date, setDate] = useState(props.initialDate || todayISO());
   const [hours, setHours] = useState(trackedHM.hours);
   const [minutes, setMinutes] = useState(trackedHM.minutes);
+  const [distractions, setDistractions] = useState(
+    Math.max(0, Math.floor(Number(props.initialDistractions) || 0))
+  );
 
   const isOverridden =
     hours !== trackedHM.hours || minutes !== trackedHM.minutes;
@@ -65,10 +68,12 @@ export default function EndSessionModal(props) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    const payload = { focusRating: rating, notes: notes.trim() };
+    const payload = {
+      focusRating: rating,
+      notes: notes.trim(),
+      distractions,
+    };
     if (props.showDateField) payload.date = date;
-    // Only send a duration override when the user actually edited the
-    // inputs — otherwise we preserve the timer's second-level precision.
     if (isOverridden) {
       const overrideSeconds = Math.max(1, hours * 3600 + minutes * 60);
       payload.durationSeconds = overrideSeconds;
@@ -165,6 +170,38 @@ export default function EndSessionModal(props) {
               1 = distracted, 5 = deep focus
             </Form.Text>
           </fieldset>
+
+          <Form.Group controlId="session-distractions" className="mb-4">
+            <Form.Label>
+              Distractions <span className="text-muted small">(times you got pulled away)</span>
+            </Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Button
+                type="button"
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setDistractions(d => Math.max(0, d - 1))}
+                disabled={distractions === 0}
+                aria-label="Decrease distractions"
+              >−</Button>
+              <Form.Control
+                type="number"
+                min="0"
+                max="99"
+                value={distractions}
+                onChange={e => setDistractions(clampInt(e.target.value, 0, 99))}
+                style={{ width: 80, textAlign: 'center' }}
+                aria-label="Distraction count"
+              />
+              <Button
+                type="button"
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setDistractions(d => Math.min(99, d + 1))}
+                aria-label="Increase distractions"
+              >+</Button>
+            </div>
+          </Form.Group>
 
           <Form.Group controlId="session-notes">
             <Form.Label>

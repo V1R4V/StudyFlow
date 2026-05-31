@@ -41,5 +41,5 @@ serviceAccountKey.json
 *-service-account*.json
 
 # Vercel local metadata (keep vercel.json in repo)
-.vercel/
+.vercel
 firestore.rules

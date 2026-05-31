@@ -21,7 +21,7 @@ export default function WeeklyTrendCard(props) {
 
   return (
     <Card className="h-100 sf-card-panel">
-      <Card.Body>
+      <Card.Body className="sf-panel-body">
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h2 className="h5 mb-0">Weekly Trend</h2>
         </div>
@@ -66,7 +66,7 @@ export default function WeeklyTrendCard(props) {
           })}
         </svg>
 
-        <Row className="mt-3 pt-3 border-top">
+        <Row className="mt-auto pt-3 border-top">
           <Col>
             <div className="text-muted small" style={{ letterSpacing: 0.5 }}>
               DAILY AVG

@@ -17,6 +17,7 @@ export default function Layout() {
           show={true}
           minutes={pendingSession.minutes}
           seconds={pendingSession.seconds}
+          initialDistractions={pendingSession.distractions}
           onSave={saveSession}
           onDiscard={discardSession}
         />

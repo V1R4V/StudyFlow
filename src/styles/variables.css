@@ -70,6 +70,10 @@
   --card-overview-border: rgba(59, 130, 246, 0.32);
   --canvas-glow-1: rgba(59, 130, 246, 0.18);
   --canvas-glow-2: rgba(14, 116, 144, 0.16);
+
+  /* Floating chart tooltip — inverted in dark mode so it pops on either bg. */
+  --tooltip-bg: #1f2937;
+  --tooltip-fg: #ffffff;
 }
 
 /* ==========================================================================
@@ -107,6 +111,10 @@
   --card-overview-border: rgba(107, 123, 255, 0.38);
   --canvas-glow-1: rgba(107, 123, 255, 0.26);
   --canvas-glow-2: rgba(20, 184, 166, 0.16);
+
+  /* Light pill on the dark canvas — readable and high-contrast. */
+  --tooltip-bg: #f3f4f6;
+  --tooltip-fg: #0e0e10;
 }
 
 /* ==========================================================================

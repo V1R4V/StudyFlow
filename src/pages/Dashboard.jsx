@@ -194,14 +194,34 @@ export default function Dashboard() {
 
   const focusTitle = isToday ? "Today's Focus" : 'Focus';
   const sessionsTitle = isToday ? 'Sessions Today' : 'Sessions';
+
+  // Streak subtitle — green when there's an active streak, muted otherwise.
   const streakSubtitle = isToday
     ? streak > 0 ? 'Active days in a row' : 'Study today to start'
     : streak > 0
     ? `Streak as of ${relativeLabel(selectedDate, todayStr)}`
     : 'No streak on this day';
+  const streakSubtitleColor = streak > 0
+    ? 'var(--success-text)'
+    : 'var(--muted-strong)';
+
+  // Sessions subtitle — green when the daily goal is hit, primary while in
+  // progress, muted when nothing logged yet.
+  const sessionsSubtitle = `${Math.min(100, goalPct)}% of daily goal`;
+  let sessionsSubtitleColor = 'var(--muted-strong)';
+  if (sessionsToday > 0) {
+    sessionsSubtitleColor = goalPct >= 100 ? 'var(--success-text)' : 'var(--primary)';
+  }
+
   const weeklySubtitle = totalWeeklyGoalHours > 0
     ? `${weeklyPct}% of weekly target`
     : 'Set goals on Subjects';
+  let weeklySubtitleColor = 'var(--muted-strong)';
+  if (totalWeeklyGoalHours > 0) {
+    if (weeklyPct >= 100) weeklySubtitleColor = 'var(--success-text)';
+    else if (weeklyPct >= 50) weeklySubtitleColor = 'var(--primary)';
+    else if (weeklyPct < 25 && sundayOffset >= 4) weeklySubtitleColor = 'var(--danger-text)';
+  }
 
   // Friendly explanation surfaced via the info button on the Weekly Goal tile.
   const weekEndStr = shiftDateStr(weekStartStr, 6);
@@ -293,6 +313,7 @@ export default function Dashboard() {
             iconBg="rgba(245, 158, 11, 0.15)"
             iconColor="var(--warning-text)"
             subtitle={streakSubtitle}
+            subtitleColor={streakSubtitleColor}
           />
         </Col>
         <Col md={6} lg={3}>
@@ -302,7 +323,8 @@ export default function Dashboard() {
             icon={<IconCheck />}
             iconBg="rgba(16, 185, 129, 0.15)"
             iconColor="var(--success-text)"
-            subtitle={`${Math.min(100, goalPct)}% of daily goal`}
+            subtitle={sessionsSubtitle}
+            subtitleColor={sessionsSubtitleColor}
           />
         </Col>
         <Col md={6} lg={3}>
@@ -314,6 +336,7 @@ export default function Dashboard() {
             iconBg="rgba(124, 58, 237, 0.12)"
             iconColor="#7c3aed"
             subtitle={weeklySubtitle}
+            subtitleColor={weeklySubtitleColor}
             info={weeklyInfoText}
             infoTitle="How this is counted"
           />

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Container, Card, Form, Table, Button, Row, Col, Badge } from 'react-bootstrap';
+import { useMemo, useRef, useState } from 'react';
+import { Container, Card, Form, Table, Button, Row, Col, Badge, Alert } from 'react-bootstrap';
 import EndSessionModal from '../components/EndSessionModal';
 import { useStudyData } from '../context/StudyDataContext';
 import { sessionMatchesSubject, localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
@@ -43,6 +43,95 @@ function formatDuration(seconds) {
 
 function formatHours(minutes) {
   return (minutes / 60).toFixed(1);
+}
+
+// ---------- CSV serialization helpers ----------
+
+const CSV_COLUMNS = [
+  'date',
+  'subject',
+  'duration_minutes',
+  'duration_seconds',
+  'focus_rating',
+  'notes',
+  'distractions',
+];
+
+function escapeCsv(value) {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function sessionsToCsv(rows) {
+  const header = CSV_COLUMNS.join(',');
+  const body = rows
+    .map(s => {
+      const seconds = typeof s.durationSeconds === 'number'
+        ? s.durationSeconds
+        : (Number(s.duration) || 0) * 60;
+      const cells = [
+        s.date || '',
+        s.subjectName || '',
+        Math.round(seconds / 60),
+        seconds,
+        s.focusRating ?? '',
+        s.notes || '',
+        s.distractions ?? '',
+      ];
+      return cells.map(escapeCsv).join(',');
+    })
+    .join('\n');
+  return `${header}\n${body}\n`;
+}
+
+// Tiny CSV parser tolerant to quoted fields and embedded commas. Throws on
+// malformed quoting so the caller can surface a useful error.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let i = 0;
+  let inQuotes = false;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || (row.length === 1 && row[0] !== '')) rows.push(row);
+      row = []; i++; continue;
+    }
+    field += c; i++;
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function triggerDownload(filename, text) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function Stars({ rating }) {
@@ -147,7 +236,7 @@ function groupLabel(key, grouping) {
 }
 
 export default function Sessions() {
-  const { subjects, sessions, updateSession, deleteSession } = useStudyData();
+  const { subjects, sessions, updateSession, deleteSession, addSession } = useStudyData();
   const todayStr = localDateString();
   const [filterSubject, setFilterSubject] = useState('all');
   const [dateRange, setDateRange] = useState('all');
@@ -155,10 +244,129 @@ export default function Sessions() {
   const [customEnd, setCustomEnd] = useState(todayStr);
   const [grouping, setGrouping] = useState('none');
   const [editing, setEditing] = useState(null);
+  const [importStatus, setImportStatus] = useState(null); // { type, text }
+  const fileInputRef = useRef(null);
 
   function handleDelete(id) {
     if (!window.confirm('Delete this session?')) return;
     deleteSession(id);
+  }
+
+  function handleExport() {
+    const rows = filtered.length > 0 ? filtered : sessions;
+    const filename = `studyflow-sessions-${todayStr}.csv`;
+    triggerDownload(filename, sessionsToCsv(rows));
+    setImportStatus({
+      type: 'success',
+      text: `Exported ${rows.length} ${rows.length === 1 ? 'session' : 'sessions'} to ${filename}.`,
+    });
+  }
+
+  async function handleImportFile(file) {
+    if (!file) return;
+    setImportStatus(null);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) {
+        setImportStatus({ type: 'danger', text: 'CSV is empty.' });
+        return;
+      }
+      const header = rows[0].map(h => h.trim().toLowerCase());
+      const colIdx = {
+        date: header.indexOf('date'),
+        subject: header.indexOf('subject'),
+        durationMin: header.indexOf('duration_minutes'),
+        durationSec: header.indexOf('duration_seconds'),
+        focus: header.indexOf('focus_rating'),
+        notes: header.indexOf('notes'),
+        distractions: header.indexOf('distractions'),
+      };
+      if (colIdx.date < 0 || colIdx.subject < 0) {
+        setImportStatus({
+          type: 'danger',
+          text: 'CSV must include "date" and "subject" columns. Export a file to see the expected format.',
+        });
+        return;
+      }
+
+      // Build a case-insensitive subject name → subject lookup.
+      const subjectByName = new Map();
+      subjects.forEach(s => subjectByName.set(s.name.trim().toLowerCase(), s));
+
+      let imported = 0;
+      let skipped = 0;
+      const skippedReasons = new Set();
+
+      // Process rows sequentially — addSession may write to Firestore.
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i];
+        if (!cells || cells.every(c => !c || !c.trim())) continue;
+        const date = (cells[colIdx.date] || '').trim();
+        const subjectName = (cells[colIdx.subject] || '').trim();
+        if (!date || !subjectName) {
+          skipped += 1;
+          skippedReasons.add('missing date or subject');
+          continue;
+        }
+        const subj = subjectByName.get(subjectName.toLowerCase());
+        if (!subj) {
+          skipped += 1;
+          skippedReasons.add(`unknown subject "${subjectName}"`);
+          continue;
+        }
+        const seconds = colIdx.durationSec >= 0 && cells[colIdx.durationSec]
+          ? Math.max(1, Math.floor(Number(cells[colIdx.durationSec])))
+          : colIdx.durationMin >= 0 && cells[colIdx.durationMin]
+          ? Math.max(1, Math.floor(Number(cells[colIdx.durationMin])) * 60)
+          : 0;
+        if (!seconds) {
+          skipped += 1;
+          skippedReasons.add('missing duration');
+          continue;
+        }
+        const focus = colIdx.focus >= 0 && cells[colIdx.focus]
+          ? Math.max(1, Math.min(5, Math.round(Number(cells[colIdx.focus]))))
+          : 4;
+        const notes = colIdx.notes >= 0 ? (cells[colIdx.notes] || '').trim() : '';
+        const distractions = colIdx.distractions >= 0 && cells[colIdx.distractions]
+          ? Math.max(0, Math.floor(Number(cells[colIdx.distractions])))
+          : 0;
+
+        const newSession = {
+          id: Date.now() + i,
+          subjectId: String(subj.firestoreId ?? subj.id),
+          subjectName: subj.name,
+          subjectColor: subj.color,
+          duration: Math.max(1, Math.ceil(seconds / 60)),
+          durationSeconds: seconds,
+          focusRating: focus,
+          notes,
+          distractions,
+          date,
+        };
+        // eslint-disable-next-line no-await-in-loop
+        await addSession(subj.id, newSession);
+        imported += 1;
+      }
+
+      const reasonText = skippedReasons.size > 0
+        ? ` Skipped reasons: ${[...skippedReasons].join('; ')}.`
+        : '';
+      setImportStatus({
+        type: imported > 0 ? 'success' : 'warning',
+        text: `Imported ${imported} ${imported === 1 ? 'session' : 'sessions'}${
+          skipped > 0 ? `, skipped ${skipped}.` : '.'
+        }${reasonText}`,
+      });
+    } catch (err) {
+      setImportStatus({
+        type: 'danger',
+        text: `Couldn't parse CSV: ${err.message || 'unknown error'}.`,
+      });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   }
 
   function handleEditSave(details) {
@@ -166,6 +374,7 @@ export default function Sessions() {
       focusRating: details.focusRating,
       notes: details.notes,
       date: details.date,
+      distractions: typeof details.distractions === 'number' ? details.distractions : 0,
     };
     if (typeof details.durationSeconds === 'number') {
       updates.durationSeconds = details.durationSeconds;
@@ -246,6 +455,13 @@ export default function Sessions() {
         </td>
         <td>{formatDuration(getSessionSeconds(s))}</td>
         <td><Stars rating={s.focusRating} /></td>
+        <td className="text-center">
+          {Number(s.distractions) > 0 ? (
+            <Badge bg="warning" text="dark">{s.distractions}</Badge>
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+        </td>
         <td style={{ maxWidth: 280 }}>
           {s.notes ? (
             <span title={s.notes}>
@@ -279,12 +495,50 @@ export default function Sessions() {
 
   return (
     <Container fluid className="sf-page">
-      <div className="mb-4">
-        <h1 className="mb-1">Sessions</h1>
-        <p className="text-muted mb-0">
-          Full session history. Edit ratings or notes anytime.
-        </p>
+      <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+          <h1 className="mb-1">Sessions</h1>
+          <p className="text-muted mb-0">
+            Full session history. Edit ratings or notes anytime.
+          </p>
+        </div>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={handleExport}
+            disabled={sessions.length === 0}
+            title="Download the current filter as CSV (or all sessions if no filter is active)"
+          >
+            ⬇ Export CSV
+          </Button>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            ⬆ Import CSV
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={e => handleImportFile(e.target.files?.[0])}
+          />
+        </div>
       </div>
+
+      {importStatus && (
+        <Alert
+          variant={importStatus.type}
+          onClose={() => setImportStatus(null)}
+          dismissible
+          className="mb-3"
+        >
+          {importStatus.text}
+        </Alert>
+      )}
 
       <Card className="mb-3">
         <Card.Body className="py-3">
@@ -425,6 +679,7 @@ export default function Sessions() {
                 <th>Subject</th>
                 <th>Duration</th>
                 <th>Focus</th>
+                <th className="text-center">Distractions</th>
                 <th>Notes</th>
                 <th className="text-end">Actions</th>
               </tr>
@@ -466,6 +721,7 @@ export default function Sessions() {
           initialRating={editing.focusRating}
           initialNotes={editing.notes}
           initialDate={editing.date}
+          initialDistractions={editing.distractions || 0}
           showDateField={true}
           saveLabel="Save changes"
           discardLabel="Cancel"

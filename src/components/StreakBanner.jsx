@@ -15,11 +15,41 @@ const IconFlame = () => (
   </svg>
 );
 
+// Sleeping moon with z's — reads as "no streak right now" without looking
+// like a broken flame icon.
+const IconSleeping = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 20 20"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ color: 'var(--text-light)', verticalAlign: 'text-bottom' }}
+    aria-hidden="true"
+  >
+    <path d="M15 11.5A6 6 0 1 1 8.5 5a4.5 4.5 0 0 0 6.5 6.5z" />
+    <path d="M14.5 3.5h2.5l-2.5 2.5h2.5" />
+  </svg>
+);
+
 export default function StreakBanner(props) {
   if (props.streak <= 0) {
     return (
-      <p style={{ color: 'var(--muted-strong)', fontSize: '0.9rem' }} className="mb-0">
-        Start a session today to begin your streak.
+      <p
+        style={{
+          color: 'var(--muted-strong)',
+          fontSize: '0.9rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+        }}
+        className="mb-0"
+      >
+        <IconSleeping />
+        <span>Start a session today to begin your streak.</span>
       </p>
     );
   }
