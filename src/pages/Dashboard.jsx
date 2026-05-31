@@ -147,7 +147,11 @@ export default function Dashboard() {
     return result;
   }, [sessions, selectedDate]);
 
-  const weekStartStr = shiftDateStr(selectedDate, -6);
+  // Sunday-anchored week: aggregation resets every Sunday at 00:00.
+  // weekStart = most recent Sunday on or before selectedDate.
+  const selectedDayObj = new Date(`${selectedDate}T00:00:00`);
+  const sundayOffset = selectedDayObj.getDay(); // 0 (Sun) … 6 (Sat)
+  const weekStartStr = shiftDateStr(selectedDate, -sundayOffset);
   const thisWeekMinutes = sessions
     .filter(s => s.date >= weekStartStr && s.date <= selectedDate)
     .reduce((acc, s) => acc + getSessionMinutes(s), 0);
@@ -198,6 +202,16 @@ export default function Dashboard() {
   const weeklySubtitle = totalWeeklyGoalHours > 0
     ? `${weeklyPct}% of weekly target`
     : 'Set goals on Subjects';
+
+  // Friendly explanation surfaced via the info button on the Weekly Goal tile.
+  const weekEndStr = shiftDateStr(weekStartStr, 6);
+  const fmtRange = d => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+  const weeklyInfoText = totalWeeklyGoalHours > 0
+    ? `Counts focus time from Sunday through Saturday. Current week: ${fmtRange(weekStartStr)} – ${fmtRange(weekEndStr)}. Resets every Sunday at midnight.`
+    : `Counts focus time from Sunday through Saturday and resets every Sunday at midnight. Set weekly goals on the Subjects page to see a target here.`;
 
   return (
     <Container fluid className="sf-page">
@@ -293,13 +307,15 @@ export default function Dashboard() {
         </Col>
         <Col md={6} lg={3}>
           <StatsCard
-            title={isToday ? 'Weekly Goal' : '7-Day Volume'}
+            title={isToday ? 'Weekly Goal' : 'Weekly Progress'}
             value={thisWeekHours.toFixed(1)}
             unit={totalWeeklyGoalHours > 0 ? `/ ${totalWeeklyGoalHours}h` : 'hrs'}
             icon={<IconTarget />}
             iconBg="rgba(124, 58, 237, 0.12)"
             iconColor="#7c3aed"
             subtitle={weeklySubtitle}
+            info={weeklyInfoText}
+            infoTitle="How this is counted"
           />
         </Col>
       </Row>

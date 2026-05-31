@@ -1,13 +1,45 @@
-import { Card } from 'react-bootstrap';
+import { Card, OverlayTrigger, Popover } from 'react-bootstrap';
+
+const IconInfo = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="8" cy="8" r="6.5" />
+    <path d="M8 7v4" />
+    <circle cx="8" cy="5" r="0.6" fill="currentColor" stroke="none" />
+  </svg>
+);
 
 export default function StatsCard(props) {
+  const titleNode = (
+    <span className="text-muted small d-inline-flex align-items-center gap-1" style={{ fontWeight: 600, letterSpacing: '0.02em' }}>
+      {props.title}
+      {props.info && (
+        <OverlayTrigger
+          trigger={['hover', 'focus']}
+          placement="top"
+          overlay={
+            <Popover className="sf-info-popover">
+              {props.infoTitle && <Popover.Header as="h3">{props.infoTitle}</Popover.Header>}
+              <Popover.Body>{props.info}</Popover.Body>
+            </Popover>
+          }
+        >
+          <button
+            type="button"
+            className="sf-info-btn"
+            aria-label={`About ${props.title}`}
+          >
+            <IconInfo />
+          </button>
+        </OverlayTrigger>
+      )}
+    </span>
+  );
+
   return (
     <Card className="h-100 sf-card-kpi">
       <Card.Body>
         <div className="d-flex justify-content-between align-items-start mb-3">
-          <span className="text-muted small" style={{ fontWeight: 600, letterSpacing: '0.02em' }}>
-            {props.title}
-          </span>
+          {titleNode}
           <div
             className="sf-stats-icon"
             style={{

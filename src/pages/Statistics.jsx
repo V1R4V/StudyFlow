@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Container, Row, Col, Card, Form, Button, ButtonGroup } from 'react-bootstrap';
 import { useStudyData } from '../context/StudyDataContext';
 import {
@@ -275,11 +275,16 @@ function DonutChart({ items, totalLabel, totalValue }) {
 // Daily activity bars across `startDate..endDate` (inclusive).
 // Label cadence scales so axes stay readable from 7d to multi-year ranges.
 function DailyActivityChart({ sessions, startDate, days }) {
+  const wrapRef = useRef(null);
+  const [hover, setHover] = useState(null);
+
   const data = useMemo(() => {
     const start = new Date(`${startDate}T00:00:00`).getTime();
     const byDate = new Map();
+    const countByDate = new Map();
     sessions.forEach(s => {
       byDate.set(s.date, (byDate.get(s.date) || 0) + getSessionMinutes(s));
+      countByDate.set(s.date, (countByDate.get(s.date) || 0) + 1);
     });
     const result = [];
     for (let i = 0; i < days; i++) {
@@ -288,6 +293,7 @@ function DailyActivityChart({ sessions, startDate, days }) {
       result.push({
         date: dateStr,
         minutes: byDate.get(dateStr) || 0,
+        sessions: countByDate.get(dateStr) || 0,
         day: d.getDate(),
         month: d.getMonth() + 1,
       });
@@ -308,59 +314,112 @@ function DailyActivityChart({ sessions, startDate, days }) {
   const barWidth = Math.max(1, (chartWidth - gap * (days - 1)) / days);
   const gridFractions = [0.25, 0.5, 0.75, 1];
 
+  // Translate the bar's SVG x position back into a pixel offset within the
+  // wrapper so the tooltip floats above the correct bar regardless of how the
+  // SVG scaled to fill its column.
+  function showTooltip(d, barIndex) {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const totalSvgWidth = chartWidth;
+    const xRatio = (barIndex * (barWidth + gap) + barWidth / 2) / totalSvgWidth;
+    const left = xRatio * rect.width;
+    const top = (1 - (max > 0 ? d.minutes / max : 0)) * (chartHeight / (chartHeight + 28)) * rect.height;
+    setHover({
+      date: d.date,
+      minutes: d.minutes,
+      sessions: d.sessions,
+      left,
+      top: Math.max(top, 0),
+    });
+  }
+
   return (
-    <svg
-      viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`}
-      width="100%"
-      role="img"
-      aria-label={`Daily study minutes from ${startDate} for ${days} days`}
-    >
-      {gridFractions.map(p => (
-        <line
-          key={p}
-          x1={0}
-          x2={chartWidth}
-          y1={chartHeight - chartHeight * p}
-          y2={chartHeight - chartHeight * p}
-          stroke="var(--border-color)"
-          strokeWidth={0.5}
-          strokeDasharray="2 4"
-        />
-      ))}
-      {data.map((d, i) => {
-        const h = max > 0 ? (d.minutes / max) * chartHeight : 0;
-        const x = i * (barWidth + gap);
-        const y = chartHeight - h;
-        const isToday = i === days - 1;
-        const showLabel = i === days - 1 || i === 0 || i % labelEvery === 0;
-        return (
-          <g key={i}>
-            <title>{`${d.date}: ${formatDurationMinutes(d.minutes)}`}</title>
-            <rect
-              x={x}
-              y={y}
-              width={barWidth}
-              height={Math.max(h, 2)}
-              rx={Math.min(3, barWidth / 2)}
-              fill="var(--primary)"
-              opacity={d.minutes > 0 ? (isToday ? 1 : 0.7) : 0.15}
-            />
-            {showLabel && barWidth > 6 && (
-              <text
-                x={x + barWidth / 2}
-                y={chartHeight + 18}
-                textAnchor="middle"
-                fontSize="10"
-                fontWeight="600"
-                fill="var(--text-light)"
-              >
-                {labelEvery >= 7 ? `${d.month}/${d.day}` : d.day}
-              </text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
+    <div ref={wrapRef} className="sf-chart-wrap">
+      <svg
+        viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`}
+        width="100%"
+        role="img"
+        aria-label={`Daily study minutes from ${startDate} for ${days} days`}
+        onMouseLeave={() => setHover(null)}
+      >
+        {gridFractions.map(p => (
+          <line
+            key={p}
+            x1={0}
+            x2={chartWidth}
+            y1={chartHeight - chartHeight * p}
+            y2={chartHeight - chartHeight * p}
+            stroke="var(--border-color)"
+            strokeWidth={0.5}
+            strokeDasharray="2 4"
+          />
+        ))}
+        {data.map((d, i) => {
+          const h = max > 0 ? (d.minutes / max) * chartHeight : 0;
+          const x = i * (barWidth + gap);
+          const y = chartHeight - h;
+          const isToday = i === days - 1;
+          const isHovered = hover && hover.date === d.date;
+          const showLabel = i === days - 1 || i === 0 || i % labelEvery === 0;
+          return (
+            <g key={i}>
+              {/* Wider transparent hit area so thin bars are still hoverable. */}
+              <rect
+                x={x - gap / 2}
+                y={0}
+                width={barWidth + gap}
+                height={chartHeight}
+                fill="transparent"
+                onMouseEnter={() => showTooltip(d, i)}
+                onMouseMove={() => showTooltip(d, i)}
+                style={{ cursor: 'pointer' }}
+              />
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={Math.max(h, 2)}
+                rx={Math.min(3, barWidth / 2)}
+                fill="var(--primary)"
+                opacity={d.minutes > 0 ? (isHovered ? 1 : isToday ? 1 : 0.7) : 0.15}
+                style={{ transition: 'opacity 0.12s ease' }}
+                pointerEvents="none"
+              />
+              {showLabel && barWidth > 6 && (
+                <text
+                  x={x + barWidth / 2}
+                  y={chartHeight + 18}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fontWeight="600"
+                  fill="var(--text-light)"
+                  pointerEvents="none"
+                >
+                  {labelEvery >= 7 ? `${d.month}/${d.day}` : d.day}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      {hover && (
+        <div
+          className="sf-chart-tooltip"
+          style={{ left: hover.left, top: hover.top }}
+        >
+          <span className="sf-chart-tooltip-date">{formatPrettyDate(hover.date)}</span>
+          <span className="sf-chart-tooltip-value">
+            {hover.minutes > 0 ? formatDurationMinutes(hover.minutes) : 'No focus time'}
+          </span>
+          {hover.sessions > 0 && (
+            <span className="sf-chart-tooltip-sub">
+              {hover.sessions} {hover.sessions === 1 ? 'session' : 'sessions'}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -439,6 +498,8 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
   const cellStride = cellSize + cellGap;
   const leftPad = 28;
   const topPad = 18;
+  const wrapRef = useRef(null);
+  const [hover, setHover] = useState(null);
 
   const { weeks, monthLabels, totalMinutes, activeDays } = useMemo(() => {
     const today = new Date(`${todayStr}T00:00:00`);
@@ -516,8 +577,21 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
     { row: 4, label: 'Fri' },
   ];
 
+  // Cell hover -> floating tooltip with a friendly date and a comparison line.
+  function handleCellHover(day, wIdx, dIdx) {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const svgEl = wrap.querySelector('svg');
+    const svgRect = svgEl ? svgEl.getBoundingClientRect() : rect;
+    const scale = svgRect.width / chartWidth;
+    const left = (svgRect.left - rect.left) + (leftPad + wIdx * cellStride + cellSize / 2) * scale;
+    const top = (svgRect.top - rect.top) + (topPad + dIdx * cellStride) * scale;
+    setHover({ ...day, left, top });
+  }
+
   return (
-    <div>
+    <div ref={wrapRef} className="sf-chart-wrap">
       <div style={{ overflowX: 'auto' }}>
         <svg
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -525,6 +599,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
           style={{ minWidth: 720 }}
           role="img"
           aria-label="Activity heatmap for the last 52 weeks"
+          onMouseLeave={() => setHover(null)}
         >
           {monthLabels.map((m, i) => (
             <text
@@ -556,17 +631,15 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
               const y = topPad + dIdx * cellStride;
               const opacity = opacityFor(day.minutes);
               const isClickable = !day.isFuture;
+              const isHovered = hover && hover.date === day.date;
               return (
                 <g
                   key={`${wIdx}-${dIdx}`}
                   style={{ cursor: isClickable ? 'pointer' : 'default' }}
                   onClick={() => isClickable && onPickDay && onPickDay(day.date)}
+                  onMouseEnter={() => handleCellHover(day, wIdx, dIdx)}
+                  onMouseMove={() => handleCellHover(day, wIdx, dIdx)}
                 >
-                  <title>
-                    {day.isFuture
-                      ? day.date
-                      : `${day.date} · ${formatDurationMinutes(day.minutes)}`}
-                  </title>
                   <rect
                     x={x}
                     y={y}
@@ -574,8 +647,8 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
                     height={cellSize}
                     rx={2}
                     fill="var(--bg-light)"
-                    stroke="var(--border-color)"
-                    strokeWidth={0.5}
+                    stroke={isHovered ? 'var(--primary)' : 'var(--border-color)'}
+                    strokeWidth={isHovered ? 1.25 : 0.5}
                   />
                   {opacity > 0 && (
                     <rect
@@ -586,6 +659,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
                       rx={2}
                       fill="var(--primary)"
                       opacity={opacity}
+                      pointerEvents="none"
                     />
                   )}
                 </g>
@@ -594,6 +668,26 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay }) {
           )}
         </svg>
       </div>
+      {hover && (
+        <div
+          className="sf-chart-tooltip"
+          style={{ left: hover.left, top: hover.top }}
+        >
+          <span className="sf-chart-tooltip-date">{formatPrettyDate(hover.date)}</span>
+          <span className="sf-chart-tooltip-value">
+            {hover.isFuture
+              ? 'Upcoming'
+              : hover.minutes > 0
+              ? formatDurationMinutes(hover.minutes)
+              : 'No focus time'}
+          </span>
+          {!hover.isFuture && (
+            <span className="sf-chart-tooltip-sub">
+              {hover.date === todayStr ? 'Today · click to inspect' : 'Click to inspect'}
+            </span>
+          )}
+        </div>
+      )}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 small text-muted">
         <span>
           {activeDays} active {activeDays === 1 ? 'day' : 'days'} ·{' '}
