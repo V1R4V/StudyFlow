@@ -1,0 +1,41 @@
+[1mdiff --git a/README.md b/README.md[m
+[1mindex b54d047..62a1ad9 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -27,6 +27,36 @@[m [mAfter each session, users are prompted to rate their focus on a scale from 1 to[m
+ - Study streak tracking[m
+ - Calendar heatmap that displays daily study activity[m
+ [m
+[32m+[m[32m## Get Started[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mTo start counting visitors and page views, follow these steps.[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mReact[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32m1. Install our package[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mStart by installing `@vercel/analytics` in your existing project.[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32m```bash[m[41m[m
+[32m+[m[32mnpm i @vercel/analytics[m[41m[m
+[32m+[m[32m```[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32m2. Add the React component[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mImport and use the `Analytics` React component in your app root.[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32m```js[m[41m[m
+[32m+[m[32mimport { Analytics } from '@vercel/analytics/react';[m[41m[m
+[32m+[m[32m```[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mFor full examples and further reference, please refer to the [documentation](https://vercel.com/docs/analytics/quickstart?framework=react).[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32m3. Deploy & Visit your Site[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mDeploy your changes and visit the deployment to collect your page views.[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mIf you don't see data after 30 seconds, please check for content blockers and try to navigate between pages on your site.[m[41m[m
+[32m+[m[41m[m
+ ## Technology Stack[m
+ [m
+ - **Frontend:** React with functional components and hooks[m
