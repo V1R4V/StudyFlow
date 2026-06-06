@@ -96,7 +96,7 @@ export default function Login() {
 
   return (
     <div className="sf-login-bg">
-      {/* Theme toggle — fixed top-right corner of viewport */}
+      {/* Theme toggle, fixed top-right corner of viewport */}
       <button
         onClick={toggleTheme}
         className="sf-theme-toggle sf-theme-toggle-fixed"

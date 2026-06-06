@@ -1,6 +1,6 @@
 import { Card } from 'react-bootstrap';
 
-// Headline metric card — matches the Statistics page vocabulary
+// Headline metric card, matches the Statistics page vocabulary
 // (section label + big numeral + optional subline / delta) so KPI rows read
 // consistently across the app.
 export default function KpiCard({ label, value, sub, delta }) {

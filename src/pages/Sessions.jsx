@@ -46,7 +46,7 @@ function formatHours(minutes) {
   return (minutes / 60).toFixed(1);
 }
 
-// "1h 23m" / "23m" — compact, used in KPI sublines.
+// "1h 23m" / "23m", compact, used in KPI sublines.
 function formatMinsShort(minutes) {
   const mins = Math.max(0, Math.round(minutes));
   if (mins < 60) return `${mins}m`;
@@ -308,7 +308,7 @@ export default function Sessions() {
       let skipped = 0;
       const skippedReasons = new Set();
 
-      // Process rows sequentially — addSession may write to Firestore.
+      // Process rows sequentially, addSession may write to Firestore.
       for (let i = 1; i < rows.length; i++) {
         const cells = rows[i];
         if (!cells || cells.every(c => !c || !c.trim())) continue;
@@ -406,13 +406,13 @@ export default function Sessions() {
   }, [sessions, filterSubject, rangeStart, rangeEnd]);
 
   // Summary across the current filter so the user sees the impact of their
-  // selection at a glance — no need to add up rows in their head.
+  // selection at a glance, no need to add up rows in their head.
   const summary = useMemo(() => {
     const count = filtered.length;
     const totalMin = filtered.reduce((acc, s) => acc + getSessionMinutes(s), 0);
     const avgFocus = count > 0
       ? (filtered.reduce((acc, s) => acc + (s.focusRating || 0), 0) / count).toFixed(1)
-      : '—';
+      : '–';
     const avgSessionMin = count > 0 ? totalMin / count : 0;
     const longestSec = filtered.reduce((m, s) => Math.max(m, getSessionSeconds(s)), 0);
     const highFocus = filtered.filter(s => (s.focusRating || 0) >= 4).length;
@@ -420,7 +420,46 @@ export default function Sessions() {
     return { count, totalMin, avgFocus, avgSessionMin, longestSec, highFocus, activeDays };
   }, [filtered]);
 
-  // For grouped views — bucket by day/week/month with a per-bucket total.
+  // Session-cadence snapshot for the KPI row. Deliberately scoped to ALL
+  // sessions (not the filter) and centered on session *rhythm* (count, daily
+  // habit, weekly momentum) so this page complements the Statistics page,
+  // which owns time totals and focus-depth analytics, instead of repeating it.
+  const sessionStats = useMemo(() => {
+    const total = sessions.length;
+    const byDate = new Map();
+    for (const s of sessions) byDate.set(s.date, (byDate.get(s.date) || 0) + 1);
+    const activeDays = byDate.size;
+
+    const todayCount = byDate.get(todayStr) || 0;
+    const todayMin = sessions
+      .filter(s => s.date === todayStr)
+      .reduce((acc, s) => acc + getSessionMinutes(s), 0);
+
+    const { start: wkStart, end: wkEnd } = weekBoundsFor(todayStr);
+    const lastWkStart = shiftDateStr(wkStart, -7);
+    const lastWkEnd = shiftDateStr(wkEnd, -7);
+    let thisWeek = 0;
+    let lastWeek = 0;
+    for (const s of sessions) {
+      if (s.date >= wkStart && s.date <= wkEnd) thisWeek += 1;
+      else if (s.date >= lastWkStart && s.date <= lastWkEnd) lastWeek += 1;
+    }
+
+    const avgPerActiveDay = activeDays > 0 ? total / activeDays : 0;
+
+    let bestDate = null;
+    let bestCount = 0;
+    for (const [date, count] of byDate) {
+      if (count > bestCount) { bestCount = count; bestDate = date; }
+    }
+
+    return {
+      total, activeDays, todayCount, todayMin,
+      thisWeek, lastWeek, avgPerActiveDay, bestDate, bestCount,
+    };
+  }, [sessions, todayStr]);
+
+  // For grouped views: bucket by day/week/month with a per-bucket total.
   const grouped = useMemo(() => {
     if (grouping === 'none') return null;
     const map = new Map();
@@ -435,7 +474,7 @@ export default function Sessions() {
       const avgFocus = items.length > 0
         ? items.reduce((acc, s) => acc + (s.focusRating || 0), 0) / items.length
         : 0;
-      // Subject color mix, ordered by time spent — a quick read on what a
+      // Subject color mix, ordered by time spent, a quick read on what a
       // week/month was actually about.
       const byColor = new Map();
       items.forEach(s => {
@@ -492,7 +531,7 @@ export default function Sessions() {
           {Number(s.distractions) > 0 ? (
             <Badge bg="warning" text="dark">{s.distractions}</Badge>
           ) : (
-            <span className="text-muted">—</span>
+            <span className="text-muted">–</span>
           )}
         </td>
         <td style={{ maxWidth: 280 }}>
@@ -680,54 +719,55 @@ export default function Sessions() {
       <Row className="g-3 mb-3">
         <Col md={3} sm={6}>
           <KpiCard
-            label="Total Time"
-            value={`${formatHours(summary.totalMin)}h`}
+            label="Sessions Today"
+            value={sessionStats.todayCount}
             sub={
-              summary.activeDays > 0
-                ? `${formatMinsShort(summary.totalMin / summary.activeDays)} per active day`
-                : 'no sessions'
+              sessionStats.todayCount > 0
+                ? `${formatMinsShort(sessionStats.todayMin)} focused today`
+                : 'none logged yet'
             }
           />
         </Col>
         <Col md={3} sm={6}>
           <KpiCard
-            label="Sessions"
-            value={summary.count}
-            sub={
-              summary.count > 0
-                ? `across ${summary.activeDays} ${summary.activeDays === 1 ? 'day' : 'days'}`
-                : 'no sessions'
+            label="This Week"
+            value={sessionStats.thisWeek}
+            sub={`vs ${sessionStats.lastWeek} last week`}
+            delta={
+              sessionStats.thisWeek !== sessionStats.lastWeek
+                ? {
+                    positive: sessionStats.thisWeek > sessionStats.lastWeek,
+                    text: `${sessionStats.thisWeek > sessionStats.lastWeek ? '↑' : '↓'} ${Math.abs(
+                      sessionStats.thisWeek - sessionStats.lastWeek
+                    )}`,
+                  }
+                : undefined
             }
           />
         </Col>
         <Col md={3} sm={6}>
           <KpiCard
-            label="Avg Focus"
-            value={
-              summary.count > 0 ? (
-                <>
-                  {summary.avgFocus}
-                  <span className="text-muted fs-6 fw-normal ms-1">/ 5</span>
-                </>
-              ) : (
-                '—'
-              )
-            }
+            label="Daily Average"
+            value={sessionStats.total > 0 ? sessionStats.avgPerActiveDay.toFixed(1) : '–'}
             sub={
-              summary.count > 0
-                ? `${summary.highFocus} of ${summary.count} rated ≥ 4`
-                : 'no sessions'
+              sessionStats.total > 0
+                ? `over ${sessionStats.activeDays} active ${sessionStats.activeDays === 1 ? 'day' : 'days'}`
+                : 'per active day'
             }
           />
         </Col>
         <Col md={3} sm={6}>
           <KpiCard
-            label="Avg Session"
-            value={summary.count > 0 ? formatMinsShort(summary.avgSessionMin) : '—'}
+            label="Best Day"
+            value={sessionStats.bestCount > 0 ? sessionStats.bestCount : '–'}
             sub={
-              summary.longestSec > 0
-                ? `longest ${formatMinsShort(summary.longestSec / 60)}`
-                : 'per session'
+              sessionStats.bestDate
+                ? new Date(`${sessionStats.bestDate}T00:00:00`).toLocaleDateString(undefined, {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : 'no sessions yet'
             }
           />
         </Col>
@@ -736,9 +776,13 @@ export default function Sessions() {
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h2 className="h6 mb-0 fw-semibold">Session History</h2>
-          {grouping !== 'none' && (
+          {summary.count > 0 && (
             <span className="small text-muted">
-              {grouped?.groups.length || 0} {grouped?.groups.length === 1 ? 'group' : 'groups'}
+              {summary.count} {summary.count === 1 ? 'session' : 'sessions'} ·{' '}
+              {formatHours(summary.totalMin)}h
+              {summary.avgFocus !== '–' && ` · ${summary.avgFocus}★ avg`}
+              {grouping !== 'none' &&
+                ` · ${grouped?.groups.length || 0} ${grouped?.groups.length === 1 ? 'group' : 'groups'}`}
             </span>
           )}
         </Card.Header>

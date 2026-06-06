@@ -22,7 +22,7 @@ export const app = initializeApp(firebaseConfig);
 // Optional: enable App Check when a site key is provided.
 //
 // We wrap init in try/catch because reCAPTCHA can fail to load for reasons
-// outside our control — ad/script blockers, offline first paint, or browsers
+// outside our control: ad/script blockers, offline first paint, or browsers
 // that don't support the APIs reCAPTCHA needs. A thrown init would otherwise
 // take down the whole app at boot. If it fails, App Check simply isn't
 // attached; Firestore requests will be rejected by enforcement (fail-closed),
@@ -58,7 +58,7 @@ export const db = getFirestore(app);
 // volume, acquisition/traffic-source channels, geography, devices, real-time.
 // Gated on a measurementId being present AND the browser supporting analytics
 // (isSupported() rules out unsupported/SSR contexts). Skipped in dev so local
-// browsing doesn't pollute production metrics — use GA4 DebugView to test.
+// browsing doesn't pollute production metrics. Use GA4 DebugView to test.
 // ---------------------------------------------------------------------------
 let analytics = null;
 

@@ -15,7 +15,7 @@ const IconFlame = () => (
   </svg>
 );
 
-// Sleeping moon with z's — reads as "no streak right now" without looking
+// Sleeping moon with z's, reads as "no streak right now" without looking
 // like a broken flame icon.
 const IconSleeping = () => (
   <svg

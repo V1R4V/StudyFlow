@@ -1,5 +1,5 @@
 /* ==========================================================================
-   StudyFlow — App.css
+   StudyFlow - App.css
    Visual polish layer on top of variables.css
    ========================================================================== */
 
@@ -57,7 +57,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Card system — minimal, modern depth
+   Card system - minimal, modern depth
    -------------------------------------------------------------------------- */
 
 .card {
@@ -92,7 +92,7 @@
 }
 
 .card:focus-within {
-  box-shadow: 0 0 0 3px rgba(43, 74, 238, 0.18), var(--card-shadow-hover);
+  box-shadow: 0 0 0 3px var(--focus-ring), var(--card-shadow-hover);
   border-color: var(--card-border-strong);
 }
 
@@ -135,7 +135,7 @@
 .sf-help-tip:focus-visible {
   color: var(--primary);
   border-color: var(--primary);
-  background: rgba(43, 74, 238, 0.08);
+  background: var(--primary-tint-strong);
   outline: none;
 }
 
@@ -168,7 +168,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Stats cards — reinforce the card shadow and spacing
+   Stats cards - reinforce the card shadow and spacing
    -------------------------------------------------------------------------- */
 
 .sf-stats-value {
@@ -202,7 +202,7 @@
   margin: 0.75rem 0;
 }
 
-/* Timer mode toggle buttons — tighten up */
+/* Timer mode toggle buttons - tighten up */
 .btn-group .btn,
 .btn-group-vertical .btn {
   font-size: 0.8rem;
@@ -212,7 +212,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Weekly trend card — bar chart styling
+   Weekly trend card - bar chart styling
    -------------------------------------------------------------------------- */
 
 .sf-trend-bar-wrap {
@@ -247,7 +247,7 @@
 }
 
 .table tbody tr:hover {
-  background: var(--bg-light);
+  background: var(--row-hover);
 }
 
 .table tbody tr:last-child {
@@ -296,7 +296,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Sessions — subject pill, duration bar, grouped boards
+   Sessions - subject pill, duration bar, grouped boards
    -------------------------------------------------------------------------- */
 
 /* Subject shown as a tinted chip carrying its own color (--pill) instead of a
@@ -348,7 +348,7 @@
   opacity: 0.75;
 }
 
-/* Grouped (week/month) header — a compact "board" with a comparative hours
+/* Grouped (week/month) header - a compact "board" with a comparative hours
    bar vs. the busiest group plus a subject color mix. */
 .sf-group-board {
   padding: 0.85rem 1rem;
@@ -456,7 +456,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Scrollbar (WebKit) — optional subtle style
+   Scrollbar (WebKit) - optional subtle style
    -------------------------------------------------------------------------- */
 
 ::-webkit-scrollbar {
@@ -469,16 +469,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--scrollbar-thumb);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #d1d5db;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* --------------------------------------------------------------------------
-   Sidebar — user / auth section
+   Sidebar - user / auth section
    -------------------------------------------------------------------------- */
 
 .sf-user-section {
@@ -534,7 +534,7 @@
 
 .sf-logout-btn:hover {
   color: var(--danger-text);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-tint);
 }
 
 .sf-signin-btn {
@@ -634,7 +634,7 @@
   color: var(--text-dark);
 }
 
-/* Login card — slightly more refined */
+/* Login card - slightly more refined */
 .sf-login-bg .card {
   border-radius: var(--radius-xl);
   border-color: var(--border-color);
@@ -675,7 +675,7 @@
   background: transparent !important;
 }
 
-/* Login form inputs — bigger, more breathing room */
+/* Login form inputs - bigger, more breathing room */
 .sf-login-bg .form-control {
   padding: 0.625rem 0.875rem;
   font-size: 0.9rem;
@@ -689,7 +689,7 @@
   margin-bottom: 0.4rem;
 }
 
-/* Google button — cleaner */
+/* Google button - cleaner */
 .sf-login-bg .btn-outline-secondary {
   padding: 0.625rem 1rem;
   font-weight: 600;
@@ -704,7 +704,7 @@
   color: var(--text-dark);
 }
 
-/* Primary submit button — taller for a more premium feel */
+/* Primary submit button - taller for a more premium feel */
 .sf-login-bg .btn-primary {
   padding: 0.7rem 1rem;
   font-weight: 600;
@@ -836,7 +836,7 @@
 
 .sf-info-btn:hover,
 .sf-info-btn:focus-visible {
-  background: var(--bg-light);
+  background: var(--primary-tint);
   color: var(--primary);
   transform: scale(1.08);
   outline: none;
@@ -864,7 +864,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Floating chart tooltip — used by the daily activity bar chart and heatmap.
+   Floating chart tooltip - used by the daily activity bar chart and heatmap.
    Positioned by inline style; reads as a small, dark pill over the chart.
    -------------------------------------------------------------------------- */
 
@@ -939,7 +939,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Hour-of-day chart — uses the chart wrap + tooltip styles above.
+   Hour-of-day chart - uses the chart wrap + tooltip styles above.
    -------------------------------------------------------------------------- */
 
 .sf-hour-bar {

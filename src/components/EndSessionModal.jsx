@@ -128,7 +128,7 @@ export default function EndSessionModal(props) {
               <span className="text-muted">m</span>
             </div>
             <Form.Text className="text-muted">
-              Tracked: <strong>{trackedHint || '—'}</strong>. Adjust down if you took
+              Tracked: <strong>{trackedHint || '–'}</strong>. Adjust down if you took
               breaks or got distracted.
             </Form.Text>
           </Form.Group>

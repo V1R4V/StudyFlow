@@ -145,7 +145,7 @@ function normalizeSessionUpdates(updates) {
     safe.date = normalizeDate(updates.date);
   }
   // Allow editing the recorded duration so users can correct inflated
-  // tracked time. Both keys must stay in sync — `duration` is the minutes
+  // tracked time. Both keys must stay in sync: `duration` is the minutes
   // copy used by older code paths, `durationSeconds` is the source of truth.
   if (Object.prototype.hasOwnProperty.call(updates, 'durationSeconds')) {
     const secs = clampNumber(

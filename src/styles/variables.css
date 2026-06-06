@@ -16,7 +16,7 @@
   --text-light: #6b7280;
   --border-color: #e8e8ec;
 
-  /* Status Colors — bright variants are for graphics only (≥3:1) */
+  /* Status Colors - bright variants are for graphics only (≥3:1) */
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -71,13 +71,24 @@
   --canvas-glow-1: rgba(59, 130, 246, 0.18);
   --canvas-glow-2: rgba(14, 116, 144, 0.16);
 
-  /* Floating chart tooltip — inverted in dark mode so it pops on either bg. */
+  /* Floating chart tooltip - inverted in dark mode so it pops on either bg. */
   --tooltip-bg: #1f2937;
   --tooltip-fg: #ffffff;
+
+  /* Interactive accent + surface tints. Defined per theme so hovers, focus
+     rings, and recessed surfaces read correctly in both modes instead of
+     baking in the light-mode blue (which all but vanishes on a dark canvas). */
+  --primary-tint: rgba(43, 74, 238, 0.06);
+  --primary-tint-strong: rgba(43, 74, 238, 0.1);
+  --danger-tint: rgba(239, 68, 68, 0.08);
+  --focus-ring: rgba(43, 74, 238, 0.2);
+  --row-hover: rgba(43, 74, 238, 0.04);
+  --scrollbar-thumb: var(--border-color);
+  --scrollbar-thumb-hover: #c5ccd6;
 }
 
 /* ==========================================================================
-   Dark mode overrides — applied via data-theme="dark" on <html>
+   Dark mode overrides - applied via data-theme="dark" on <html>
    ========================================================================== */
 
 [data-theme="dark"] {
@@ -85,8 +96,8 @@
   --bg-white: #18181c;
 
   --text-dark: #e8e8f2;
-  --text-light: #7b7b8f;
-  --border-color: #28282f;
+  --text-light: #8a8a9e;
+  --border-color: #303039;
   --muted-strong: #9898aa;
 
   --primary: #6b7bff;
@@ -99,7 +110,7 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 16px 48px rgba(0, 0, 0, 0.5);
 
   --card-bg: rgba(12, 14, 20, 0.92);
-  --card-border: rgba(148, 163, 184, 0.16);
+  --card-border: rgba(148, 163, 184, 0.22);
   --card-border-strong: rgba(107, 123, 255, 0.45);
   --card-shadow: 0 14px 44px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --card-shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.68), inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -112,9 +123,19 @@
   --canvas-glow-1: rgba(107, 123, 255, 0.26);
   --canvas-glow-2: rgba(20, 184, 166, 0.16);
 
-  /* Light pill on the dark canvas — readable and high-contrast. */
+  /* Light pill on the dark canvas - readable and high-contrast. */
   --tooltip-bg: #f3f4f6;
   --tooltip-fg: #0e0e10;
+
+  /* Accent tints lean on the lighter dark-mode primary and a touch more
+     opacity so interactive surfaces stay visible against the dark canvas. */
+  --primary-tint: rgba(139, 152, 255, 0.12);
+  --primary-tint-strong: rgba(139, 152, 255, 0.18);
+  --danger-tint: rgba(239, 68, 68, 0.16);
+  --focus-ring: rgba(139, 152, 255, 0.3);
+  --row-hover: rgba(255, 255, 255, 0.04);
+  --scrollbar-thumb: #3a3a45;
+  --scrollbar-thumb-hover: #50505e;
 }
 
 /* ==========================================================================
@@ -242,13 +263,13 @@ body {
 }
 
 .sf-navlink:hover {
-  background: rgba(43, 74, 238, 0.05);
+  background: var(--primary-tint);
   color: var(--primary);
   text-decoration: none;
 }
 
 .sf-navlink-active {
-  background: rgba(43, 74, 238, 0.08);
+  background: var(--primary-tint-strong);
   color: var(--primary);
   font-weight: 600;
 }
@@ -314,13 +335,13 @@ body {
 }
 
 .sf-icon-btn:hover {
-  background: rgba(43, 74, 238, 0.07);
+  background: var(--primary-tint);
   color: var(--primary);
   border-color: var(--primary);
 }
 
 .sf-icon-btn-danger:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-tint);
   color: var(--danger-text);
   border-color: var(--danger-text);
 }
@@ -375,7 +396,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Sign-in button — compact, fills remaining row space */
+/* Sign-in button - compact, fills remaining row space */
 .sf-signin-btn {
   flex: 1;
   display: flex;
@@ -452,7 +473,7 @@ h3, h4, h5, h6 {
 .sf-pill {
   display: inline-block;
   padding: 0.25rem 0.875rem;
-  background: rgba(43, 74, 238, 0.08);
+  background: var(--primary-tint-strong);
   color: var(--primary);
   font-size: 0.675rem;
   font-weight: 700;
@@ -577,7 +598,7 @@ h3, h4, h5, h6 {
 .btn-primary:active {
   background-color: var(--primary-dark);
   border-color: var(--primary-dark);
-  box-shadow: 0 0 0 0.25rem rgba(43, 74, 238, 0.2);
+  box-shadow: 0 0 0 0.25rem var(--focus-ring);
 }
 
 .btn-outline-primary {
@@ -587,7 +608,7 @@ h3, h4, h5, h6 {
 }
 
 .btn-outline-primary:hover {
-  background-color: rgba(43, 74, 238, 0.06);
+  background-color: var(--primary-tint);
   border-color: var(--primary);
   color: var(--primary);
 }
@@ -615,7 +636,7 @@ a:hover {
 .form-control:focus,
 .form-select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 0.2rem rgba(43, 74, 238, 0.12);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring);
 }
 
 .card {

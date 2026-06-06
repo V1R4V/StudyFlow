@@ -59,7 +59,7 @@ function streakAsOf(sessions, anchorDate, isAnchorToday) {
   const datesSet = new Set(sessions.map(s => s.date));
   let cursor = anchorDate;
   // If viewing today and today has no session yet, allow the streak to
-  // continue from yesterday — they haven't "broken" it until midnight.
+  // continue from yesterday, they haven't "broken" it until midnight.
   if (!datesSet.has(cursor) && isAnchorToday) {
     cursor = shiftDateStr(cursor, -1);
   } else if (!datesSet.has(cursor)) {
@@ -131,7 +131,7 @@ export default function Dashboard() {
     [sessions, selectedDate, isToday]
   );
 
-  // Rolling 7 days ending on the selected day — chart and weekly volume use
+  // Rolling 7 days ending on the selected day, chart and weekly volume use
   // the same window so they read consistently.
   const weeklyData = useMemo(() => {
     const result = [];
@@ -195,7 +195,7 @@ export default function Dashboard() {
   const focusTitle = isToday ? "Today's Focus" : 'Focus';
   const sessionsTitle = isToday ? 'Sessions Today' : 'Sessions';
 
-  // Streak subtitle — green when there's an active streak, muted otherwise.
+  // Streak subtitle: green when there's an active streak, muted otherwise.
   const streakSubtitle = isToday
     ? streak > 0 ? 'Active days in a row' : 'Study today to start'
     : streak > 0
@@ -205,7 +205,7 @@ export default function Dashboard() {
     ? 'var(--success-text)'
     : 'var(--muted-strong)';
 
-  // Sessions subtitle — green when the daily goal is hit, primary while in
+  // Sessions subtitle: green when the daily goal is hit, primary while in
   // progress, muted when nothing logged yet.
   const sessionsSubtitle = `${Math.min(100, goalPct)}% of daily goal`;
   let sessionsSubtitleColor = 'var(--muted-strong)';

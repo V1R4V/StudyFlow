@@ -64,7 +64,7 @@ export function TimerProvider({ children }) {
   const [error, setError] = useState('');
   const [pendingSession, setPendingSession] = useState(null);
   const [liveMessage, setLiveMessage] = useState('');
-  // Distraction count for the in-flight session — increments via the "I got
+  // Distraction count for the in-flight session, increments via the "I got
   // distracted" button on the timer, resets after save/discard/reset.
   const [distractions, setDistractions] = useState(0);
   const autoEndedRef = useRef(false);

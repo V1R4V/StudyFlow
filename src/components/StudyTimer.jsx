@@ -15,7 +15,7 @@ export default function StudyTimer(props) {
 
   let subtitle = 'Ready to dive into deep work?';
   if (t.isRunning) subtitle = 'Deep focus in progress…';
-  else if (isPaused) subtitle = 'Paused — press resume to continue';
+  else if (isPaused) subtitle = 'Paused. Press resume to continue';
 
   const activeMode = MODES.find(m => m.value === t.mode);
   const customDisabled = t.isRunning || t.secondsElapsed > 0;
@@ -134,7 +134,7 @@ export default function StudyTimer(props) {
             disabled={t.isRunning}
           >
             {(!props.subjects || props.subjects.length === 0) && (
-              <option value="">No subjects yet — add one first</option>
+              <option value="">No subjects yet, add one first</option>
             )}
             {props.subjects && props.subjects.map(s => (
               <option key={s.id} value={s.id}>{s.name}</option>
@@ -161,7 +161,7 @@ export default function StudyTimer(props) {
           )}
 
           {(t.isRunning || isPaused) && (
-            /* Single-tap distraction logger — increments a counter that's
+            /* Single-tap distraction logger, increments a counter that's
                saved with the session and shows up in stats. */
             <Button
               variant="outline-warning"

@@ -1,12 +1,11 @@
+import { useId } from 'react';
 import { OverlayTrigger, Popover } from 'react-bootstrap';
 
 // Small "?" affordance that reveals an explanatory popover on hover/focus/tap.
 // Used next to widget headers to teach the user what a metric means without
 // cluttering the default view. `title` is optional; `children` is the body.
-let autoId = 0;
-
 export default function HelpTip({ title, children, placement = 'top' }) {
-  const id = `help-tip-${(autoId += 1)}`;
+  const id = useId();
   const popover = (
     <Popover id={id} className="sf-help-popover">
       {title && <Popover.Header as="div">{title}</Popover.Header>}

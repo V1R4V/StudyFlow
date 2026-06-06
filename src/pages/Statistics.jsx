@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Container, Row, Col, Card, Form, Button, ButtonGroup } from 'react-bootstrap';
+import HelpTip from '../components/HelpTip';
 import { useStudyData } from '../context/StudyDataContext';
 import {
   sessionMatchesSubject,
@@ -78,7 +79,7 @@ function formatHours(minutes) {
   return (minutes / 60).toFixed(1);
 }
 
-// "1h 23m" or "23m" — used for session durations.
+// "1h 23m" or "23m", used for session durations.
 function formatDurationMinutes(minutes) {
   const mins = Math.max(0, Math.round(minutes));
   if (mins < 60) return `${mins}m`;
@@ -103,7 +104,7 @@ function getSessionSeconds(session) {
   return 0;
 }
 
-// "Apr 1" — chart labels and best-day pills.
+// "Apr 1", chart labels and best-day pills.
 function formatShortDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T00:00:00`);
@@ -122,7 +123,7 @@ function formatPrettyDate(dateStr) {
 }
 
 // Percent change vs previous period. Returns null when there's no real
-// baseline to compare against — a loud "New" badge on every card during the
+// baseline to compare against: a loud "New" badge on every card during the
 // user's first weeks is noise, not insight.
 function computeDelta(current, prev) {
   if (prev <= 0) return null;
@@ -399,7 +400,7 @@ function DailyActivityChart({ sessions, startDate, days }) {
               />
               {isToday && (
                 /* Thin ring marks "today" so it's identifiable even when the
-                   bar is the smallest — opacity alone was misleading. */
+                   bar is the smallest. Opacity alone was misleading. */
                 <rect
                   x={x - 1.5}
                   y={Math.max(y - 1.5, 0)}
@@ -525,7 +526,7 @@ const DEBT_WINDOWS = [
 // (default: just this week, pro-rated to days elapsed). A subject's "debt"
 // is goal × weeks_active − minutes_studied; positive means behind, negative
 // means ahead. We deliberately keep the window short so the number stays
-// small and payable — an 8-week cumulative debt only ever grows and is read
+// small and payable. An 8-week cumulative debt only ever grows and is read
 // as hopeless. A short window also means changing a weekly goal mostly
 // affects the current week going forward, instead of retroactively rewriting
 // past weeks (we don't store per-week goal history).
@@ -557,7 +558,7 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
         let totalActual = 0;
         weekStarts.forEach(ws => {
           // Only count weeks that started on/after the user's first session
-          // — otherwise a brand-new user "owes" goals for weeks before they
+          // otherwise a brand-new user "owes" goals for weeks before they
           // even joined, which is discouraging and meaningless.
           if (ws < earliestSession) return;
           const weekEnd = shiftDateStr(ws, 6);
@@ -598,7 +599,8 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
     <div>
       <div className="d-flex justify-content-between align-items-start mb-3 gap-2 flex-wrap">
         <div className="text-muted small" style={{ maxWidth: '60%' }}>
-          Deficit (behind ↑) or credit (ahead ↓) vs. your goal over {windowLabel}.
+          How each subject is tracking against its weekly goal over {windowLabel}.
+          “To go” is the hours still needed; “ahead” is time banked beyond goal.
           The current week is pro-rated to days elapsed.
         </div>
         <ButtonGroup size="sm">
@@ -623,10 +625,10 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
           ? Math.min(100, Math.round((totalActualH / totalGoalH) * 100))
           : 0;
         const status = behind
-          ? { text: `${debtH.toFixed(1)}h behind`, color: 'var(--danger-text)' }
+          ? { text: `${debtH.toFixed(1)}h to go`, color: 'var(--warning-text)' }
           : ahead
           ? { text: `${Math.abs(debtH).toFixed(1)}h ahead`, color: 'var(--success-text)' }
-          : { text: 'on track', color: 'var(--muted-strong)' };
+          : { text: 'on track', color: 'var(--success-text)' };
         return (
           <div key={s.id} className="mb-3">
             <div className="d-flex justify-content-between align-items-center mb-1">
@@ -651,7 +653,7 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
                 className="progress-bar"
                 style={{
                   width: `${pct}%`,
-                  background: behind ? 'var(--danger)' : ahead ? 'var(--success)' : s.color,
+                  background: ahead ? 'var(--success)' : s.color,
                 }}
               />
             </div>
@@ -673,7 +675,7 @@ const SLIDER_TICKS = [
   { value: 8, label: '8h' },
 ];
 
-// "What if?" planner — drag the slider to see what daily focus is required
+// "What if?" planner: drag the slider to see what daily focus is required
 // to hit the weekly goal, and which date that lands on.
 function WhatIfPlanner({ subjects, sessions, todayStr }) {
   // Total weekly goal across all subjects (matches Dashboard semantics).
@@ -692,16 +694,38 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
   const thisWeekH = thisWeekMin / 60;
 
   const remainingH = Math.max(0, totalGoalH - thisWeekH);
-  const daysLeftInWeek = 6 - dow; // days *after* today within Sun→Sat
-  // 14-day historical baseline for a sensible default suggestion.
-  const baselineMin = useMemo(() => {
+  // Days remaining in this Sun→Sat week *including today*. The weekly goal
+  // resets every Sunday, so all projections are capped to this window.
+  // Spreading a one-week goal across many weeks (the old "87 days" bug) is
+  // meaningless.
+  const daysLeftIncludingToday = 7 - dow; // Sun → 7 … Sat → 1
+
+  // The pace that actually answers the question: clear the remaining goal by
+  // Saturday. This is the meaningful slider default.
+  const requiredPace = daysLeftIncludingToday > 0
+    ? remainingH / daysLeftIncludingToday
+    : remainingH;
+
+  // 14-day average shown only as context ("your recent pace"). It is NOT the
+  // default any more. Defaulting to a low recent pace is what produced the
+  // nonsensical multi-month projections.
+  const baselineH = useMemo(() => {
     const start = shiftDateStr(todayStr, -13);
     const recent = sessions.filter(s => s.date >= start && s.date <= todayStr);
     const total = recent.reduce((acc, s) => acc + getSessionMinutes(s), 0);
-    return total / 14;
+    return total / 14 / 60;
   }, [sessions, todayStr]);
-  const baselineH = baselineMin / 60;
-  const defaultDaily = Math.max(0.5, Math.min(8, Number(baselineH.toFixed(1)) || 2));
+
+  // Slider domain. Default to the required pace, snapped to the 0.25 step and
+  // clamped to the track. If the true requirement exceeds the max we still
+  // state it in the copy below; the slider just can't represent it.
+  const SLIDER_MIN = 0.25;
+  const SLIDER_MAX = 8;
+  const snap = h => Math.round(h / 0.25) * 0.25;
+  const defaultDaily = Math.min(
+    SLIDER_MAX,
+    Math.max(SLIDER_MIN, snap(requiredPace) || 1)
+  );
 
   const [dailyTarget, setDailyTarget] = useState(defaultDaily);
 
@@ -730,22 +754,23 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
     );
   }
 
-  const daysNeeded = dailyTarget > 0 ? Math.ceil(remainingH / dailyTarget) : Infinity;
-  const enoughDaysLeft = daysNeeded <= daysLeftInWeek + 1; // +1 includes today
-  const hitDate = isFinite(daysNeeded)
-    ? shiftDateStr(todayStr, Math.max(0, daysNeeded - 1))
-    : null;
-
-  const minutesNeededIfHitWeek = daysLeftInWeek > 0
-    ? (remainingH / (daysLeftInWeek + 1)) * 60
-    : remainingH * 60;
+  // All capped to the current week (goal resets Sunday).
+  const reachableThisWeekH = dailyTarget * daysLeftIncludingToday;
+  const willMakeIt = reachableThisWeekH >= remainingH - 1e-9;
+  const daysToFinish = dailyTarget > 0
+    ? Math.min(daysLeftIncludingToday, Math.ceil(remainingH / dailyTarget))
+    : daysLeftIncludingToday;
+  const finishDate = shiftDateStr(todayStr, Math.max(0, daysToFinish - 1));
+  const projectedTotalH = thisWeekH + Math.min(reachableThisWeekH, remainingH);
+  const shortfallH = Math.max(0, remainingH - reachableThisWeekH);
+  const requiredWithinRange = requiredPace <= SLIDER_MAX && requiredPace >= SLIDER_MIN;
 
   return (
     <div className="py-2">
       <div className="d-flex justify-content-between align-items-end mb-1">
         <span className="text-muted small">Daily focus target</span>
         <span className="fw-bold" style={{ fontSize: '1.4rem', color: 'var(--primary)' }}>
-          {dailyTarget.toFixed(1)}h
+          {formatDurationMinutes(dailyTarget * 60)}
           <span className="text-muted ms-1" style={{ fontSize: '0.85rem', fontWeight: 500 }}>
             / day
           </span>
@@ -759,7 +784,7 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
         onChange={e => setDailyTarget(Number(e.target.value))}
         aria-label="Daily focus target in hours"
       />
-      {/* Ticks are positioned at their true track percentage — the values
+      {/* Ticks are positioned at their true track percentage. The values
           (15m, 2h, 4h…) aren't evenly spaced across a 0.25→8 range, so
           justify-content-between would print each label off from where the
           thumb actually lands. */}
@@ -790,41 +815,40 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
         })}
       </div>
 
+      {/* One tap to snap the slider to exactly the pace that finishes the
+          weekly goal by Saturday. */}
+      {requiredWithinRange && Math.abs(dailyTarget - snap(requiredPace)) > 0.001 && (
+        <div className="mt-2">
+          <Button
+            size="sm"
+            variant="outline-primary"
+            onClick={() => setDailyTarget(snap(requiredPace))}
+          >
+            Set to the pace I need ({formatDurationMinutes(requiredPace * 60)}/day)
+          </Button>
+        </div>
+      )}
+
       <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
         <div className="d-flex justify-content-between align-items-center mb-2">
           <span className="text-muted small">Remaining this week</span>
-          <span className="fw-semibold">{remainingH.toFixed(1)}h</span>
+          <span className="fw-semibold">{formatDurationMinutes(remainingH * 60)}</span>
         </div>
         <div className="d-flex justify-content-between align-items-center mb-2">
-          <span className="text-muted small">Days needed at this pace</span>
+          <span className="text-muted small">Days left this week</span>
           <span className="fw-semibold">
-            {isFinite(daysNeeded) ? `${daysNeeded} ${daysNeeded === 1 ? 'day' : 'days'}` : '—'}
+            {daysLeftIncludingToday} {daysLeftIncludingToday === 1 ? 'day' : 'days'}{' '}
+            <span className="text-muted fw-normal">(through Sat)</span>
           </span>
         </div>
         <div className="d-flex justify-content-between align-items-center mb-2">
-          <span className="text-muted small">You'd hit the goal on</span>
-          <span
-            className="fw-semibold"
-            style={{ color: enoughDaysLeft ? 'var(--success-text)' : 'var(--danger-text)' }}
-          >
-            {hitDate ? formatPrettyDate(hitDate) : '—'}
+          <span className="text-muted small">Pace needed to finish</span>
+          <span className="fw-semibold" style={{ color: 'var(--primary)' }}>
+            {formatDurationMinutes(requiredPace * 60)}/day
           </span>
         </div>
-        {!enoughDaysLeft && (
-          <div
-            className="mt-2 p-2 small"
-            style={{
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--danger-text)',
-            }}
-          >
-            Not enough days in this week at {dailyTarget.toFixed(1)}h/day. You'd need{' '}
-            <strong>{formatDurationMinutes(minutesNeededIfHitWeek)}/day</strong> to finish by Saturday.
-          </div>
-        )}
-        {enoughDaysLeft && (
+
+        {willMakeIt ? (
           <div
             className="mt-2 p-2 small"
             style={{
@@ -834,7 +858,33 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
               color: 'var(--success-text)',
             }}
           >
-            Plenty of runway — your 14-day average is {baselineH.toFixed(1)}h/day.
+            At {formatDurationMinutes(dailyTarget * 60)}/day you'll hit your{' '}
+            {formatDurationMinutes(totalGoalH * 60)} weekly goal by{' '}
+            <strong>{formatPrettyDate(finishDate)}</strong>, {daysToFinish} of{' '}
+            {daysLeftIncludingToday} {daysLeftIncludingToday === 1 ? 'day' : 'days'} left.
+          </div>
+        ) : (
+          <div
+            className="mt-2 p-2 small"
+            style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--danger-text)',
+            }}
+          >
+            At {formatDurationMinutes(dailyTarget * 60)}/day you'd reach{' '}
+            {formatDurationMinutes(projectedTotalH * 60)} of your{' '}
+            {formatDurationMinutes(totalGoalH * 60)} goal,{' '}
+            <strong>{formatDurationMinutes(shortfallH * 60)} short</strong> by Saturday.
+            You'd need {formatDurationMinutes(requiredPace * 60)}/day to finish.
+          </div>
+        )}
+
+        {baselineH > 0 && (
+          <div className="text-muted small mt-2">
+            For context, your recent 14-day average is{' '}
+            {formatDurationMinutes(baselineH * 60)}/day.
           </div>
         )}
       </div>
@@ -843,7 +893,7 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
 }
 
 // Distribution of focus minutes across the 24 hours of a day. Sessions
-// without a usable timestamp (legacy guest data) are skipped — a small note
+// without a usable timestamp (legacy guest data) are skipped. A small note
 // surfaces this so the chart never silently undercounts.
 function HourOfDayChart({ sessions }) {
   const wrapRef = useRef(null);
@@ -898,7 +948,7 @@ function HourOfDayChart({ sessions }) {
   if (peakHour === null) {
     return (
       <div className="text-muted text-center py-4">
-        No timestamped sessions in this range yet — start one with the timer to populate this chart.
+        No timestamped sessions in this range yet. Start one with the timer to populate this chart.
       </div>
     );
   }
@@ -1109,7 +1159,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay, onPickWeek }) {
   const chartWidth = leftPad + weeksToShow * cellStride;
   const chartHeight = topPad + 7 * cellStride;
 
-  // Intensity buckets — used to scale opacity on a single primary fill so
+  // Intensity buckets, used to scale opacity on a single primary fill so
   // colors track the active theme automatically. Lowest bucket pushed to 0.4
   // so it stays distinguishable against the light-mode background.
   function opacityFor(mins) {
@@ -1147,7 +1197,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay, onPickWeek }) {
     setHover({ ...day, left, top });
   }
 
-  // Keyboard nav — arrows move a cursor cell, Enter drills into the day.
+  // Keyboard nav: arrows move a cursor cell, Enter drills into the day.
   function handleKeyDown(e) {
     const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key);
     if (!isArrow && e.key !== 'Enter' && e.key !== ' ') return;
@@ -1454,7 +1504,7 @@ export default function Statistics() {
                 subjSessions.reduce((acc, sess) => acc + (sess.focusRating || 0), 0) /
                 subjSessions.length
               ).toFixed(1)
-            : '—';
+            : '–';
         return { ...s, minutes, count: subjSessions.length, avgFocus };
       })
       .sort((a, b) => b.minutes - a.minutes);
@@ -1516,7 +1566,7 @@ export default function Statistics() {
   const prevActiveDays = prevDailyTotals.size;
   const prevActiveDaysPct = days > 0 ? Math.round((prevActiveDays / days) * 100) : 0;
 
-  // Real insight metrics — each maps to a single number the user can act on.
+  // Real insight metrics: each maps to a single number the user can act on.
   const sessionMinutesArray = rangedSessions.map(getSessionMinutes);
   const medianSessionMins = median(sessionMinutesArray);
   const avgPerActiveDay = activeDays > 0 ? totalMinutes / activeDays : 0;
@@ -1531,7 +1581,7 @@ export default function Statistics() {
   const distractionRate = totalSessions > 0
     ? totalDistractions / totalSessions
     : 0;
-  // Deep Work Rate: share of sessions ≥ 60min — Cal Newport's threshold for
+  // Deep Work Rate: share of sessions ≥ 60min, Cal Newport's threshold for
   // sustained focus. Tracks the *quality* of work, not just total hours.
   const deepSessions = rangedSessions.filter(s => getSessionMinutes(s) >= 60).length;
   const deepRate = totalSessions > 0 ? Math.round((deepSessions / totalSessions) * 100) : 0;
@@ -1577,7 +1627,7 @@ export default function Statistics() {
   const rangeEmpty = !isEmpty && rangedSessions.length === 0;
 
   // Tab choice for the combined Activity card. Both views read from the same
-  // ranged session set, so the toggle is free — no extra work, no reload.
+  // ranged session set, so the toggle is free: no extra work, no reload.
   const [activityView, setActivityView] = useState('timeline');
 
   // Clicking a heatmap cell jumps to single-day view for that date.
@@ -1722,7 +1772,7 @@ export default function Statistics() {
                       <span className="text-muted fs-6 fw-normal ms-1">/ 5</span>
                     </>
                   ) : (
-                    '—'
+                    '–'
                   )
                 }
                 sub={
@@ -1736,7 +1786,7 @@ export default function Statistics() {
             <Col md={3} sm={6}>
               <KpiCard
                 label="Avg Session"
-                value={totalSessions > 0 ? formatDurationMinutes(avgSessionMinutes) : '—'}
+                value={totalSessions > 0 ? formatDurationMinutes(avgSessionMinutes) : '–'}
                 sub={
                   longestSession.minutes > 0
                     ? `longest ${formatDurationMinutes(longestSession.minutes)}`
@@ -1784,7 +1834,7 @@ export default function Statistics() {
                 <Col md={3} sm={6}>
                   <KpiCard
                     label="Peak Weekday"
-                    value={peak ? peak.label.slice(0, 3) : '—'}
+                    value={peak ? peak.label.slice(0, 3) : '–'}
                     sub={
                       peak
                         ? `${formatDurationMinutes(peak.minutes)} on ${peak.label}s`
@@ -1801,7 +1851,7 @@ export default function Statistics() {
                     value={
                       last30AvgDailyMins > 0
                         ? `${Math.round(((totalMinutes - last30AvgDailyMins) / last30AvgDailyMins) * 100) >= 0 ? '+' : ''}${Math.round(((totalMinutes - last30AvgDailyMins) / last30AvgDailyMins) * 100)}%`
-                        : '—'
+                        : '–'
                     }
                     sub={
                       last30AvgDailyMins > 0
@@ -2054,13 +2104,23 @@ export default function Statistics() {
             </Col>
           </Row>
 
-          {/* Goal-focused widgets — study debt + what-if planner. Both live
+          {/* Goal-focused widgets: study debt + what-if planner. Both live
               outside the range filter because they track week-over-week goal
               health, not range slices. */}
           <Row className="g-3 mb-4">
             <Col lg={7}>
               <Card className="h-100">
-                <Card.Header>Study Debt by Subject</Card.Header>
+                <Card.Header className="d-flex align-items-center gap-2">
+                  <span>Goal Progress by Subject</span>
+                  <HelpTip title="Goal Progress by Subject">
+                    For each subject, this compares the time you’ve logged against
+                    its <strong>weekly goal</strong> (set on the Subjects page) over
+                    the window you pick. The current week is pro-rated to how many
+                    days have elapsed, so you’re never marked behind for days that
+                    haven’t happened yet. “To go” = hours still needed; “ahead” =
+                    time banked past the goal.
+                  </HelpTip>
+                </Card.Header>
                 <Card.Body>
                   <SubjectStudyDebt
                     subjects={subjects}
@@ -2072,7 +2132,17 @@ export default function Statistics() {
             </Col>
             <Col lg={5}>
               <Card className="h-100">
-                <Card.Header>What-If Goal Planner</Card.Header>
+                <Card.Header className="d-flex align-items-center gap-2">
+                  <span>What-If Goal Planner</span>
+                  <HelpTip title="What-If Goal Planner">
+                    This planner only covers the <strong>current week</strong>: your
+                    weekly goal resets every Sunday, so it never projects into next
+                    week or longer. Drag the slider to try a daily focus pace and see
+                    whether it clears the time remaining by Saturday. “Pace needed to
+                    finish” is the daily amount that gets you there with the days left
+                    this week; tap “Set to the pace I need” to match it.
+                  </HelpTip>
+                </Card.Header>
                 <Card.Body>
                   <WhatIfPlanner
                     subjects={subjects}

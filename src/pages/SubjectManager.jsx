@@ -70,7 +70,7 @@ export default function SubjectManager() {
         )}
       </div>
 
-      {/* Collapsible create-subject card — unfolds inline */}
+      {/* Collapsible create-subject card, unfolds inline */}
       <div className={`sf-collapsible${showForm ? ' sf-collapsible-open' : ''}`}>
         {showForm && (
           <div className="mb-4">
@@ -82,7 +82,7 @@ export default function SubjectManager() {
         )}
       </div>
 
-      {/* Edit-subject card — same component, edit mode */}
+      {/* Edit-subject card, same component, edit mode */}
       <div className={`sf-collapsible${editingSubject ? ' sf-collapsible-open' : ''}`}>
         {editingSubject && (
           <div className="mb-4">

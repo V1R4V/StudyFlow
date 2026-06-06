@@ -167,7 +167,7 @@ export default function DailyPlanner() {
             <h2 className="h5 mb-0">Daily Planner</h2>
             <small className="text-muted">
               {visibleTodos.length === 0
-                ? 'Nothing yet — add your first todo.'
+                ? 'Nothing yet. Add your first todo.'
                 : `${remaining} of ${visibleTodos.length} left`}
             </small>
           </div>

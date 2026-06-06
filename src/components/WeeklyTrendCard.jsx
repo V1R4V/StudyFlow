@@ -10,7 +10,7 @@ export default function WeeklyTrendCard(props) {
   // Find peak day
   const peak = days.reduce(
     (acc, d) => (d.minutes > acc.minutes ? d : acc),
-    { minutes: 0, label: '—' }
+    { minutes: 0, label: '–' }
   );
 
   // Chart layout
