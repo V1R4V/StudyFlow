@@ -24,7 +24,8 @@ dist-ssr
 *.sln
 *.sw?
 CLAUDE.md
-
+project_guide_agents.md
+docs
 # Environment variables (never commit secrets)
 .env
 .env.local

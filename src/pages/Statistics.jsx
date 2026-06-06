@@ -515,15 +515,26 @@ function DayOfWeekChart({ sessions }) {
   );
 }
 
-// Per-subject cumulative deficit vs weekly goal. Looks at the last 8
-// completed Sun→Sat weeks plus this week (in progress). A subject's "debt"
+const DEBT_WINDOWS = [
+  { value: 1, label: 'This week' },
+  { value: 2, label: '2 weeks' },
+  { value: 4, label: '4 weeks' },
+];
+
+// Per-subject deficit vs weekly goal over a short, user-chosen window
+// (default: just this week, pro-rated to days elapsed). A subject's "debt"
 // is goal × weeks_active − minutes_studied; positive means behind, negative
-// means ahead. Surfaces the most neglected subjects so the user knows where
-// to invest next.
+// means ahead. We deliberately keep the window short so the number stays
+// small and payable — an 8-week cumulative debt only ever grows and is read
+// as hopeless. A short window also means changing a weekly goal mostly
+// affects the current week going forward, instead of retroactively rewriting
+// past weeks (we don't store per-week goal history).
 function SubjectStudyDebt({ subjects, sessions, todayStr }) {
+  const [weeks, setWeeks] = useState(1);
+
   const data = useMemo(() => {
     if (subjects.length === 0) return [];
-    const weeksToConsider = 8;
+    const weeksToConsider = weeks;
     // Build week start dates (Sundays) ending with this week.
     const today = new Date(`${todayStr}T00:00:00`);
     const dow = today.getDay();
@@ -570,7 +581,7 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
         };
       })
       .sort((a, b) => b.debt - a.debt);
-  }, [subjects, sessions, todayStr]);
+  }, [subjects, sessions, todayStr, weeks]);
 
   if (data.length === 0) {
     return (
@@ -580,11 +591,27 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
     );
   }
 
+  const windowLabel =
+    weeks === 1 ? 'this week' : `the last ${weeks} weeks`;
+
   return (
     <div>
-      <div className="text-muted small mb-3">
-        Cumulative deficit (behind ↑) or credit (ahead ↓) across the last 8 weeks. The
-        current week is pro-rated.
+      <div className="d-flex justify-content-between align-items-start mb-3 gap-2 flex-wrap">
+        <div className="text-muted small" style={{ maxWidth: '60%' }}>
+          Deficit (behind ↑) or credit (ahead ↓) vs. your goal over {windowLabel}.
+          The current week is pro-rated to days elapsed.
+        </div>
+        <ButtonGroup size="sm">
+          {DEBT_WINDOWS.map(w => (
+            <Button
+              key={w.value}
+              variant={weeks === w.value ? 'primary' : 'outline-secondary'}
+              onClick={() => setWeeks(w.value)}
+            >
+              {w.label}
+            </Button>
+          ))}
+        </ButtonGroup>
       </div>
       {data.map(s => {
         const totalGoalH = s.totalGoal / 60;
@@ -604,16 +631,10 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
           <div key={s.id} className="mb-3">
             <div className="d-flex justify-content-between align-items-center mb-1">
               <div className="d-flex align-items-center gap-2">
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background: s.color,
-                    display: 'inline-block',
-                  }}
-                />
-                <span style={{ fontWeight: 600 }}>{s.name}</span>
+                <span className="sf-subject-pill" style={{ '--pill': s.color }}>
+                  <span className="sf-subject-pill-dot" />
+                  {s.name}
+                </span>
                 <span className="text-muted small">
                   · {totalActualH.toFixed(1)}h of {totalGoalH.toFixed(1)}h
                 </span>
@@ -640,6 +661,17 @@ function SubjectStudyDebt({ subjects, sessions, todayStr }) {
     </div>
   );
 }
+
+// Slider gridline values, labelled. Spacing is intentionally non-uniform
+// (15m → 2h is a small jump, then even 2h steps) so these must be placed by
+// true percentage, not evenly distributed.
+const SLIDER_TICKS = [
+  { value: 0.25, label: '15m' },
+  { value: 2, label: '2h' },
+  { value: 4, label: '4h' },
+  { value: 6, label: '6h' },
+  { value: 8, label: '8h' },
+];
 
 // "What if?" planner — drag the slider to see what daily focus is required
 // to hit the weekly goal, and which date that lands on.
@@ -727,12 +759,35 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
         onChange={e => setDailyTarget(Number(e.target.value))}
         aria-label="Daily focus target in hours"
       />
-      <div className="d-flex justify-content-between text-muted" style={{ fontSize: '0.7rem' }}>
-        <span>15m</span>
-        <span>2h</span>
-        <span>4h</span>
-        <span>6h</span>
-        <span>8h</span>
+      {/* Ticks are positioned at their true track percentage — the values
+          (15m, 2h, 4h…) aren't evenly spaced across a 0.25→8 range, so
+          justify-content-between would print each label off from where the
+          thumb actually lands. */}
+      <div
+        className="text-muted"
+        style={{ position: 'relative', height: '0.9rem', fontSize: '0.7rem' }}
+      >
+        {SLIDER_TICKS.map(t => {
+          const pct = ((t.value - 0.25) / (8 - 0.25)) * 100;
+          return (
+            <span
+              key={t.value}
+              style={{
+                position: 'absolute',
+                left: `${pct}%`,
+                transform:
+                  pct === 0
+                    ? 'translateX(0)'
+                    : pct === 100
+                    ? 'translateX(-100%)'
+                    : 'translateX(-50%)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {t.label}
+            </span>
+          );
+        })}
       </div>
 
       <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
@@ -1338,7 +1393,7 @@ function DaySessionList({ sessions, subjects }) {
 
 function KpiCard({ label, value, sub, delta }) {
   return (
-    <Card className="h-100">
+    <Card className="h-100 sf-card-kpi">
       <Card.Body>
         <div className="sf-section-label mb-2">{label}</div>
         <div className="sf-stats-value">{value}</div>
@@ -1845,16 +1900,10 @@ export default function Statistics() {
                       <div key={b.id} className="mb-3">
                         <div className="d-flex justify-content-between align-items-center mb-1">
                           <div className="d-flex align-items-center gap-2">
-                            <span
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: '50%',
-                                background: b.color,
-                                display: 'inline-block',
-                              }}
-                            />
-                            <span style={{ fontWeight: 600 }}>{b.name}</span>
+                            <span className="sf-subject-pill" style={{ '--pill': b.color }}>
+                              <span className="sf-subject-pill-dot" />
+                              {b.name}
+                            </span>
                             <span className="text-muted small">
                               · {b.count} {b.count === 1 ? 'session' : 'sessions'} · focus{' '}
                               {b.avgFocus}

@@ -111,6 +111,38 @@
   background: var(--card-kpi-bg);
 }
 
+/* "?" help affordance next to widget headers. */
+.sf-help-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted-strong);
+  background: transparent;
+  border: 1px solid var(--card-border-strong);
+  border-radius: 50%;
+  cursor: help;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  vertical-align: middle;
+}
+
+.sf-help-tip:hover,
+.sf-help-tip:focus-visible {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(43, 74, 238, 0.08);
+  outline: none;
+}
+
+.sf-help-popover {
+  max-width: 320px;
+}
+
 .sf-card-panel {
   background: var(--card-panel-bg);
 }
@@ -261,6 +293,100 @@
   font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   Sessions — subject pill, duration bar, grouped boards
+   -------------------------------------------------------------------------- */
+
+/* Subject shown as a tinted chip carrying its own color (--pill) instead of a
+   bare dot + text, so the table scans by subject at a glance. */
+.sf-subject-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.6rem 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--pill) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill) 32%, transparent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.sf-subject-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pill);
+  flex-shrink: 0;
+}
+
+/* Duration value + a track scaled to the longest session in the current view,
+   so a marathon session reads as longer without doing the math. */
+.sf-dur-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-dur-track {
+  margin-top: 0.35rem;
+  height: 4px;
+  width: 92px;
+  max-width: 100%;
+  border-radius: var(--radius-full);
+  background: var(--bg-light);
+  overflow: hidden;
+}
+
+.sf-dur-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  opacity: 0.75;
+}
+
+/* Grouped (week/month) header — a compact "board" with a comparative hours
+   bar vs. the busiest group plus a subject color mix. */
+.sf-group-board {
+  padding: 0.85rem 1rem;
+  background: var(--bg-light);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sf-group-bar-track {
+  margin-top: 0.55rem;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-light) 18%, transparent);
+  overflow: hidden;
+}
+
+.sf-group-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+
+.sf-group-mix {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sf-group-mix-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-white);
+  margin-left: -4px;
+}
+
+.sf-group-mix-dot:first-child {
+  margin-left: 0;
 }
 
 /* --------------------------------------------------------------------------

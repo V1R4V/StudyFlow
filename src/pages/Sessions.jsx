@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Container, Card, Form, Table, Button, Row, Col, Badge, Alert } from 'react-bootstrap';
 import EndSessionModal from '../components/EndSessionModal';
+import KpiCard from '../components/KpiCard';
 import { useStudyData } from '../context/StudyDataContext';
 import { sessionMatchesSubject, localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
 
@@ -43,6 +44,15 @@ function formatDuration(seconds) {
 
 function formatHours(minutes) {
   return (minutes / 60).toFixed(1);
+}
+
+// "1h 23m" / "23m" — compact, used in KPI sublines.
+function formatMinsShort(minutes) {
+  const mins = Math.max(0, Math.round(minutes));
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 // ---------- CSV serialization helpers ----------
@@ -398,11 +408,16 @@ export default function Sessions() {
   // Summary across the current filter so the user sees the impact of their
   // selection at a glance — no need to add up rows in their head.
   const summary = useMemo(() => {
+    const count = filtered.length;
     const totalMin = filtered.reduce((acc, s) => acc + getSessionMinutes(s), 0);
-    const avgFocus = filtered.length > 0
-      ? (filtered.reduce((acc, s) => acc + (s.focusRating || 0), 0) / filtered.length).toFixed(1)
+    const avgFocus = count > 0
+      ? (filtered.reduce((acc, s) => acc + (s.focusRating || 0), 0) / count).toFixed(1)
       : '—';
-    return { count: filtered.length, totalMin, avgFocus };
+    const avgSessionMin = count > 0 ? totalMin / count : 0;
+    const longestSec = filtered.reduce((m, s) => Math.max(m, getSessionSeconds(s)), 0);
+    const highFocus = filtered.filter(s => (s.focusRating || 0) >= 4).length;
+    const activeDays = new Set(filtered.map(s => s.date)).size;
+    return { count, totalMin, avgFocus, avgSessionMin, longestSec, highFocus, activeDays };
   }, [filtered]);
 
   // For grouped views — bucket by day/week/month with a per-bucket total.
@@ -415,13 +430,25 @@ export default function Sessions() {
       map.get(key).push(s);
     });
     const arr = [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
-    return arr.map(([key, items]) => ({
-      key,
-      label: groupLabel(key, grouping),
-      sessions: items,
-      totalMin: items.reduce((acc, s) => acc + getSessionMinutes(s), 0),
-    }));
-  }, [filtered, grouping]);
+    const groups = arr.map(([key, items]) => {
+      const totalMin = items.reduce((acc, s) => acc + getSessionMinutes(s), 0);
+      const avgFocus = items.length > 0
+        ? items.reduce((acc, s) => acc + (s.focusRating || 0), 0) / items.length
+        : 0;
+      // Subject color mix, ordered by time spent — a quick read on what a
+      // week/month was actually about.
+      const byColor = new Map();
+      items.forEach(s => {
+        const subj = subjects.find(sub => sessionMatchesSubject(s, sub));
+        const color = subj?.color || s.subjectColor || '#6b7280';
+        byColor.set(color, (byColor.get(color) || 0) + getSessionMinutes(s));
+      });
+      const colors = [...byColor.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+      return { key, label: groupLabel(key, grouping), sessions: items, totalMin, avgFocus, colors };
+    });
+    const maxGroupMin = Math.max(1, ...groups.map(g => g.totalMin));
+    return { groups, maxGroupMin };
+  }, [filtered, grouping, subjects]);
 
   const hasCustomRange = dateRange === 'custom';
   const showingRangeLabel = dateRange === 'all'
@@ -440,20 +467,26 @@ export default function Sessions() {
           )}
         </td>
         <td>
-          <span className="d-inline-flex align-items-center gap-2">
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: color,
-                display: 'inline-block',
-              }}
-            />
+          <span className="sf-subject-pill" style={{ '--pill': color }}>
+            <span className="sf-subject-pill-dot" />
             {s.subjectName}
           </span>
         </td>
-        <td>{formatDuration(getSessionSeconds(s))}</td>
+        <td>
+          <div className="sf-dur-value">{formatDuration(getSessionSeconds(s))}</div>
+          {summary.longestSec > 0 && (
+            <div
+              className="sf-dur-track"
+              aria-hidden="true"
+              title={`${formatDuration(getSessionSeconds(s))} of longest ${formatDuration(summary.longestSec)}`}
+            >
+              <div
+                className="sf-dur-fill"
+                style={{ width: `${Math.max(6, Math.round((getSessionSeconds(s) / summary.longestSec) * 100))}%` }}
+              />
+            </div>
+          )}
+        </td>
         <td><Stars rating={s.focusRating} /></td>
         <td className="text-center">
           {Number(s.distractions) > 0 ? (
@@ -638,29 +671,74 @@ export default function Sessions() {
             )}
           </Row>
 
-          <div className="d-flex flex-wrap gap-2 mt-3 align-items-center">
-            <Badge bg="primary" pill className="px-3 py-2">
-              {summary.count} {summary.count === 1 ? 'session' : 'sessions'}
-            </Badge>
-            <Badge bg="secondary" pill className="px-3 py-2">
-              {formatHours(summary.totalMin)}h total
-            </Badge>
-            <Badge bg="info" pill className="px-3 py-2">
-              Avg focus {summary.avgFocus}{summary.avgFocus !== '—' && '/5'}
-            </Badge>
-            <span className="text-muted small ms-auto">
-              Showing {showingRangeLabel}
-            </span>
+          <div className="d-flex justify-content-end mt-2">
+            <span className="text-muted small">Showing {showingRangeLabel}</span>
           </div>
         </Card.Body>
       </Card>
+
+      <Row className="g-3 mb-3">
+        <Col md={3} sm={6}>
+          <KpiCard
+            label="Total Time"
+            value={`${formatHours(summary.totalMin)}h`}
+            sub={
+              summary.activeDays > 0
+                ? `${formatMinsShort(summary.totalMin / summary.activeDays)} per active day`
+                : 'no sessions'
+            }
+          />
+        </Col>
+        <Col md={3} sm={6}>
+          <KpiCard
+            label="Sessions"
+            value={summary.count}
+            sub={
+              summary.count > 0
+                ? `across ${summary.activeDays} ${summary.activeDays === 1 ? 'day' : 'days'}`
+                : 'no sessions'
+            }
+          />
+        </Col>
+        <Col md={3} sm={6}>
+          <KpiCard
+            label="Avg Focus"
+            value={
+              summary.count > 0 ? (
+                <>
+                  {summary.avgFocus}
+                  <span className="text-muted fs-6 fw-normal ms-1">/ 5</span>
+                </>
+              ) : (
+                '—'
+              )
+            }
+            sub={
+              summary.count > 0
+                ? `${summary.highFocus} of ${summary.count} rated ≥ 4`
+                : 'no sessions'
+            }
+          />
+        </Col>
+        <Col md={3} sm={6}>
+          <KpiCard
+            label="Avg Session"
+            value={summary.count > 0 ? formatMinsShort(summary.avgSessionMin) : '—'}
+            sub={
+              summary.longestSec > 0
+                ? `longest ${formatMinsShort(summary.longestSec / 60)}`
+                : 'per session'
+            }
+          />
+        </Col>
+      </Row>
 
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h2 className="h6 mb-0 fw-semibold">Session History</h2>
           {grouping !== 'none' && (
             <span className="small text-muted">
-              {grouped?.length || 0} {grouped?.length === 1 ? 'group' : 'groups'}
+              {grouped?.groups.length || 0} {grouped?.groups.length === 1 ? 'group' : 'groups'}
             </span>
           )}
         </Card.Header>
@@ -688,21 +766,36 @@ export default function Sessions() {
           </Table>
         ) : (
           <div>
-            {grouped.map(g => (
+            {grouped.groups.map(g => (
               <div key={g.key}>
-                <div
-                  className="px-3 py-2 d-flex justify-content-between align-items-center"
-                  style={{
-                    background: 'var(--bg-light)',
-                    borderTop: '1px solid var(--border-color)',
-                    borderBottom: '1px solid var(--border-color)',
-                  }}
-                >
-                  <span className="fw-semibold small">{g.label}</span>
-                  <span className="text-muted small">
-                    {g.sessions.length} {g.sessions.length === 1 ? 'session' : 'sessions'} ·{' '}
-                    {formatHours(g.totalMin)}h
-                  </span>
+                <div className="sf-group-board">
+                  <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                    <span className="fw-semibold">{g.label}</span>
+                    <span className="text-muted small d-inline-flex align-items-center gap-2">
+                      {g.colors.length > 0 && (
+                        <span className="sf-group-mix" aria-hidden="true">
+                          {g.colors.slice(0, 4).map((c, i) => (
+                            <span key={i} className="sf-group-mix-dot" style={{ background: c }} />
+                          ))}
+                        </span>
+                      )}
+                      <span>
+                        {g.sessions.length} {g.sessions.length === 1 ? 'session' : 'sessions'} ·{' '}
+                        {formatHours(g.totalMin)}h
+                        {g.avgFocus > 0 && ` · ${g.avgFocus.toFixed(1)}★`}
+                      </span>
+                    </span>
+                  </div>
+                  <div
+                    className="sf-group-bar-track"
+                    aria-hidden="true"
+                    title={`${formatHours(g.totalMin)}h of busiest ${formatHours(grouped.maxGroupMin)}h`}
+                  >
+                    <div
+                      className="sf-group-bar-fill"
+                      style={{ width: `${Math.max(4, Math.round((g.totalMin / grouped.maxGroupMin) * 100))}%` }}
+                    />
+                  </div>
                 </div>
                 <Table hover responsive className="mb-0 align-middle">
                   <tbody>{g.sessions.map(renderRow)}</tbody>

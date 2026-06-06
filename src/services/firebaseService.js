@@ -6,6 +6,7 @@ import {
   doc,
   getDocs,
   query,
+  where,
   orderBy,
   limit,
   startAfter,
@@ -343,11 +344,54 @@ export const getMoreSessions = async (userId, lastDoc, pageSize = 50) => {
   }
 };
 
-// Backward-compatible name so existing imports do not break.
-// This now returns only the most recent 50 sessions.
+// How far back analytics (heatmap, study debt, day/hour charts, KPIs) reach.
+// A full year + one month of slack so a 12-month heatmap is always complete.
+const ANALYTICS_WINDOW_DAYS = 396;
+// Safety ceiling so a pathological account can't pull an unbounded read.
+// A heavy user logging ~10 sessions/day for a year is ~3650 docs.
+const ANALYTICS_MAX_DOCS = 5000;
+
+function dateStringDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Loads the trailing year of sessions for analytics. Bounded by date (so the
+// query cost scales with one year of activity, not the user's entire history)
+// and hard-capped by ANALYTICS_MAX_DOCS. Older sessions remain reachable via
+// the paginated getRecentSessions/getMoreSessions path used by the list view.
+export const getSessionsForAnalytics = async (
+  userId,
+  days = ANALYTICS_WINDOW_DAYS
+) => {
+  try {
+    const sessionsRef = collection(db, 'studyflow_v1', userId, 'sessions');
+    const cutoff = dateStringDaysAgo(days);
+
+    const q = query(
+      sessionsRef,
+      where('date', '>=', cutoff),
+      orderBy('date', 'desc'),
+      limit(ANALYTICS_MAX_DOCS)
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getSessionsForAnalytics error:', err);
+    return [];
+  }
+};
+
+// Backward-compatible name so existing imports do not break. Returns the
+// trailing year of sessions so long-horizon analytics (heatmap, multi-week
+// study debt, yearly KPIs) stay accurate.
 export const getAllSessions = async (userId) => {
-  const { sessions } = await getRecentSessions(userId, 50);
-  return sessions;
+  return getSessionsForAnalytics(userId);
 };
 
 export const updateSession = async (userId, subjectId, sessionId, updates) => {
@@ -448,7 +492,7 @@ export async function syncUserDataOnLogin(userId, userInfo) {
       }
     }
 
-    const { sessions: fsSessions } = await getRecentSessions(userId, 50);
+    const fsSessions = await getSessionsForAnalytics(userId);
 
     localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));

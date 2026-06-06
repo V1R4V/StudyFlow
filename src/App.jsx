@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Spinner } from 'react-bootstrap';
+import { trackPageView } from './services/firebase';
 import { TimerProvider } from './context/TimerContext';
 import { AuthProvider, useAuthContext } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -11,6 +13,17 @@ import SubjectManager from './pages/SubjectManager';
 import Statistics from './pages/Statistics';
 import NotFound from './pages/NotFound';
 import Login from './pages/Login';
+
+// Logs a GA4 page_view on every client-side route change. GA4 only auto-logs
+// the initial load, so SPA navigations would otherwise be invisible. Must live
+// inside <BrowserRouter> to read the location.
+function RouteAnalytics() {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
+  return null;
+}
 
 function AuthGate({ children }) {
   const { loading } = useAuthContext();
@@ -28,11 +41,6 @@ function AuthGate({ children }) {
   }
   return children;
 }
-console.log("Firebase env check", {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-});
 export default function App() {
   return (
     <ThemeProvider>
@@ -40,6 +48,7 @@ export default function App() {
         <StudyDataProvider>
           <TimerProvider>
             <BrowserRouter>
+              <RouteAnalytics />
               <AuthGate>
                 <Routes>
                   <Route path="/login" element={<Login />} />
