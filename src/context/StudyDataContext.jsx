@@ -13,6 +13,16 @@ import {
   addTodo as fsAddTodo,
   updateTodo as fsUpdateTodo,
   deleteTodo as fsDeleteTodo,
+  getAllBreaks,
+  addBreak as fsAddBreak,
+  deleteBreak as fsDeleteBreak,
+  getAllHabits,
+  addHabit as fsAddHabit,
+  updateHabit as fsUpdateHabit,
+  deleteHabit as fsDeleteHabit,
+  getAllHabitLogs,
+  addHabitLog as fsAddHabitLog,
+  deleteHabitLog as fsDeleteHabitLog,
 } from '../services/firebaseService';
 
 // Single shared store for subjects + sessions. One fetch per session,
@@ -24,6 +34,9 @@ const Context = createContext(null);
 const SUBJECTS_KEY = 'studyflow-subjects';
 const SESSIONS_KEY = 'studyflow-sessions';
 const TODOS_KEY = 'studyflow-todos';
+const BREAKS_KEY = 'studyflow-breaks';
+const HABITS_KEY = 'studyflow-habits';
+const HABIT_LOGS_KEY = 'studyflow-habit-logs';
 
 function readGuestSubjects() {
   try {
@@ -52,6 +65,33 @@ function readGuestTodos() {
   }
 }
 
+function readGuestBreaks() {
+  try {
+    const raw = localStorage.getItem(BREAKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function readGuestHabits() {
+  try {
+    const raw = localStorage.getItem(HABITS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function readGuestHabitLogs() {
+  try {
+    const raw = localStorage.getItem(HABIT_LOGS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function StudyDataProvider({ children }) {
   const { user, loading: authLoading } = useAuthContext();
 
@@ -59,25 +99,40 @@ export function StudyDataProvider({ children }) {
   const [subjects, setSubjects] = useState(readGuestSubjects);
   const [sessions, setSessions] = useState(readGuestSessions);
   const [todos, setTodos] = useState(readGuestTodos);
+  const [breaks, setBreaks] = useState(readGuestBreaks);
+  const [habits, setHabits] = useState(readGuestHabits);
+  const [habitLogs, setHabitLogs] = useState(readGuestHabitLogs);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (user) {
-      const [fsSubjects, fsSessions, fsTodos] = await Promise.all([
+      const [fsSubjects, fsSessions, fsTodos, fsBreaks, fsHabits, fsHabitLogs] = await Promise.all([
         getSubjects(user.uid),
         getAllSessions(user.uid),
         getAllTodos(user.uid),
+        getAllBreaks(user.uid),
+        getAllHabits(user.uid),
+        getAllHabitLogs(user.uid),
       ]);
       setSubjects(fsSubjects);
       setSessions(fsSessions);
       setTodos(fsTodos);
+      setBreaks(fsBreaks);
+      setHabits(fsHabits);
+      setHabitLogs(fsHabitLogs);
       localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));
       localStorage.setItem(TODOS_KEY, JSON.stringify(fsTodos));
+      localStorage.setItem(BREAKS_KEY, JSON.stringify(fsBreaks));
+      localStorage.setItem(HABITS_KEY, JSON.stringify(fsHabits));
+      localStorage.setItem(HABIT_LOGS_KEY, JSON.stringify(fsHabitLogs));
     } else {
       setSubjects(readGuestSubjects());
       setSessions(readGuestSessions());
       setTodos(readGuestTodos());
+      setBreaks(readGuestBreaks());
+      setHabits(readGuestHabits());
+      setHabitLogs(readGuestHabitLogs());
     }
   }, [user]);
 
@@ -115,6 +170,21 @@ export function StudyDataProvider({ children }) {
       localStorage.setItem(TODOS_KEY, JSON.stringify(todos));
     }
   }, [todos, user, authLoading]);
+  useEffect(() => {
+    if (!user && !authLoading) {
+      localStorage.setItem(BREAKS_KEY, JSON.stringify(breaks));
+    }
+  }, [breaks, user, authLoading]);
+  useEffect(() => {
+    if (!user && !authLoading) {
+      localStorage.setItem(HABITS_KEY, JSON.stringify(habits));
+    }
+  }, [habits, user, authLoading]);
+  useEffect(() => {
+    if (!user && !authLoading) {
+      localStorage.setItem(HABIT_LOGS_KEY, JSON.stringify(habitLogs));
+    }
+  }, [habitLogs, user, authLoading]);
 
   // ---------- Mutations ----------
 
@@ -224,12 +294,105 @@ export function StudyDataProvider({ children }) {
     }
   }
 
+  // ---------- Breaks ----------
+  // Breaks live in their own collection and are kept out of every study
+  // aggregation. The break timer (BreakContext) is the only writer.
+
+  async function addBreak(breakData) {
+    if (user) {
+      await fsAddBreak(user.uid, breakData);
+      await refresh();
+    } else {
+      const id = Date.now();
+      setBreaks(prev => [{ ...breakData, id }, ...prev]);
+    }
+  }
+
+  async function deleteBreak(breakLocalId) {
+    if (user) {
+      const b = breaks.find(x => x.id === breakLocalId);
+      if (b?.firestoreId) {
+        await fsDeleteBreak(user.uid, b.firestoreId);
+        await refresh();
+      }
+    } else {
+      setBreaks(prev => prev.filter(b => b.id !== breakLocalId));
+    }
+  }
+
+  // ---------- Habits + habit logs ----------
+  // The Command Center habit tracker. Completions are stored only when a habit
+  // is marked done; "missed"/"pending" are derived at render time.
+
+  async function addHabit(habitData) {
+    if (user) {
+      await fsAddHabit(user.uid, habitData);
+      await refresh();
+    } else {
+      setHabits(prev => [...prev, habitData]);
+    }
+  }
+
+  async function updateHabit(habitLocalId, updates) {
+    if (user) {
+      const h = habits.find(x => x.id === habitLocalId);
+      if (h?.firestoreId) {
+        await fsUpdateHabit(user.uid, h.firestoreId, updates);
+        await refresh();
+      }
+    } else {
+      setHabits(prev => prev.map(h => h.id === habitLocalId ? { ...h, ...updates } : h));
+    }
+  }
+
+  async function deleteHabit(habitLocalId) {
+    if (user) {
+      const h = habits.find(x => x.id === habitLocalId);
+      if (h?.firestoreId) {
+        await fsDeleteHabit(user.uid, h.firestoreId);
+        await refresh();
+      }
+    } else {
+      setHabits(prev => prev.filter(h => h.id !== habitLocalId));
+      // Drop the now-orphaned completion logs too.
+      setHabitLogs(prev => prev.filter(l => String(l.habitId) !== String(habitLocalId)));
+    }
+  }
+
+  // Mark a habit done/undone for a given date. Done = ensure a log exists;
+  // undone = remove the existing log. Idempotent.
+  async function toggleHabitDone(habitId, dateStr, done) {
+    const existing = habitLogs.find(
+      l => String(l.habitId) === String(habitId) && l.date === dateStr
+    );
+    if (user) {
+      if (done && !existing) {
+        await fsAddHabitLog(user.uid, { habitId: String(habitId), date: dateStr });
+        await refresh();
+      } else if (!done && existing?.firestoreId) {
+        await fsDeleteHabitLog(user.uid, existing.firestoreId);
+        await refresh();
+      }
+    } else {
+      if (done && !existing) {
+        setHabitLogs(prev => [
+          { id: Date.now(), habitId: String(habitId), date: dateStr, done: true },
+          ...prev,
+        ]);
+      } else if (!done && existing) {
+        setHabitLogs(prev => prev.filter(l => l.id !== existing.id));
+      }
+    }
+  }
+
   return (
     <Context.Provider value={{
-      subjects, sessions, todos, loading,
+      subjects, sessions, todos, breaks, habits, habitLogs, loading,
       addSubject, updateSubject, deleteSubject,
       addSession, updateSession, deleteSession,
       addTodo, updateTodo, deleteTodo,
+      addBreak, deleteBreak,
+      addHabit, updateHabit, deleteHabit, toggleHabitDone,
       refresh,
     }}>
       {children}

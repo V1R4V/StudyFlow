@@ -47,13 +47,18 @@ function readTimerFromStorage() {
 }
 
 export function TimerProvider({ children }) {
-  const { subjects, addSession } = useStudyData();
+  const { subjects, addSession, addBreak } = useStudyData();
 
   const storedTimer = readTimerFromStorage();
   const [mode, setMode] = useState(storedTimer?.mode ?? 'pomodoro');
   const [customH, setCustomH] = useState(storedTimer?.customH ?? 0);
   const [customM, setCustomM] = useState(storedTimer?.customM ?? 45);
   const [customS, setCustomS] = useState(storedTimer?.customS ?? 0);
+  // Break mode keeps its own duration so switching between Custom and Break
+  // doesn't clobber the user's custom study length. Breaks default to 5 min.
+  const [breakH, setBreakH] = useState(storedTimer?.breakH ?? 0);
+  const [breakM, setBreakM] = useState(storedTimer?.breakM ?? 5);
+  const [breakS, setBreakS] = useState(storedTimer?.breakS ?? 0);
   const [targetSeconds, setTargetSeconds] = useState(
     storedTimer?.targetSeconds ?? POMODORO_SECONDS
   );
@@ -114,19 +119,25 @@ export function TimerProvider({ children }) {
   useEffect(() => {
     const payload = {
       mode, customH, customM, customS,
+      breakH, breakM, breakS,
       targetSeconds, secondsElapsed, isRunning,
       subjectId, startEpochMs,
     };
     try {
       localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(payload));
     } catch { /* noop */ }
-  }, [mode, customH, customM, customS, targetSeconds, secondsElapsed, isRunning, subjectId, startEpochMs]);
+  }, [mode, customH, customM, customS, breakH, breakM, breakS, targetSeconds, secondsElapsed, isRunning, subjectId, startEpochMs]);
 
   useEffect(() => {
     if (autoEndedRef.current && !isRunning && secondsElapsed === elapsedAtAutoEndRef.current) {
-      setLiveMessage('Session complete.');
       autoEndedRef.current = false;
-      promptSave(elapsedAtAutoEndRef.current);
+      if (mode === 'break') {
+        setLiveMessage('Break complete.');
+        saveBreak(elapsedAtAutoEndRef.current);
+      } else {
+        setLiveMessage('Session complete.');
+        promptSave(elapsedAtAutoEndRef.current);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, secondsElapsed]);
@@ -144,9 +155,18 @@ export function TimerProvider({ children }) {
     }
   }
 
+  function setBreakTime(h, m, s) {
+    setBreakH(h);
+    setBreakM(m);
+    setBreakS(s);
+    if (mode === 'break' && !isRunning && secondsElapsed === 0) {
+      setTargetSeconds(customTotalSeconds(h, m, s));
+    }
+  }
+
   function applyMode(nextMode) {
     if (isRunning || secondsElapsed > 0) {
-      if (!window.confirm('Switching modes will reset the current session. Continue?')) return;
+      if (!window.confirm('Switching modes will reset the current timer. Continue?')) return;
     }
     setMode(nextMode);
     setIsRunning(false);
@@ -156,11 +176,13 @@ export function TimerProvider({ children }) {
     autoEndedRef.current = false;
     if (nextMode === 'pomodoro') setTargetSeconds(POMODORO_SECONDS);
     else if (nextMode === 'stopwatch') setTargetSeconds(0);
+    else if (nextMode === 'break') setTargetSeconds(customTotalSeconds(breakH, breakM, breakS));
     else setTargetSeconds(customTotalSeconds(customH, customM, customS));
   }
 
   function start() {
-    if (!subjectId) {
+    // Breaks aren't attached to a subject; only study modes require one.
+    if (mode !== 'break' && !subjectId) {
       if (subjects.length > 0) {
         setSubjectId(String(subjects[0].id));
       } else {
@@ -218,7 +240,36 @@ export function TimerProvider({ children }) {
   }
 
   function endSession() {
+    if (mode === 'break') {
+      const elapsed =
+        isRunning && startEpochMs
+          ? Math.max(0, Math.floor((Date.now() - startEpochMs) / 1000))
+          : secondsElapsed;
+      saveBreak(elapsed);
+      return;
+    }
     promptSave(secondsElapsed);
+  }
+
+  // Breaks are logged to their own store and never roll into focus/session
+  // minutes. No subject, no focus rating, no save modal — just record and reset.
+  function saveBreak(elapsedSeconds) {
+    const seconds = Math.max(0, Math.floor(elapsedSeconds));
+    setIsRunning(false);
+    setSecondsElapsed(0);
+    setStartEpochMs(null);
+    autoEndedRef.current = false;
+    if (seconds < 5) {
+      setLiveMessage('Break too short to log.');
+      return;
+    }
+    addBreak({
+      durationSeconds: seconds,
+      duration: Math.max(1, Math.ceil(seconds / 60)),
+      type: 'custom',
+      date: localDateString(),
+    });
+    setLiveMessage('Break logged.');
   }
 
   function saveSession(details) {
@@ -283,6 +334,7 @@ export function TimerProvider({ children }) {
   const value = {
     mode, applyMode,
     customH, customM, customS, setCustomTime,
+    breakH, breakM, breakS, setBreakTime,
     targetSeconds, secondsElapsed, isRunning,
     subjectId, setSubjectId,
     error,

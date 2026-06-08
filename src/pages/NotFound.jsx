@@ -6,7 +6,7 @@ export default function NotFound() {
     <Container className="py-5 text-center">
       <h1 className="display-1">404</h1>
       <p className="text-muted">Page not found.</p>
-      <Button as={Link} to="/" variant="primary">Go Home</Button>
+      <Button as={Link} to="/app" variant="primary">Go Home</Button>
     </Container>
   );
 }

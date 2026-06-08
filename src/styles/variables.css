@@ -85,6 +85,41 @@
   --row-hover: rgba(43, 74, 238, 0.04);
   --scrollbar-thumb: var(--border-color);
   --scrollbar-thumb-hover: #c5ccd6;
+
+  /* Break accent - teal, deliberately distinct from the blue study primary and
+     the green "success" so breaks read as their own separate track. */
+  --break-accent: #14b8a6;
+  --break-accent-text: #0f766e;
+  --break-tint: rgba(20, 184, 166, 0.14);
+
+  /* Habit grade heatmap - discrete red→green completion states. Pastel tiles
+     carry dark cell text in both themes. */
+  --grade-none: #eef0f3;
+  --grade-zero: #f3b4b4;
+  --grade-low: #f8cd95;
+  --grade-mid: #fce08a;
+  --grade-high: #a9e2c1;
+  --grade-full: #34d399;
+
+  /* Midnight-glass design tokens (shared by every page).
+     - tile-*   : the restrained single-accent "glass chip" used for all icon
+                  tiles, replacing the old multicolor candy gradients.
+     - card-edge: a fine gradient hairline painted as a border-box layer so
+                  cards read as frosted glass with a lit top edge instead of a
+                  flat 1px line. card-edge-strong is the accent hover edge. */
+  --tile-bg: linear-gradient(155deg,
+    color-mix(in srgb, var(--primary) 12%, transparent),
+    color-mix(in srgb, var(--primary) 3%, transparent));
+  --tile-border: color-mix(in srgb, var(--primary) 20%, transparent);
+  --tile-icon: var(--primary);
+  --card-edge: linear-gradient(150deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(148, 163, 184, 0.16) 45%,
+    rgba(148, 163, 184, 0.05));
+  --card-edge-strong: linear-gradient(150deg,
+    color-mix(in srgb, var(--primary) 55%, transparent),
+    color-mix(in srgb, var(--primary) 12%, transparent) 55%,
+    transparent);
 }
 
 /* ==========================================================================
@@ -136,6 +171,20 @@
   --row-hover: rgba(255, 255, 255, 0.04);
   --scrollbar-thumb: #3a3a45;
   --scrollbar-thumb-hover: #50505e;
+
+  /* Brighter teal so the break accent stays legible on the dark canvas. */
+  --break-accent: #2dd4bf;
+  --break-accent-text: #5eead4;
+  --break-tint: rgba(45, 212, 191, 0.16);
+
+  /* Slightly deeper grade tiles for the dark canvas; still pastel enough to
+     carry dark cell text. "None" becomes a faint dark tile. */
+  --grade-none: #24262f;
+  --grade-zero: #e09a9a;
+  --grade-low: #e6bd80;
+  --grade-mid: #efd479;
+  --grade-high: #93d8b2;
+  --grade-full: #34d399;
 }
 
 /* ==========================================================================

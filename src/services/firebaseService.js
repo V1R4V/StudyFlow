@@ -27,7 +27,16 @@ const LIMITS = {
   MAX_WEEKLY_GOAL: 168,
   MAX_SESSION_SECONDS: 24 * 60 * 60,
   MAX_TOTAL_MINUTES: 1_000_000,
+  // Breaks are tracked separately from study time and never roll into focus
+  // totals. A break can run at most a few hours before we treat the value as
+  // garbage.
+  MAX_BREAK_SECONDS: 4 * 60 * 60,
+  BREAK_NOTE_MAX: 200,
+  HABIT_NAME_MAX: 80,
 };
+
+const BREAK_TYPES = new Set(['short', 'long', 'custom']);
+const HABIT_PRIORITIES = new Set(['low', 'normal', 'high', 'critical']);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -511,6 +520,9 @@ export function clearLocalDataOnLogout() {
   localStorage.removeItem(SESSIONS_KEY);
   localStorage.removeItem(TIMER_KEY);
   localStorage.removeItem(TODOS_KEY);
+  localStorage.removeItem(BREAKS_KEY);
+  localStorage.removeItem(HABITS_KEY);
+  localStorage.removeItem(HABIT_LOGS_KEY);
   window.dispatchEvent(new Event('studyflow:data-changed'));
 }
 
@@ -608,5 +620,225 @@ export const deleteTodo = async (userId, todoId) => {
     await deleteDoc(todoRef);
   } catch (err) {
     console.error('deleteTodo error:', err);
+  }
+};
+
+// ============================================================================
+// Breaks
+// studyflow_v1/{userId}/breaks/{breakId}
+// Breaks are logged and aggregated entirely separately from study sessions.
+// They never contribute to focus/session minutes anywhere in the app — they
+// are surfaced only as "extra info" (break insights). Shape mirrors a trimmed
+// session: a date, a tracked duration, and a type (short/long/custom).
+// ============================================================================
+
+const BREAKS_KEY = 'studyflow-breaks';
+
+function normalizeBreak(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const durationSeconds = clampNumber(
+    raw.durationSeconds ?? Number(raw.duration) * 60,
+    1,
+    LIMITS.MAX_BREAK_SECONDS,
+    60
+  );
+  const duration = Math.max(1, Math.ceil(durationSeconds / 60));
+  const type = BREAK_TYPES.has(raw.type) ? raw.type : 'custom';
+  const note = trimString(raw.note, LIMITS.BREAK_NOTE_MAX);
+  const date = normalizeDate(raw.date);
+  const id = raw.id ?? Date.now();
+  return { id, date, durationSeconds, duration, type, note };
+}
+
+export const addBreak = async (userId, breakData) => {
+  try {
+    const safe = normalizeBreak(breakData);
+    if (!safe) return null;
+
+    const breaksRef = collection(db, 'studyflow_v1', userId, 'breaks');
+    const docRef = await addDoc(breaksRef, {
+      ...safe,
+      userId,
+      createdAt: Timestamp.now(),
+    });
+    return { firestoreId: docRef.id, ...safe };
+  } catch (err) {
+    console.error('addBreak error:', err);
+    return null;
+  }
+};
+
+export const getAllBreaks = async (userId) => {
+  try {
+    const breaksRef = collection(db, 'studyflow_v1', userId, 'breaks');
+    const q = query(breaksRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getAllBreaks error:', err);
+    return [];
+  }
+};
+
+export const deleteBreak = async (userId, breakId) => {
+  try {
+    const breakRef = doc(db, 'studyflow_v1', userId, 'breaks', breakId);
+    await deleteDoc(breakRef);
+  } catch (err) {
+    console.error('deleteBreak error:', err);
+  }
+};
+
+// ============================================================================
+// Habits + habit logs (the Command Center habit tracker)
+// studyflow_v1/{userId}/habits/{habitId}      - habit definitions (tied to a subject)
+// studyflow_v1/{userId}/habitLogs/{logId}     - one doc per completed habit-day
+// A habit recurs on chosen weekdays; completions are stored only when done, so
+// "missed"/"pending" are derived, never written. Habits are completely separate
+// from study sessions and break tracking.
+// ============================================================================
+
+const HABITS_KEY = 'studyflow-habits';
+const HABIT_LOGS_KEY = 'studyflow-habit-logs';
+
+function normalizeDays(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  for (const d of raw) {
+    const n = Math.floor(Number(d));
+    if (Number.isFinite(n) && n >= 0 && n <= 6) seen.add(n);
+  }
+  return [...seen].sort((a, b) => a - b);
+}
+
+function normalizeHabit(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = trimString(raw.name, LIMITS.HABIT_NAME_MAX);
+  if (!name) return null;
+  const subjectId = raw.subjectId ? String(raw.subjectId) : null;
+  if (!subjectId) return null;
+  const subjectName = trimString(raw.subjectName, LIMITS.SUBJECT_NAME_MAX) || name;
+  const subjectColor = isHexColor(raw.subjectColor) ? raw.subjectColor : '#2b4bee';
+  const priority = HABIT_PRIORITIES.has(raw.priority) ? raw.priority : 'normal';
+  const days = normalizeDays(raw.days);
+  const active = raw.active === undefined ? true : Boolean(raw.active);
+  const startDate = normalizeDate(raw.startDate);
+  const id = raw.id ?? Date.now();
+  return { id, subjectId, subjectName, subjectColor, name, priority, days, active, startDate };
+}
+
+function normalizeHabitUpdates(updates) {
+  if (!updates || typeof updates !== 'object') return null;
+  const safe = {};
+  if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
+    const name = trimString(updates.name, LIMITS.HABIT_NAME_MAX);
+    if (name) safe.name = name;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'priority')) {
+    if (HABIT_PRIORITIES.has(updates.priority)) safe.priority = updates.priority;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'days')) {
+    safe.days = normalizeDays(updates.days);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'active')) {
+    safe.active = Boolean(updates.active);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'subjectId')) {
+    safe.subjectId = updates.subjectId ? String(updates.subjectId) : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'subjectName')) {
+    safe.subjectName = trimString(updates.subjectName, LIMITS.SUBJECT_NAME_MAX);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'subjectColor')) {
+    if (isHexColor(updates.subjectColor)) safe.subjectColor = updates.subjectColor;
+  }
+  return Object.keys(safe).length > 0 ? safe : null;
+}
+
+function normalizeHabitLog(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const habitId = raw.habitId ? String(raw.habitId) : null;
+  if (!habitId) return null;
+  const date = normalizeDate(raw.date);
+  const id = raw.id ?? Date.now();
+  return { id, habitId, date, done: true };
+}
+
+export const addHabit = async (userId, habitData) => {
+  try {
+    const safe = normalizeHabit(habitData);
+    if (!safe) return null;
+    const habitsRef = collection(db, 'studyflow_v1', userId, 'habits');
+    const docRef = await addDoc(habitsRef, { ...safe, createdAt: Timestamp.now() });
+    return { firestoreId: docRef.id, ...safe };
+  } catch (err) {
+    console.error('addHabit error:', err);
+    return null;
+  }
+};
+
+export const getAllHabits = async (userId) => {
+  try {
+    const habitsRef = collection(db, 'studyflow_v1', userId, 'habits');
+    const q = query(habitsRef, orderBy('createdAt', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getAllHabits error:', err);
+    return [];
+  }
+};
+
+export const updateHabit = async (userId, habitId, updates) => {
+  try {
+    const safe = normalizeHabitUpdates(updates);
+    if (!safe) return;
+    const habitRef = doc(db, 'studyflow_v1', userId, 'habits', habitId);
+    await updateDoc(habitRef, safe);
+  } catch (err) {
+    console.error('updateHabit error:', err);
+  }
+};
+
+export const deleteHabit = async (userId, habitId) => {
+  try {
+    const habitRef = doc(db, 'studyflow_v1', userId, 'habits', habitId);
+    await deleteDoc(habitRef);
+  } catch (err) {
+    console.error('deleteHabit error:', err);
+  }
+};
+
+export const addHabitLog = async (userId, logData) => {
+  try {
+    const safe = normalizeHabitLog(logData);
+    if (!safe) return null;
+    const logsRef = collection(db, 'studyflow_v1', userId, 'habitLogs');
+    const docRef = await addDoc(logsRef, { ...safe, createdAt: Timestamp.now() });
+    return { firestoreId: docRef.id, ...safe };
+  } catch (err) {
+    console.error('addHabitLog error:', err);
+    return null;
+  }
+};
+
+export const getAllHabitLogs = async (userId) => {
+  try {
+    const logsRef = collection(db, 'studyflow_v1', userId, 'habitLogs');
+    const q = query(logsRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getAllHabitLogs error:', err);
+    return [];
+  }
+};
+
+export const deleteHabitLog = async (userId, logId) => {
+  try {
+    const logRef = doc(db, 'studyflow_v1', userId, 'habitLogs', logId);
+    await deleteDoc(logRef);
+  } catch (err) {
+    console.error('deleteHabitLog error:', err);
   }
 };

@@ -72,13 +72,17 @@ export default function RecentSessionsList(props) {
             const subject = subjects.find(sub => sessionMatchesSubject(s, sub));
             const color = subject?.color || s.subjectColor || '#6b7280';
             const initial = s.subjectName?.[0]?.toUpperCase() || '?';
+            const rating = Number(s.focusRating) || 0;
             return (
               <div
                 key={s.id}
-                className="list-group-item d-flex justify-content-between align-items-center"
+                className="list-group-item sf-session-row d-flex justify-content-between align-items-center"
               >
                 <div className="d-flex align-items-center gap-3">
-                  <div className="sf-subject-icon" style={{ background: color }}>
+                  <div
+                    className="sf-subject-icon sf-subject-icon-grad"
+                    style={{ '--av': color }}
+                  >
                     {initial}
                   </div>
                   <div>
@@ -90,8 +94,19 @@ export default function RecentSessionsList(props) {
                   </div>
                 </div>
                 <div className="text-end">
-                  <div className="fw-semibold">{formatDuration(getSessionSeconds(s))}</div>
-                  <small className="text-muted">Focus: {s.focusRating}/5</small>
+                  <div className="sf-session-dur">{formatDuration(getSessionSeconds(s))}</div>
+                  <div
+                    className="sf-focus-meter"
+                    aria-label={`Focus rating ${rating} out of 5`}
+                  >
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <span
+                        key={n}
+                        className={`sf-focus-dot${n <= rating ? ' on' : ''}`}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             );

@@ -35,21 +35,39 @@ export default function WeeklyTrendCard(props) {
             .map(d => `${d.label}: ${d.minutes} minutes`)
             .join(', ')}.`}
         >
+          <defs>
+            <linearGradient id="sfTrendBar" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary-light)" />
+              <stop offset="100%" stopColor="var(--primary)" />
+            </linearGradient>
+          </defs>
           {days.map((d, i) => {
             const h =
               maxMinutes > 0 ? (d.minutes / maxMinutes) * chartHeight : 0;
             const x = i * (barWidth + barGap);
             const y = chartHeight - h;
+            const isPeak = d.minutes > 0 && d.minutes === peak.minutes;
             return (
               <g key={i}>
+                {/* faint track behind each bar for a fuller, premium look */}
+                <rect
+                  x={x}
+                  y={0}
+                  width={barWidth}
+                  height={chartHeight}
+                  fill="var(--primary)"
+                  opacity={0.06}
+                  rx={4}
+                />
                 <rect
                   x={x}
                   y={y}
                   width={barWidth}
                   height={h}
-                  fill="var(--primary)"
-                  rx={3}
-                  opacity={d.minutes > 0 ? 1 : 0.3}
+                  fill="url(#sfTrendBar)"
+                  rx={4}
+                  opacity={d.minutes > 0 ? 1 : 0.25}
+                  style={isPeak ? { filter: 'drop-shadow(0 3px 6px var(--focus-ring))' } : undefined}
                 />
                 <text
                   x={x + barWidth / 2}

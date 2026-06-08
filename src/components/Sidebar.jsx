@@ -37,6 +37,14 @@ const IconStatistics = () => (
   </svg>
 );
 
+const IconCommand = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M10 2.5v3M10 14.5v3M2.5 10h3M14.5 10h3" />
+    <circle cx="10" cy="10" r="2.25" />
+  </svg>
+);
+
 const IconBrand = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
     <path d="M12 1.5l2.6 8.4L23 12l-8.4 2.1L12 23l-2.1-8.9L1 12l8.9-2.1L12 1.5z" />
@@ -78,12 +86,13 @@ const IconGrip = () => (
 // Each item has a stable `key` used to look it up; the on-disk order is
 // stored as an array of keys so adding new nav items doesn't break.
 const NAV_ITEMS = {
-  dashboard:  { key: 'dashboard',  to: '/',           label: 'Dashboard',  icon: <IconDashboard />,  end: true },
-  subjects:   { key: 'subjects',   to: '/subjects',   label: 'Subjects',   icon: <IconSubjects /> },
-  sessions:   { key: 'sessions',   to: '/sessions',   label: 'Sessions',   icon: <IconSessions /> },
-  statistics: { key: 'statistics', to: '/statistics', label: 'Statistics', icon: <IconStatistics /> },
+  dashboard:  { key: 'dashboard',  to: '/app',            label: 'Dashboard',      icon: <IconDashboard />,  end: true },
+  command:    { key: 'command',    to: '/app/command',    label: 'Command Center', icon: <IconCommand /> },
+  subjects:   { key: 'subjects',   to: '/app/subjects',   label: 'Subjects',       icon: <IconSubjects /> },
+  sessions:   { key: 'sessions',   to: '/app/sessions',   label: 'Sessions',       icon: <IconSessions /> },
+  statistics: { key: 'statistics', to: '/app/statistics', label: 'Statistics',     icon: <IconStatistics /> },
 };
-const DEFAULT_ORDER = ['dashboard', 'subjects', 'sessions', 'statistics'];
+const DEFAULT_ORDER = ['dashboard', 'command', 'subjects', 'sessions', 'statistics'];
 const NAV_ORDER_KEY = 'sf-nav-order';
 
 function readNavOrder() {
@@ -148,7 +157,7 @@ export default function Sidebar() {
 
   return (
     <aside className="sf-sidebar">
-      <Link to="/" className="sf-brand" aria-label="StudyFlow home">
+      <Link to="/app" className="sf-brand" aria-label="StudyFlow home">
         <div className="sf-brand-icon" aria-hidden="true">
           <IconBrand />
         </div>

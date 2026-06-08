@@ -6,6 +6,7 @@ import StatsCard from '../components/StatsCard';
 import StudyTimer from '../components/StudyTimer';
 import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
+import BreakStatsCard from '../components/BreakStatsCard';
 import DailyPlanner from '../components/DailyPlanner';
 import { useStudyData } from '../context/StudyDataContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
@@ -184,7 +185,7 @@ export default function Dashboard() {
           <p className="sf-empty-sub">
             Track real focus time, set goals, build the streak.
           </p>
-          <Button as={Link} to="/subjects" variant="primary" size="lg">
+          <Button as={Link} to="/app/subjects" variant="primary" size="lg">
             Create a subject
           </Button>
         </div>
@@ -298,8 +299,7 @@ export default function Dashboard() {
             value={todaysHours}
             unit="hrs"
             icon={<IconClock />}
-            iconBg="rgba(43, 74, 238, 0.1)"
-            iconColor="var(--primary)"
+            tone="blue"
             subtitle={focusChangeText}
             subtitleColor={focusChangeColor}
           />
@@ -310,8 +310,7 @@ export default function Dashboard() {
             value={streak}
             unit={streak === 1 ? 'day' : 'days'}
             icon={<IconFlame />}
-            iconBg="rgba(245, 158, 11, 0.15)"
-            iconColor="var(--warning-text)"
+            tone="amber"
             subtitle={streakSubtitle}
             subtitleColor={streakSubtitleColor}
           />
@@ -321,8 +320,8 @@ export default function Dashboard() {
             title={sessionsTitle}
             value={`${sessionsToday}/${dailySessionGoal}`}
             icon={<IconCheck />}
-            iconBg="rgba(16, 185, 129, 0.15)"
-            iconColor="var(--success-text)"
+            tone="green"
+            progress={Math.min(100, goalPct)}
             subtitle={sessionsSubtitle}
             subtitleColor={sessionsSubtitleColor}
           />
@@ -333,8 +332,8 @@ export default function Dashboard() {
             value={thisWeekHours.toFixed(1)}
             unit={totalWeeklyGoalHours > 0 ? `/ ${totalWeeklyGoalHours}h` : 'hrs'}
             icon={<IconTarget />}
-            iconBg="rgba(124, 58, 237, 0.12)"
-            iconColor="#7c3aed"
+            tone="violet"
+            progress={totalWeeklyGoalHours > 0 ? weeklyPct : undefined}
             subtitle={weeklySubtitle}
             subtitleColor={weeklySubtitleColor}
             info={weeklyInfoText}
@@ -358,6 +357,14 @@ export default function Dashboard() {
       <Row>
         <Col>
           <RecentSessionsList sessions={sessions} subjects={subjects} />
+        </Col>
+      </Row>
+
+      {/* Break activity — shown as extra info only; break time is tracked
+          entirely separately and never counts toward focus/session totals. */}
+      <Row className="mt-3">
+        <Col>
+          <BreakStatsCard />
         </Col>
       </Row>
     </Container>

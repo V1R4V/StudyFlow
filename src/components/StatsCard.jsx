@@ -35,19 +35,27 @@ export default function StatsCard(props) {
     </span>
   );
 
+  // `tone` opts into the premium gradient icon chip (blue/amber/green/violet/
+  // teal/rose, shared with the landing page). Callers that still pass
+  // iconBg/iconColor keep the original flat tinted tile.
+  const tone = props.tone;
+  const iconClass = `sf-stats-icon${tone ? ` sf-fi-${tone}` : ''}`;
+  const iconStyle = tone
+    ? undefined
+    : {
+        background: props.iconBg || 'rgba(43, 74, 238, 0.1)',
+        color: props.iconColor || 'var(--primary)',
+      };
+
+  const hasProgress = typeof props.progress === 'number';
+  const pct = hasProgress ? Math.min(100, Math.max(0, props.progress)) : 0;
+
   return (
     <Card className="h-100 sf-card-kpi">
       <Card.Body>
         <div className="d-flex justify-content-between align-items-start mb-3">
           {titleNode}
-          <div
-            className="sf-stats-icon"
-            style={{
-              background: props.iconBg || 'rgba(43, 74, 238, 0.1)',
-              color: props.iconColor || 'var(--primary)',
-            }}
-            aria-hidden="true"
-          >
+          <div className={iconClass} style={iconStyle} aria-hidden="true">
             {props.icon}
           </div>
         </div>
@@ -71,6 +79,21 @@ export default function StatsCard(props) {
             }}
           >
             {props.subtitle}
+          </div>
+        )}
+
+        {hasProgress && (
+          <div
+            className="sf-kpi-progress"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span
+              className={`sf-kpi-progress-fill${tone ? ` sf-fi-${tone}` : ''}`}
+              style={{ width: `${pct}%` }}
+            />
           </div>
         )}
       </Card.Body>

@@ -63,7 +63,7 @@ export default function Login() {
         displayName: user.displayName,
         email: user.email,
       });
-      navigate('/');
+      navigate('/app');
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -86,7 +86,7 @@ export default function Login() {
           email: user.email,
         });
       }
-      navigate('/');
+      navigate('/app');
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -227,7 +227,7 @@ export default function Login() {
           <div className="text-center mt-4">
             <button
               className="sf-guest-link"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/app')}
             >
               Continue as guest →
             </button>
