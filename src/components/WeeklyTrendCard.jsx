@@ -1,4 +1,5 @@
 import { Card, Row, Col } from 'react-bootstrap';
+import CardExpand from './CardExpand';
 
 export default function WeeklyTrendCard(props) {
   const days = props.dailyMinutes || [];
@@ -24,6 +25,7 @@ export default function WeeklyTrendCard(props) {
       <Card.Body className="sf-panel-body">
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h2 className="h5 mb-0">Weekly Trend</h2>
+          <CardExpand to="/app/statistics" label="Open Statistics" />
         </div>
 
         <svg

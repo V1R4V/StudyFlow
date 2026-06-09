@@ -68,8 +68,8 @@
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
 }
 
 .card::before {
@@ -78,7 +78,7 @@
   inset: 0;
   background: var(--card-highlight);
   pointer-events: none;
-  opacity: 0.9;
+  opacity: 0.55;
 }
 
 .card > * {
@@ -1495,47 +1495,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--tile-icon);
   margin-bottom: 1.2rem;
   position: relative;
-  transition: transform 0.18s ease;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.sf-feature-card:hover .sf-feature-icon {
+  transform: translateY(-2px);
+  border-color: var(--card-border-strong);
 }
 
-/* Glossy top highlight so the tiles read as little 3D chips. */
-.sf-feature-icon::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 55%);
-  pointer-events: none;
-}
-.sf-feature-card:hover .sf-feature-icon { transform: translateY(-2px) scale(1.04); }
-
-/* ---- Colorful icon/number tones (shared by features + steps) ---- */
-.sf-fi-blue {
-  background: linear-gradient(135deg, #5b7cff, #2b4bee);
-  box-shadow: 0 10px 22px rgba(43, 74, 238, 0.38);
-}
-.sf-fi-violet {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
-  box-shadow: 0 10px 22px rgba(124, 58, 237, 0.38);
-}
-.sf-fi-teal {
-  background: linear-gradient(135deg, #2dd4bf, #0d9488);
-  box-shadow: 0 10px 22px rgba(13, 148, 136, 0.38);
-}
-.sf-fi-green {
-  background: linear-gradient(135deg, #34d399, #059669);
-  box-shadow: 0 10px 22px rgba(5, 150, 105, 0.38);
-}
-.sf-fi-amber {
-  background: linear-gradient(135deg, #fbbf24, #f97316);
-  box-shadow: 0 10px 22px rgba(249, 115, 22, 0.4);
-}
+/* ---- Single-accent "glass chip" tone (shared by features, steps, KPIs).
+   Restraint over rainbow: one indigo accent, matte glass, no candy gloss.
+   The class names are kept (blue/violet/…) so existing markup stays valid,
+   but they all resolve to the same refined treatment. ---- */
+.sf-fi-blue,
+.sf-fi-violet,
+.sf-fi-teal,
+.sf-fi-green,
+.sf-fi-amber,
 .sf-fi-rose {
-  background: linear-gradient(135deg, #fb7185, #e11d48);
-  box-shadow: 0 10px 22px rgba(225, 29, 72, 0.38);
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-border);
+  color: var(--tile-icon);
+  box-shadow: var(--tile-shadow);
 }
 
 .sf-feature-title {
@@ -1562,7 +1545,7 @@
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: white;
+  color: var(--tile-icon);
   width: 60px;
   height: 60px;
   border-radius: var(--radius-lg);
@@ -1571,15 +1554,6 @@
   justify-content: center;
   margin: 0 auto 1.2rem;
   position: relative;
-}
-
-.sf-step-num::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 55%);
-  pointer-events: none;
 }
 .sf-step-title {
   font-size: 1.2rem;
@@ -1879,28 +1853,18 @@
    Dashboard polish — premium KPI tiles, sessions list, streak chip
    ========================================================================== */
 
-/* ---- KPI icon chips: larger, glossy, lift on card hover ---- */
+/* ---- KPI icon chips: matte single-accent glass, subtle lift on hover ---- */
 .sf-stats-icon {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-lg);
   position: relative;
-  overflow: hidden;
-  transition: transform 0.18s ease;
-}
-
-/* Glossy top highlight only on the gradient (toned) variant. */
-.sf-stats-icon[class*='sf-fi-']::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 55%);
-  pointer-events: none;
+  transition: transform 0.18s ease, border-color 0.18s ease;
 }
 
 .sf-card-kpi:hover .sf-stats-icon {
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-2px);
+  border-color: var(--card-border-strong);
 }
 
 /* ---- KPI mini progress bar ---- */
@@ -1916,27 +1880,26 @@
   display: block;
   height: 100%;
   border-radius: var(--radius-full);
+  /* Always a solid accent fill — overrides the translucent glass tone class
+     so the bar stays legible. */
+  background: linear-gradient(90deg, var(--primary), var(--primary-light)) !important;
   box-shadow: none !important;
   transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ---- Recent Sessions: gradient + glossy subject avatars ---- */
+/* ---- Recent Sessions: matte subject avatars (keep the subject's own hue
+   for identity, but flat and refined — no candy gloss or colored glow) ---- */
 .sf-subject-icon-grad {
   position: relative;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  background: linear-gradient(140deg, var(--av, #6b7280), color-mix(in srgb, var(--av, #6b7280) 60%, #000));
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--av, #6b7280) 38%, transparent);
-}
-
-.sf-subject-icon-grad::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 55%);
-  pointer-events: none;
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--av, #6b7280) 88%, #fff 12%),
+    color-mix(in srgb, var(--av, #6b7280) 82%, #000 18%));
+  border: 1px solid color-mix(in srgb, var(--av, #6b7280) 55%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 /* ---- Recent Sessions: rows ---- */
@@ -1962,17 +1925,38 @@
   justify-content: flex-end;
 }
 .sf-focus-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--border-color);
+  background: color-mix(in srgb, var(--text-light) 45%, transparent);
 }
 .sf-focus-dot.on {
-  background: linear-gradient(135deg, var(--primary-light), var(--primary));
-  box-shadow: 0 1px 4px var(--focus-ring);
+  background: var(--primary);
 }
 
-/* ---- Streak banner flame chip ---- */
+/* ---- Card "open full view" affordance (Hume-style corner control) ---- */
+.sf-card-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--tile-bg);
+  border: 1px solid var(--card-border);
+  color: var(--muted-strong);
+  flex-shrink: 0;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+.sf-card-expand:hover,
+.sf-card-expand:focus-visible {
+  color: var(--primary);
+  border-color: var(--card-border-strong);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+/* ---- Streak banner flame chip — matte single-accent glass ---- */
 .sf-streak-chip {
   display: inline-flex;
   align-items: center;
@@ -1980,17 +1964,9 @@
   width: 24px;
   height: 24px;
   border-radius: 8px;
-  color: white;
-  background: linear-gradient(135deg, #fbbf24, #f97316);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+  color: var(--tile-icon);
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-border);
   position: relative;
-  overflow: hidden;
   flex-shrink: 0;
-}
-.sf-streak-chip::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 55%);
-  pointer-events: none;
 }

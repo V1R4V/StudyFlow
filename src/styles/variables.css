@@ -68,8 +68,8 @@
   --card-timer-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(228, 238, 255, 0.92) 100%);
   --card-overview-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(255, 255, 255, 0.7) 55%, rgba(14, 116, 144, 0.16) 100%);
   --card-overview-border: rgba(59, 130, 246, 0.32);
-  --canvas-glow-1: rgba(59, 130, 246, 0.18);
-  --canvas-glow-2: rgba(14, 116, 144, 0.16);
+  --canvas-glow-1: rgba(43, 74, 238, 0.12);
+  --canvas-glow-2: rgba(43, 74, 238, 0.06);
 
   /* Floating chart tooltip - inverted in dark mode so it pops on either bg. */
   --tooltip-bg: #1f2937;
@@ -102,16 +102,15 @@
   --grade-full: #34d399;
 
   /* Midnight-glass design tokens (shared by every page).
-     - tile-*   : the restrained single-accent "glass chip" used for all icon
-                  tiles, replacing the old multicolor candy gradients.
-     - card-edge: a fine gradient hairline painted as a border-box layer so
-                  cards read as frosted glass with a lit top edge instead of a
-                  flat 1px line. card-edge-strong is the accent hover edge. */
-  --tile-bg: linear-gradient(155deg,
-    color-mix(in srgb, var(--primary) 12%, transparent),
-    color-mix(in srgb, var(--primary) 3%, transparent));
-  --tile-border: color-mix(in srgb, var(--primary) 20%, transparent);
-  --tile-icon: var(--primary);
+     - tile-*   : the Hume-style icon chip — a subtly raised neutral glass tile
+                  (lighter than the card) carrying a crisp monoline glyph, with
+                  a faint accent-tinted border. High contrast, restrained, no
+                  candy gloss or rainbow. Light theme below; dark overrides it.
+     - card-edge: a fine gradient hairline for frosted-glass card edges. */
+  --tile-bg: linear-gradient(155deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02));
+  --tile-border: color-mix(in srgb, var(--primary) 26%, transparent);
+  --tile-icon: #232733;
+  --tile-shadow: 0 1px 2px rgba(2, 6, 23, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   --card-edge: linear-gradient(150deg,
     rgba(255, 255, 255, 0.9),
     rgba(148, 163, 184, 0.16) 45%,
@@ -127,36 +126,45 @@
    ========================================================================== */
 
 [data-theme="dark"] {
-  --bg-light: #0e0e10;
-  --bg-white: #18181c;
+  /* Neutral graphite canvas - charcoal, not blue. Accent stays reserved. */
+  --bg-light: #08080a;
+  --bg-white: #141417;
 
-  --text-dark: #e8e8f2;
-  --text-light: #8a8a9e;
-  --border-color: #303039;
-  --muted-strong: #9898aa;
+  --text-dark: #ededee;
+  --text-light: #8c8c93;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --muted-strong: #a7a7ad;
 
-  --primary: #6b7bff;
-  --primary-light: #8b98ff;
-  --primary-dark: #4a5bee;
+  --primary: #7c8bff;
+  --primary-light: #9aa6ff;
+  --primary-dark: #5d6bf5;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 16px 48px rgba(0, 0, 0, 0.5);
+  /* Hume-style icon tile: a raised neutral glass chip + crisp white glyph. */
+  --tile-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.03));
+  --tile-border: color-mix(in srgb, var(--primary) 30%, transparent);
+  --tile-icon: #f4f4f6;
+  --tile-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
-  --card-bg: rgba(12, 14, 20, 0.92);
-  --card-border: rgba(148, 163, 184, 0.22);
-  --card-border-strong: rgba(107, 123, 255, 0.45);
-  --card-shadow: 0 14px 44px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --card-shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.68), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 60%, rgba(255, 255, 255, 0) 100%);
-  --card-kpi-bg: linear-gradient(155deg, rgba(35, 43, 70, 0.9) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(9, 11, 18, 0.98) 100%);
-  --card-panel-bg: linear-gradient(180deg, rgba(22, 26, 36, 0.9) 0%, rgba(9, 11, 18, 0.96) 100%);
-  --card-timer-bg: linear-gradient(180deg, rgba(35, 43, 70, 0.78) 0%, rgba(9, 11, 18, 0.98) 100%);
-  --card-overview-bg: linear-gradient(135deg, rgba(107, 123, 255, 0.22) 0%, rgba(9, 11, 18, 0.9) 60%, rgba(20, 184, 166, 0.12) 100%);
-  --card-overview-border: rgba(107, 123, 255, 0.38);
-  --canvas-glow-1: rgba(107, 123, 255, 0.26);
-  --canvas-glow-2: rgba(20, 184, 166, 0.16);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  /* Frosted glass: translucent surfaces (blur applied in App.css) over the
+     midnight canvas, with a fine light edge instead of a heavy border. */
+  --card-bg: rgba(26, 26, 30, 0.64);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-border-strong: rgba(124, 139, 255, 0.5);
+  --card-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow-hover: 0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015) 55%, rgba(255, 255, 255, 0) 100%);
+  --card-kpi-bg: linear-gradient(155deg, rgba(32, 32, 37, 0.62) 0%, rgba(18, 18, 21, 0.7) 60%, rgba(14, 14, 16, 0.72) 100%);
+  --card-panel-bg: linear-gradient(180deg, rgba(28, 28, 32, 0.6) 0%, rgba(16, 16, 19, 0.72) 100%);
+  --card-timer-bg: linear-gradient(180deg, rgba(32, 32, 37, 0.6) 0%, rgba(16, 16, 19, 0.74) 100%);
+  --card-overview-bg: linear-gradient(135deg, rgba(124, 139, 255, 0.14) 0%, rgba(16, 16, 19, 0.72) 62%, rgba(124, 139, 255, 0.05) 100%);
+  --card-overview-border: rgba(124, 139, 255, 0.32);
+  --canvas-glow-1: rgba(124, 139, 255, 0.12);
+  --canvas-glow-2: rgba(124, 139, 255, 0.05);
 
   /* Light pill on the dark canvas - readable and high-contrast. */
   --tooltip-bg: #f3f4f6;
@@ -318,21 +326,31 @@ body {
 }
 
 .sf-navlink-active {
-  background: var(--primary-tint-strong);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--primary) 22%, transparent),
+      color-mix(in srgb, var(--primary) 10%, transparent));
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
   color: var(--primary);
   font-weight: 600;
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--primary) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* Compensate the 1px border so the active pill doesn't nudge siblings. */
+  padding: calc(0.625rem - 1px) calc(0.75rem - 1px);
 }
 
 .sf-navlink-active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 20%;
-  bottom: 20%;
+  top: 22%;
+  bottom: 22%;
   width: 3px;
   background: var(--primary);
-  border-radius: 0 2px 2px 0;
-  margin-left: -0.75rem;
+  border-radius: 0 3px 3px 0;
+  margin-left: calc(-0.75rem + 1px);
+  box-shadow: 0 0 12px var(--primary);
 }
 
 .sf-navlink-icon {
@@ -633,21 +651,33 @@ h3, h4, h5, h6 {
 }
 
 .btn-primary {
+  background-image: linear-gradient(150deg, var(--primary-light), var(--primary));
   background-color: var(--primary);
-  border-color: var(--primary);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background-image: linear-gradient(150deg, var(--primary-light), var(--primary));
+  background-color: var(--primary);
+  filter: brightness(1.06);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 42%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
 }
 
 .btn-primary:focus,
-.btn-primary:active {
-  background-color: var(--primary-dark);
-  border-color: var(--primary-dark);
-  box-shadow: 0 0 0 0.25rem var(--focus-ring);
+.btn-primary:focus-visible {
+  background-image: linear-gradient(150deg, var(--primary-light), var(--primary));
+  background-color: var(--primary);
+  box-shadow: 0 0 0 0.25rem var(--focus-ring),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .btn-outline-primary {

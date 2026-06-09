@@ -25,6 +25,7 @@ dist-ssr
 *.sw?
 CLAUDE.md
 project_guide_agents.md
+sessionlog.md
 docs
 # Environment variables (never commit secrets)
 .env

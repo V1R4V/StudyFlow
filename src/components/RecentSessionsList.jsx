@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Card, Form } from 'react-bootstrap';
+import CardExpand from './CardExpand';
 import { sessionMatchesSubject, localDateString } from '../utils/sessions';
 
 function getSessionSeconds(session) {
@@ -48,17 +49,20 @@ export default function RecentSessionsList(props) {
     <Card className="sf-card-panel">
       <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>Recent Sessions</span>
-        <Form.Select
-          size="sm"
-          value={range}
-          onChange={e => setRange(e.target.value)}
-          style={{ width: 150 }}
-          aria-label="Time range filter"
-        >
-          {RANGE_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </Form.Select>
+        <div className="d-flex align-items-center gap-2">
+          <Form.Select
+            size="sm"
+            value={range}
+            onChange={e => setRange(e.target.value)}
+            style={{ width: 150 }}
+            aria-label="Time range filter"
+          >
+            {RANGE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </Form.Select>
+          <CardExpand to="/app/sessions" label="Open Sessions" />
+        </div>
       </Card.Header>
       {visible.length === 0 ? (
         <Card.Body className="text-muted text-center py-4">
