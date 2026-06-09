@@ -6,7 +6,8 @@ import StatsCard from '../components/StatsCard';
 import StudyTimer from '../components/StudyTimer';
 import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
-import DailyPlanner from '../components/DailyPlanner';
+import TodayPlanCard from '../components/TodayPlanCard';
+import WeekCalendarCard from '../components/WeekCalendarCard';
 import { useStudyData } from '../context/StudyDataContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
 
@@ -351,7 +352,14 @@ export default function Dashboard() {
           <StudyTimer subjects={subjects} />
         </Col>
         <Col lg={3} md={6}>
-          <DailyPlanner />
+          <TodayPlanCard />
+        </Col>
+      </Row>
+
+      {/* Week-at-a-glance calendar: planned vs logged hours per day. */}
+      <Row className="g-3 mb-4">
+        <Col>
+          <WeekCalendarCard />
         </Col>
       </Row>
 

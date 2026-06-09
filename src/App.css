@@ -223,6 +223,236 @@
 }
 
 /* --------------------------------------------------------------------------
+   Study planner (Command Center) + plan widgets
+   -------------------------------------------------------------------------- */
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.sf-habit-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* Feasibility text + bar colors */
+.sf-feas-met { color: var(--success-text); }
+.sf-feas-short { color: var(--warning-text); }
+.sf-feas-over { color: var(--danger-text); }
+.sf-feas-nogoal { color: var(--muted-strong); }
+
+.sf-plan-bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--primary-tint-strong);
+  overflow: hidden;
+}
+
+.sf-plan-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.25s ease;
+}
+
+.sf-feas-bg-met { background: var(--success); }
+.sf-feas-bg-short { background: var(--warning); }
+.sf-feas-bg-over { background: var(--danger); }
+.sf-feas-bg-progress { background: var(--primary); }
+
+/* Planner grid */
+.sf-plan-grid-wrap {
+  overflow-x: auto;
+}
+
+.sf-plan-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sf-plan-grid th,
+.sf-plan-grid td {
+  padding: 0.4rem 0.35rem;
+  text-align: center;
+}
+
+.sf-plan-subject-head,
+.sf-plan-subject-cell {
+  text-align: left;
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+.sf-plan-subject-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sf-plan-day-head {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  min-width: 54px;
+}
+
+.sf-plan-day-date {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted-strong);
+}
+
+.sf-plan-total-head,
+.sf-plan-total-cell {
+  text-align: left;
+  min-width: 120px;
+}
+
+.sf-plan-today {
+  background: var(--primary-tint);
+  border-radius: var(--radius-sm);
+}
+
+.sf-plan-grid tbody tr {
+  border-top: 1px solid var(--border-color);
+}
+
+.sf-plan-load-row td {
+  border-top: 2px solid var(--border-color);
+}
+
+.sf-plan-cell {
+  width: 48px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.2rem;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.sf-plan-cell::-webkit-outer-spin-button,
+.sf-plan-cell::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sf-plan-cell:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.15rem var(--focus-ring);
+}
+
+.sf-plan-cell-filled {
+  background: var(--primary-tint-strong);
+  border-color: var(--primary);
+}
+
+.sf-plan-cell-override {
+  border-style: dashed;
+  border-color: var(--warning-text);
+}
+
+/* Today's Plan card rows */
+.sf-todayplan-row + .sf-todayplan-row {
+  border-top: 1px solid var(--border-color);
+}
+
+/* Week-at-a-glance calendar strip */
+.sf-weekcal {
+  height: 130px;
+}
+
+.sf-weekcal-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.sf-weekcal-bars {
+  width: 100%;
+  height: 90px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.sf-weekcal-track {
+  position: relative;
+  width: 60%;
+  max-width: 28px;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
+.sf-weekcal-planned,
+.sf-weekcal-logged {
+  width: 45%;
+  border-radius: 3px 3px 0 0;
+  align-self: flex-end;
+}
+
+.sf-weekcal-planned {
+  background: var(--primary-tint-strong);
+  border: 1px solid var(--card-border-strong);
+}
+
+.sf-weekcal-logged {
+  background: var(--primary);
+}
+
+.sf-weekcal-abbr {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.sf-weekcal-num {
+  font-size: 0.7rem;
+  color: var(--muted-strong);
+}
+
+.sf-weekcal-today .sf-weekcal-abbr,
+.sf-weekcal-today .sf-weekcal-num {
+  color: var(--primary);
+}
+
+.sf-weekcal-today {
+  background: var(--primary-tint);
+  border-radius: var(--radius-md);
+  padding-top: 4px;
+}
+
+.sf-weekcal-key {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.sf-weekcal-key-planned {
+  background: var(--primary-tint-strong);
+  border: 1px solid var(--card-border-strong);
+}
+
+.sf-weekcal-key-logged {
+  background: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
    Table / recent sessions list
    -------------------------------------------------------------------------- */
 

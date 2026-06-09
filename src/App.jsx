@@ -8,6 +8,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { StudyDataProvider } from './context/StudyDataContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import CommandCenter from './pages/CommandCenter';
 import Sessions from './pages/Sessions';
 import SubjectManager from './pages/SubjectManager';
 import Statistics from './pages/Statistics';
@@ -54,6 +55,7 @@ export default function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Dashboard />} />
+                    <Route path="command" element={<CommandCenter />} />
                     <Route path="subjects" element={<SubjectManager />} />
                     <Route path="sessions" element={<Sessions />} />
                     <Route path="statistics" element={<Statistics />} />

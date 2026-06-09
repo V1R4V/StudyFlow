@@ -511,6 +511,7 @@ export function clearLocalDataOnLogout() {
   localStorage.removeItem(SESSIONS_KEY);
   localStorage.removeItem(TIMER_KEY);
   localStorage.removeItem(TODOS_KEY);
+  localStorage.removeItem(PLAN_ENTRIES_KEY);
   window.dispatchEvent(new Event('studyflow:data-changed'));
 }
 
@@ -608,5 +609,88 @@ export const deleteTodo = async (userId, todoId) => {
     await deleteDoc(todoRef);
   } catch (err) {
     console.error('deleteTodo error:', err);
+  }
+};
+
+// ============================================================================
+// Plan entries (Command Center study planner)
+// studyflow_v1/{userId}/planEntries/{id}
+// One entry = planned target hours for a subject on a day. scope 'weekly' uses
+// `day` (0=Sun…6=Sat) and recurs every week; scope 'once' uses a specific
+// `date`. Logged study time is compared against these to show plan progress.
+// ============================================================================
+
+const PLAN_ENTRIES_KEY = 'studyflow-plan-entries';
+const MAX_PLAN_HOURS = 24;
+
+function normalizePlanEntry(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const subjectId = raw.subjectId ? String(raw.subjectId) : null;
+  if (!subjectId) return null;
+  const hours = clampNumber(raw.hours, 0, MAX_PLAN_HOURS, 0);
+  const scope = raw.scope === 'once' ? 'once' : 'weekly';
+  let day = null;
+  let date = null;
+  if (scope === 'weekly') {
+    const d = Math.floor(Number(raw.day));
+    if (!Number.isFinite(d) || d < 0 || d > 6) return null;
+    day = d;
+  } else {
+    date = normalizeDate(raw.date);
+  }
+  const id = raw.id ?? Date.now();
+  return { id, subjectId, hours, scope, day, date };
+}
+
+function normalizePlanEntryUpdates(updates) {
+  if (!updates || typeof updates !== 'object') return null;
+  const safe = {};
+  if (Object.prototype.hasOwnProperty.call(updates, 'hours')) {
+    safe.hours = clampNumber(updates.hours, 0, MAX_PLAN_HOURS, 0);
+  }
+  return Object.keys(safe).length > 0 ? safe : null;
+}
+
+export const addPlanEntry = async (userId, entryData) => {
+  try {
+    const safe = normalizePlanEntry(entryData);
+    if (!safe) return null;
+    const ref = collection(db, 'studyflow_v1', userId, 'planEntries');
+    const docRef = await addDoc(ref, { ...safe, createdAt: Timestamp.now() });
+    return { firestoreId: docRef.id, ...safe };
+  } catch (err) {
+    console.error('addPlanEntry error:', err);
+    return null;
+  }
+};
+
+export const getAllPlanEntries = async (userId) => {
+  try {
+    const ref = collection(db, 'studyflow_v1', userId, 'planEntries');
+    const snapshot = await getDocs(ref);
+    return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getAllPlanEntries error:', err);
+    return [];
+  }
+};
+
+export const updatePlanEntry = async (userId, entryId, updates) => {
+  try {
+    const safe = normalizePlanEntryUpdates(updates);
+    if (!safe) return;
+    const ref = doc(db, 'studyflow_v1', userId, 'planEntries', entryId);
+    await updateDoc(ref, safe);
+  } catch (err) {
+    console.error('updatePlanEntry error:', err);
+  }
+};
+
+export const deletePlanEntry = async (userId, entryId) => {
+  try {
+    const ref = doc(db, 'studyflow_v1', userId, 'planEntries', entryId);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.error('deletePlanEntry error:', err);
   }
 };

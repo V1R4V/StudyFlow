@@ -13,6 +13,10 @@ import {
   addTodo as fsAddTodo,
   updateTodo as fsUpdateTodo,
   deleteTodo as fsDeleteTodo,
+  getAllPlanEntries,
+  addPlanEntry as fsAddPlanEntry,
+  updatePlanEntry as fsUpdatePlanEntry,
+  deletePlanEntry as fsDeletePlanEntry,
 } from '../services/firebaseService';
 
 // Single shared store for subjects + sessions. One fetch per session,
@@ -24,6 +28,7 @@ const Context = createContext(null);
 const SUBJECTS_KEY = 'studyflow-subjects';
 const SESSIONS_KEY = 'studyflow-sessions';
 const TODOS_KEY = 'studyflow-todos';
+const PLAN_ENTRIES_KEY = 'studyflow-plan-entries';
 
 function readGuestSubjects() {
   try {
@@ -52,6 +57,15 @@ function readGuestTodos() {
   }
 }
 
+function readGuestPlanEntries() {
+  try {
+    const raw = localStorage.getItem(PLAN_ENTRIES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function StudyDataProvider({ children }) {
   const { user, loading: authLoading } = useAuthContext();
 
@@ -59,25 +73,30 @@ export function StudyDataProvider({ children }) {
   const [subjects, setSubjects] = useState(readGuestSubjects);
   const [sessions, setSessions] = useState(readGuestSessions);
   const [todos, setTodos] = useState(readGuestTodos);
+  const [planEntries, setPlanEntries] = useState(readGuestPlanEntries);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (user) {
-      const [fsSubjects, fsSessions, fsTodos] = await Promise.all([
+      const [fsSubjects, fsSessions, fsTodos, fsPlan] = await Promise.all([
         getSubjects(user.uid),
         getAllSessions(user.uid),
         getAllTodos(user.uid),
+        getAllPlanEntries(user.uid),
       ]);
       setSubjects(fsSubjects);
       setSessions(fsSessions);
       setTodos(fsTodos);
+      setPlanEntries(fsPlan);
       localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));
       localStorage.setItem(TODOS_KEY, JSON.stringify(fsTodos));
+      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(fsPlan));
     } else {
       setSubjects(readGuestSubjects());
       setSessions(readGuestSessions());
       setTodos(readGuestTodos());
+      setPlanEntries(readGuestPlanEntries());
     }
   }, [user]);
 
@@ -115,6 +134,11 @@ export function StudyDataProvider({ children }) {
       localStorage.setItem(TODOS_KEY, JSON.stringify(todos));
     }
   }, [todos, user, authLoading]);
+  useEffect(() => {
+    if (!user && !authLoading) {
+      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(planEntries));
+    }
+  }, [planEntries, user, authLoading]);
 
   // ---------- Mutations ----------
 
@@ -149,6 +173,7 @@ export function StudyDataProvider({ children }) {
     } else {
       setSubjects(prev => prev.filter(s => s.id !== localId));
       setSessions(prev => prev.filter(s => s.subjectId !== localId));
+      setPlanEntries(prev => prev.filter(p => String(p.subjectId) !== String(localId)));
     }
   }
 
@@ -224,12 +249,62 @@ export function StudyDataProvider({ children }) {
     }
   }
 
+  // ---------- Plan entries (study planner) ----------
+  // One entry per (subjectId, scope, day|date). Upsert is the single write path:
+  // hours > 0 creates/updates the cell, hours <= 0 clears it.
+
+  function planKeyMatch(e, subjectId, scope, day, date) {
+    return (
+      String(e.subjectId) === String(subjectId) &&
+      e.scope === scope &&
+      (scope === 'weekly' ? e.day === day : e.date === date)
+    );
+  }
+
+  async function upsertPlanEntry(subjectId, { scope, day = null, date = null, hours }) {
+    const safeScope = scope === 'once' ? 'once' : 'weekly';
+    const key = { day: safeScope === 'weekly' ? day : null, date: safeScope === 'once' ? date : null };
+    const h = Math.max(0, Number(hours) || 0);
+    const existing = planEntries.find(e => planKeyMatch(e, subjectId, safeScope, key.day, key.date));
+
+    if (user) {
+      if (h <= 0) {
+        if (existing?.firestoreId) {
+          await fsDeletePlanEntry(user.uid, existing.firestoreId);
+          await refresh();
+        }
+      } else if (existing?.firestoreId) {
+        await fsUpdatePlanEntry(user.uid, existing.firestoreId, { hours: h });
+        await refresh();
+      } else {
+        await fsAddPlanEntry(user.uid, { subjectId: String(subjectId), scope: safeScope, ...key, hours: h });
+        await refresh();
+      }
+    } else {
+      if (h <= 0) {
+        if (existing) setPlanEntries(prev => prev.filter(e => e.id !== existing.id));
+      } else if (existing) {
+        setPlanEntries(prev => prev.map(e => (e.id === existing.id ? { ...e, hours: h } : e)));
+      } else {
+        const entry = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          subjectId: String(subjectId),
+          scope: safeScope,
+          ...key,
+          hours: h,
+        };
+        setPlanEntries(prev => [...prev, entry]);
+      }
+    }
+  }
+
   return (
     <Context.Provider value={{
-      subjects, sessions, todos, loading,
+      subjects, sessions, todos, planEntries, loading,
       addSubject, updateSubject, deleteSubject,
       addSession, updateSession, deleteSession,
       addTodo, updateTodo, deleteTodo,
+      upsertPlanEntry,
       refresh,
     }}>
       {children}
