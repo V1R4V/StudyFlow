@@ -42,18 +42,23 @@ export default function WeekCalendarCard() {
 
   const totalPlanned = round1(days.reduce((a, d) => a + d.planned, 0));
   const totalLogged = round1(days.reduce((a, d) => a + d.logged, 0));
+  const summary = totalPlanned > 0
+    ? `${totalLogged}/${totalPlanned}h logged vs scheduled`
+    : totalLogged > 0
+    ? `${totalLogged}h logged this week`
+    : 'No weekly plan yet';
 
   return (
     <Card className="h-100 sf-card-panel">
       <Card.Body>
         <div className="d-flex justify-content-between align-items-center mb-1">
           <h2 className="h5 mb-0">This Week</h2>
-          <span className="small text-muted">{totalLogged}/{totalPlanned}h logged vs planned</span>
+          <span className="small text-muted">{summary}</span>
         </div>
 
         <div className="sf-weekcal d-flex justify-content-between gap-2 mt-3 align-items-end">
           {days.map(d => (
-            <div key={d.date} className={`sf-weekcal-day${d.isToday ? ' sf-weekcal-today' : ''}`} title={`${d.date}: ${d.logged}h logged / ${d.planned}h planned`}>
+            <div key={d.date} className={`sf-weekcal-day${d.isToday ? ' sf-weekcal-today' : ''}`} title={`${d.date}: ${d.logged}h logged / ${d.planned}h scheduled`}>
               <div className="sf-weekcal-bars">
                 <div className="sf-weekcal-track">
                   {d.planned > 0 && <div className="sf-weekcal-planned" style={{ height: `${d.plannedPct}%` }} />}
@@ -67,7 +72,7 @@ export default function WeekCalendarCard() {
         </div>
 
         <div className="d-flex gap-3 mt-3 small text-muted">
-          <span className="d-inline-flex align-items-center gap-1"><span className="sf-weekcal-key sf-weekcal-key-planned" /> Planned</span>
+          <span className="d-inline-flex align-items-center gap-1"><span className="sf-weekcal-key sf-weekcal-key-planned" /> Scheduled</span>
           <span className="d-inline-flex align-items-center gap-1"><span className="sf-weekcal-key sf-weekcal-key-logged" /> Logged</span>
         </div>
       </Card.Body>

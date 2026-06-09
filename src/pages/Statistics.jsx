@@ -262,7 +262,7 @@ function DonutChart({ items, totalLabel, totalValue }) {
         fontSize="26"
         fontWeight="800"
         fill="var(--text-dark)"
-        style={{ letterSpacing: '-0.04em' }}
+        style={{ letterSpacing: 0 }}
       >
         {totalValue}
       </text>
@@ -273,7 +273,7 @@ function DonutChart({ items, totalLabel, totalValue }) {
         fontSize="10"
         fontWeight="600"
         fill="var(--text-light)"
-        style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}
+        style={{ letterSpacing: 0, textTransform: 'uppercase' }}
       >
         {totalLabel}
       </text>

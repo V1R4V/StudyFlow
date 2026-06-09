@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export default function NotFound() {
   return (
-    <Container className="py-5 text-center">
+    <Container as="main" id="main-content" className="py-5 text-center" tabIndex={-1}>
       <h1 className="display-1">404</h1>
       <p className="text-muted">Page not found.</p>
       <Button as={Link} to="/app" variant="primary">Go Home</Button>

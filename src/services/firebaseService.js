@@ -37,9 +37,40 @@ const LIMITS = {
 
 const BREAK_TYPES = new Set(['short', 'long', 'custom']);
 const HABIT_PRIORITIES = new Set(['low', 'normal', 'high', 'critical']);
+const deniedReadKeys = new Set();
+const warnedPermissionKeys = new Set();
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+function isPermissionDenied(err) {
+  return (
+    err?.code === 'permission-denied' ||
+    String(err?.message || '').toLowerCase().includes('missing or insufficient permissions')
+  );
+}
+
+function logFirebaseError(label, err) {
+  if (!isPermissionDenied(err)) {
+    console.error(`${label} error:`, err);
+    return;
+  }
+
+  if (warnedPermissionKeys.has(label)) return;
+  warnedPermissionKeys.add(label);
+  console.warn(
+    `${label}: Firebase denied this collection. Deploy the updated firestore.rules file, then reload.`
+  );
+}
+
+function skipDeniedRead(label) {
+  return deniedReadKeys.has(label);
+}
+
+function handleReadError(label, err) {
+  if (isPermissionDenied(err)) deniedReadKeys.add(label);
+  logFirebaseError(label, err);
+}
 
 function clampNumber(value, min, max, fallback = min) {
   const num = Number(value);
@@ -673,30 +704,34 @@ export const addPlanEntry = async (userId, entryData) => {
     const docRef = await addDoc(ref, { ...safe, createdAt: Timestamp.now() });
     return { firestoreId: docRef.id, ...safe };
   } catch (err) {
-    console.error('addPlanEntry error:', err);
+    logFirebaseError('addPlanEntry', err);
     return null;
   }
 };
 
 export const getAllPlanEntries = async (userId) => {
+  if (skipDeniedRead('getAllPlanEntries')) return null;
+
   try {
     const ref = collection(db, 'studyflow_v1', userId, 'planEntries');
     const snapshot = await getDocs(ref);
     return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
   } catch (err) {
-    console.error('getAllPlanEntries error:', err);
-    return [];
+    handleReadError('getAllPlanEntries', err);
+    return null;
   }
 };
 
 export const updatePlanEntry = async (userId, entryId, updates) => {
   try {
     const safe = normalizePlanEntryUpdates(updates);
-    if (!safe) return;
+    if (!safe) return false;
     const ref = doc(db, 'studyflow_v1', userId, 'planEntries', entryId);
     await updateDoc(ref, safe);
+    return true;
   } catch (err) {
-    console.error('updatePlanEntry error:', err);
+    logFirebaseError('updatePlanEntry', err);
+    return false;
   }
 };
 
@@ -704,8 +739,10 @@ export const deletePlanEntry = async (userId, entryId) => {
   try {
     const ref = doc(db, 'studyflow_v1', userId, 'planEntries', entryId);
     await deleteDoc(ref);
+    return true;
   } catch (err) {
-    console.error('deletePlanEntry error:', err);
+    logFirebaseError('deletePlanEntry', err);
+    return false;
   }
 };
 
@@ -749,19 +786,21 @@ export const addBreak = async (userId, breakData) => {
     });
     return { firestoreId: docRef.id, ...safe };
   } catch (err) {
-    console.error('addBreak error:', err);
+    logFirebaseError('addBreak', err);
     return null;
   }
 };
 
 export const getAllBreaks = async (userId) => {
+  if (skipDeniedRead('getAllBreaks')) return [];
+
   try {
     const breaksRef = collection(db, 'studyflow_v1', userId, 'breaks');
     const q = query(breaksRef, orderBy('date', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
   } catch (err) {
-    console.error('getAllBreaks error:', err);
+    handleReadError('getAllBreaks', err);
     return [];
   }
 };
@@ -771,7 +810,7 @@ export const deleteBreak = async (userId, breakId) => {
     const breakRef = doc(db, 'studyflow_v1', userId, 'breaks', breakId);
     await deleteDoc(breakRef);
   } catch (err) {
-    console.error('deleteBreak error:', err);
+    logFirebaseError('deleteBreak', err);
   }
 };
 
@@ -858,19 +897,21 @@ export const addHabit = async (userId, habitData) => {
     const docRef = await addDoc(habitsRef, { ...safe, createdAt: Timestamp.now() });
     return { firestoreId: docRef.id, ...safe };
   } catch (err) {
-    console.error('addHabit error:', err);
+    logFirebaseError('addHabit', err);
     return null;
   }
 };
 
 export const getAllHabits = async (userId) => {
+  if (skipDeniedRead('getAllHabits')) return [];
+
   try {
     const habitsRef = collection(db, 'studyflow_v1', userId, 'habits');
     const q = query(habitsRef, orderBy('createdAt', 'asc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
   } catch (err) {
-    console.error('getAllHabits error:', err);
+    handleReadError('getAllHabits', err);
     return [];
   }
 };
@@ -882,7 +923,7 @@ export const updateHabit = async (userId, habitId, updates) => {
     const habitRef = doc(db, 'studyflow_v1', userId, 'habits', habitId);
     await updateDoc(habitRef, safe);
   } catch (err) {
-    console.error('updateHabit error:', err);
+    logFirebaseError('updateHabit', err);
   }
 };
 
@@ -891,7 +932,7 @@ export const deleteHabit = async (userId, habitId) => {
     const habitRef = doc(db, 'studyflow_v1', userId, 'habits', habitId);
     await deleteDoc(habitRef);
   } catch (err) {
-    console.error('deleteHabit error:', err);
+    logFirebaseError('deleteHabit', err);
   }
 };
 
@@ -903,19 +944,21 @@ export const addHabitLog = async (userId, logData) => {
     const docRef = await addDoc(logsRef, { ...safe, createdAt: Timestamp.now() });
     return { firestoreId: docRef.id, ...safe };
   } catch (err) {
-    console.error('addHabitLog error:', err);
+    logFirebaseError('addHabitLog', err);
     return null;
   }
 };
 
 export const getAllHabitLogs = async (userId) => {
+  if (skipDeniedRead('getAllHabitLogs')) return [];
+
   try {
     const logsRef = collection(db, 'studyflow_v1', userId, 'habitLogs');
     const q = query(logsRef, orderBy('date', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
   } catch (err) {
-    console.error('getAllHabitLogs error:', err);
+    handleReadError('getAllHabitLogs', err);
     return [];
   }
 };
@@ -925,6 +968,6 @@ export const deleteHabitLog = async (userId, logId) => {
     const logRef = doc(db, 'studyflow_v1', userId, 'habitLogs', logId);
     await deleteDoc(logRef);
   } catch (err) {
-    console.error('deleteHabitLog error:', err);
+    logFirebaseError('deleteHabitLog', err);
   }
 };

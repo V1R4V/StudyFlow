@@ -6,12 +6,11 @@ import StatsCard from '../components/StatsCard';
 import StudyTimer from '../components/StudyTimer';
 import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
-import BreakStatsCard from '../components/BreakStatsCard';
-import DailyPlanner from '../components/DailyPlanner';
 import TodayPlanCard from '../components/TodayPlanCard';
-import WeekCalendarCard from '../components/WeekCalendarCard';
+import WeeklySubjectsCard from '../components/WeeklySubjectsCard';
 import { useStudyData } from '../context/StudyDataContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
+import { planForDate, loggedHoursFor } from '../utils/plan';
 
 const IconClock = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -94,7 +93,7 @@ function relativeLabel(dateStr, todayStr) {
 }
 
 export default function Dashboard() {
-  const { subjects, sessions } = useStudyData();
+  const { subjects, sessions, planEntries } = useStudyData();
   const todayStr = localDateString();
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
@@ -167,16 +166,17 @@ export default function Dashboard() {
     ? Math.min(100, Math.round((thisWeekHours / totalWeeklyGoalHours) * 100))
     : 0;
 
-  // Daily session goal derived from subjects' dailyGoal hours.
-  const totalDailyGoalHours = subjects.reduce(
-    (acc, s) => acc + (Number(s.dailyGoal) || 0),
-    0
-  );
-  const sessionsToday = todaysSessions.length;
-  const dailySessionGoal = totalDailyGoalHours > 0
-    ? Math.max(1, Math.round(totalDailyGoalHours))
-    : 4;
-  const goalPct = Math.round((sessionsToday / dailySessionGoal) * 100);
+  const scheduledPlan = useMemo(() => {
+    const items = planForDate(subjects, planEntries, selectedDate).map(({ subject, plannedHours }) => {
+      const logged = loggedHoursFor(sessions, subject, selectedDate);
+      return { subject, plannedHours, logged };
+    });
+    const plannedHours = items.reduce((acc, item) => acc + item.plannedHours, 0);
+    const cappedLoggedHours = items.reduce((acc, item) => acc + Math.min(item.logged, item.plannedHours), 0);
+    const rawLoggedHours = items.reduce((acc, item) => acc + item.logged, 0);
+    const pct = plannedHours > 0 ? Math.round((cappedLoggedHours / plannedHours) * 100) : 0;
+    return { items, plannedHours, rawLoggedHours, pct };
+  }, [subjects, planEntries, sessions, selectedDate]);
 
   // Empty-state CTA: no subjects yet → push the user to Subjects to create one.
   if (subjects.length === 0) {
@@ -196,7 +196,7 @@ export default function Dashboard() {
   }
 
   const focusTitle = isToday ? "Today's Focus" : 'Focus';
-  const sessionsTitle = isToday ? 'Sessions Today' : 'Sessions';
+  const scheduleTitle = isToday ? "Today's Schedule" : 'Scheduled';
 
   // Streak subtitle: green when there's an active streak, muted otherwise.
   const streakSubtitle = isToday
@@ -208,20 +208,34 @@ export default function Dashboard() {
     ? 'var(--success-text)'
     : 'var(--muted-strong)';
 
-  // Sessions subtitle: green when the daily goal is hit, primary while in
-  // progress, muted when nothing logged yet.
-  const sessionsSubtitle = `${Math.min(100, goalPct)}% of daily goal`;
-  let sessionsSubtitleColor = 'var(--muted-strong)';
-  if (sessionsToday > 0) {
-    sessionsSubtitleColor = goalPct >= 100 ? 'var(--success-text)' : 'var(--primary)';
+  const scheduledPct = Math.min(100, scheduledPlan.pct);
+  let scheduleValue = `${scheduledPlan.rawLoggedHours.toFixed(1)}/${scheduledPlan.plannedHours.toFixed(1)}`;
+  let scheduleSubtitle = scheduledPlan.items.length === 0
+    ? 'No subjects scheduled'
+    : `${scheduledPct}% of scheduled study`;
+  let scheduleSubtitleColor = scheduledPlan.items.length === 0
+    ? 'var(--muted-strong)'
+    : 'var(--primary)';
+
+  if (scheduledPlan.items.length > 0 && scheduledPlan.rawLoggedHours >= scheduledPlan.plannedHours) {
+    const extra = scheduledPlan.rawLoggedHours - scheduledPlan.plannedHours;
+    scheduleSubtitle = extra > 0.05 ? `${extra.toFixed(1)}h above schedule` : 'Schedule complete';
+    scheduleSubtitleColor = extra > 0.05 ? 'var(--info-text)' : 'var(--success-text)';
+  }
+
+  if (scheduledPlan.items.length === 0) {
+    scheduleValue = '-';
   }
 
   const weeklySubtitle = totalWeeklyGoalHours > 0
-    ? `${weeklyPct}% of weekly target`
+    ? thisWeekHours > totalWeeklyGoalHours
+      ? `${(thisWeekHours - totalWeeklyGoalHours).toFixed(1)}h above weekly target`
+      : `${weeklyPct}% of weekly target`
     : 'Set goals on Subjects';
   let weeklySubtitleColor = 'var(--muted-strong)';
   if (totalWeeklyGoalHours > 0) {
-    if (weeklyPct >= 100) weeklySubtitleColor = 'var(--success-text)';
+    if (thisWeekHours > totalWeeklyGoalHours) weeklySubtitleColor = 'var(--info-text)';
+    else if (weeklyPct >= 100) weeklySubtitleColor = 'var(--success-text)';
     else if (weeklyPct >= 50) weeklySubtitleColor = 'var(--primary)';
     else if (weeklyPct < 25 && sundayOffset >= 4) weeklySubtitleColor = 'var(--danger-text)';
   }
@@ -233,17 +247,17 @@ export default function Dashboard() {
     day: 'numeric',
   });
   const weeklyInfoText = totalWeeklyGoalHours > 0
-    ? `Counts focus time from Sunday through Saturday. Current week: ${fmtRange(weekStartStr)} – ${fmtRange(weekEndStr)}. Resets every Sunday at midnight.`
+    ? `Counts focus time from Sunday through Saturday. Current week: ${fmtRange(weekStartStr)} - ${fmtRange(weekEndStr)}. Resets every Sunday at midnight.`
     : `Counts focus time from Sunday through Saturday and resets every Sunday at midnight. Set weekly goals on the Subjects page to see a target here.`;
 
   return (
-    <Container fluid className="sf-page">
+    <Container fluid className="sf-page sf-dashboard-page">
       {/* Greeting + day navigator */}
-      <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+      <div className="sf-page-header d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
         <div>
           <div
             className="sf-section-label"
-            style={{ color: 'var(--muted-strong)', letterSpacing: '0.1em' }}
+            style={{ color: 'var(--muted-strong)' }}
           >
             {formatPrettyDate(selectedDate).toUpperCase()}
           </div>
@@ -319,13 +333,14 @@ export default function Dashboard() {
         </Col>
         <Col md={6} lg={3}>
           <StatsCard
-            title={sessionsTitle}
-            value={`${sessionsToday}/${dailySessionGoal}`}
+            title={scheduleTitle}
+            value={scheduleValue}
+            unit={scheduledPlan.items.length > 0 ? 'hrs' : ''}
             icon={<IconCheck />}
             tone="green"
-            progress={Math.min(100, goalPct)}
-            subtitle={sessionsSubtitle}
-            subtitleColor={sessionsSubtitleColor}
+            progress={scheduledPlan.items.length > 0 ? scheduledPct : undefined}
+            subtitle={scheduleSubtitle}
+            subtitleColor={scheduleSubtitleColor}
           />
         </Col>
         <Col md={6} lg={3}>
@@ -357,25 +372,14 @@ export default function Dashboard() {
       </Row>
 
       <Row className="g-3 mb-4">
-        <Col lg={4}>
-          <DailyPlanner />
-        </Col>
-        <Col lg={8}>
-          <WeekCalendarCard />
+        <Col>
+          <WeeklySubjectsCard />
         </Col>
       </Row>
 
       <Row>
         <Col>
           <RecentSessionsList sessions={sessions} subjects={subjects} />
-        </Col>
-      </Row>
-
-      {/* Break activity — shown as extra info only; break time is tracked
-          entirely separately and never counts toward focus/session totals. */}
-      <Row className="mt-3">
-        <Col>
-          <BreakStatsCard />
         </Col>
       </Row>
     </Container>

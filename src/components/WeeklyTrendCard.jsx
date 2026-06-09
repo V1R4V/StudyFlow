@@ -6,6 +6,7 @@ export default function WeeklyTrendCard(props) {
   const maxMinutes = Math.max(...days.map(d => d.minutes), 60);
 
   const totalMinutes = days.reduce((acc, d) => acc + d.minutes, 0);
+  const totalHours = (totalMinutes / 60).toFixed(1);
   const avgHours = (totalMinutes / 7 / 60).toFixed(1);
 
   // Find peak day
@@ -49,8 +50,10 @@ export default function WeeklyTrendCard(props) {
             const x = i * (barWidth + barGap);
             const y = chartHeight - h;
             const isPeak = d.minutes > 0 && d.minutes === peak.minutes;
+            const dayHours = (d.minutes / 60).toFixed(1);
             return (
               <g key={i}>
+                <title>{`${d.label}: ${dayHours}h logged. Weekly total: ${totalHours}h.`}</title>
                 {/* faint track behind each bar for a fuller, premium look */}
                 <rect
                   x={x}
@@ -88,13 +91,13 @@ export default function WeeklyTrendCard(props) {
 
         <Row className="mt-auto pt-3 border-top">
           <Col>
-            <div className="text-muted small" style={{ letterSpacing: 0.5 }}>
+            <div className="text-muted small">
               DAILY AVG
             </div>
             <div className="fw-bold fs-5">{avgHours}h</div>
           </Col>
           <Col>
-            <div className="text-muted small" style={{ letterSpacing: 0.5 }}>
+            <div className="text-muted small">
               PEAK DAY
             </div>
             <div className="fw-bold fs-5">

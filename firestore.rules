@@ -116,6 +116,113 @@ service cloud.firestore {
       && isOptionalTimestamp(data, 'createdAt');
     }
 
+    function isNullableDate(data, field) {
+      return !data.keys().hasAny([field])
+        || data[field] == null
+        || isDate(data[field]);
+    }
+
+    function isNullableNumberInRange(data, field, min, max) {
+      return !data.keys().hasAny([field])
+        || data[field] == null
+        || (data[field] is number && data[field] >= min && data[field] <= max);
+    }
+
+    function isValidPlanEntry(data) {
+      return data.keys().hasOnly([
+        'id',
+        'subjectId',
+        'hours',
+        'scope',
+        'day',
+        'date',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && data.subjectId is string
+      && data.hours is number
+      && data.hours >= 0
+      && data.hours <= 24
+      && (data.scope == 'weekly' || data.scope == 'once')
+      && isNullableNumberInRange(data, 'day', 0, 6)
+      && isNullableDate(data, 'date')
+      && (
+        (data.scope == 'weekly' && data.day is number)
+        || (data.scope == 'once' && data.date is string)
+      )
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidBreak(data, userId) {
+      return data.keys().hasOnly([
+        'id',
+        'date',
+        'durationSeconds',
+        'duration',
+        'type',
+        'note',
+        'userId',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && isOptionalDate(data, 'date')
+      && data.durationSeconds is number
+      && data.durationSeconds >= 1
+      && data.durationSeconds <= 14400
+      && data.duration is number
+      && data.duration >= 1
+      && data.duration <= 240
+      && (data.type == 'short' || data.type == 'long' || data.type == 'custom')
+      && isOptionalString(data, 'note', 200)
+      && data.userId == userId
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidHabit(data) {
+      return data.keys().hasOnly([
+        'id',
+        'subjectId',
+        'subjectName',
+        'subjectColor',
+        'name',
+        'priority',
+        'days',
+        'active',
+        'startDate',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && data.subjectId is string
+      && isShortString(data.subjectName, 60)
+      && isColor(data.subjectColor)
+      && isShortString(data.name, 80)
+      && (data.priority == 'low'
+          || data.priority == 'normal'
+          || data.priority == 'high'
+          || data.priority == 'critical')
+      && data.days is list
+      && data.days.size() <= 7
+      && data.days.hasOnly([0, 1, 2, 3, 4, 5, 6])
+      && data.active is bool
+      && isOptionalDate(data, 'startDate')
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidHabitLog(data) {
+      return data.keys().hasOnly([
+        'id',
+        'habitId',
+        'date',
+        'done',
+        'createdAt'
+      ])
+      && (data.id is number || data.id is string)
+      && data.habitId is string
+      && isOptionalDate(data, 'date')
+      && data.done is bool
+      && isOptionalTimestamp(data, 'createdAt');
+    }
+
     match /studyflow_v1/{userId} {
       allow read, write: if isOwner(userId);
 
@@ -137,6 +244,34 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId)
           && isValidTodo(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /planEntries/{entryId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidPlanEntry(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /breaks/{breakId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidBreak(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /habits/{habitId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidHabit(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /habitLogs/{logId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidHabitLog(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }

@@ -10,7 +10,7 @@ const IconInfo = () => (
 
 export default function StatsCard(props) {
   const titleNode = (
-    <span className="text-muted small d-inline-flex align-items-center gap-1" style={{ fontWeight: 600, letterSpacing: '0.02em' }}>
+    <span className="text-muted small d-inline-flex align-items-center gap-1" style={{ fontWeight: 600 }}>
       {props.title}
       {props.info && (
         <OverlayTrigger

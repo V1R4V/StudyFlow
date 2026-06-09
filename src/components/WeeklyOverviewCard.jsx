@@ -26,7 +26,7 @@ export default function WeeklyOverviewCard(props) {
             Weekly Overview
           </div>
           <small className="text-muted">
-            Total study time: {totalHours} / {totalGoalHours} scheduled hours
+            Total study time: {totalHours} / {totalGoalHours} weekly target hours
           </small>
         </div>
         <div className="d-flex align-items-center">

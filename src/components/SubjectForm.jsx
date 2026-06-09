@@ -31,7 +31,7 @@ export default function SubjectForm(props) {
 
   const [name, setName] = useState(initial?.name ?? '');
   const [color, setColor] = useState(initial?.color ?? COLOR_OPTIONS[0].value);
-  const [dailyGoal, setDailyGoal] = useState(initial?.dailyGoal ?? 2);
+  const [dailyGoal, setDailyGoal] = useState(initial?.dailyGoal ?? 0);
   const [weeklyGoal, setWeeklyGoal] = useState(initial?.weeklyGoal ?? 10);
   const [error, setError] = useState('');
   const colorInputRef = useRef(null);
@@ -73,7 +73,7 @@ export default function SubjectForm(props) {
     });
     setName('');
     setColor(COLOR_OPTIONS[0].value);
-    setDailyGoal(2);
+    setDailyGoal(0);
     setWeeklyGoal(10);
   }
 
@@ -177,21 +177,8 @@ export default function SubjectForm(props) {
             </div>
           </fieldset>
 
-          <Row className="mb-4">
-            <Col>
-              <Form.Group controlId="subject-daily-goal">
-                <Form.Label>Daily Goal (Hrs)</Form.Label>
-                <Form.Control
-                  type="number"
-                  min={0}
-                  max={MAX_DAILY_GOAL}
-                  step={0.5}
-                  value={dailyGoal}
-                  onChange={e => setDailyGoal(e.target.value)}
-                />
-              </Form.Group>
-            </Col>
-            <Col>
+          <Row className="mb-4 g-3">
+            <Col md={6}>
               <Form.Group controlId="subject-weekly-goal">
                 <Form.Label>Weekly Goal (Hrs)</Form.Label>
                 <Form.Control
@@ -202,6 +189,25 @@ export default function SubjectForm(props) {
                   value={weeklyGoal}
                   onChange={e => setWeeklyGoal(e.target.value)}
                 />
+                <Form.Text muted>
+                  Main target used by the planner and dashboard.
+                </Form.Text>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group controlId="subject-daily-goal">
+                <Form.Label>Daily Reference (Hrs)</Form.Label>
+                <Form.Control
+                  type="number"
+                  min={0}
+                  max={MAX_DAILY_GOAL}
+                  step={0.5}
+                  value={dailyGoal}
+                  onChange={e => setDailyGoal(e.target.value)}
+                />
+                <Form.Text muted>
+                  Optional note for your own pacing.
+                </Form.Text>
               </Form.Group>
             </Col>
           </Row>

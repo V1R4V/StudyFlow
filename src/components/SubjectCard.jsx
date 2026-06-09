@@ -3,6 +3,7 @@ import { Card, Button } from 'react-bootstrap';
 export default function SubjectCard(props) {
   const { subject, weeklyMinutes, onEdit } = props;
   const weeklyGoal = subject.weeklyGoal || 0;
+  const dailyReference = Number(subject.dailyGoal) || 0;
   const weeklyGoalMin = weeklyGoal * 60;
   const hoursStudied = (weeklyMinutes / 60).toFixed(1);
   const percent =
@@ -32,8 +33,13 @@ export default function SubjectCard(props) {
             <div>
               <h3 className="h5 mb-0">{subject.name}</h3>
               <small className="text-muted">
-                Goal: {weeklyGoal} hours / week
+                Weekly goal: {weeklyGoal} hours
               </small>
+              {dailyReference > 0 && (
+                <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+                  Daily reference: {dailyReference}h
+                </div>
+              )}
             </div>
           </div>
           <div className="d-flex gap-2">
@@ -51,7 +57,7 @@ export default function SubjectCard(props) {
         <div className="d-flex justify-content-between small mb-1">
           <span style={{ color: 'var(--muted-strong)' }}>Weekly Progress</span>
           <span style={{ color: 'var(--text-dark)', fontWeight: 600 }}>
-            {hoursStudied} / {weeklyGoal} Hours ({percent}%)
+            {hoursStudied} / {weeklyGoal} hours ({percent}%)
           </span>
         </div>
         <div

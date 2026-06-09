@@ -95,7 +95,7 @@ export default function Login() {
   }
 
   return (
-    <div className="sf-login-bg">
+    <main id="main-content" className="sf-login-bg" tabIndex={-1}>
       {/* Theme toggle, fixed top-right corner of viewport */}
       <button
         onClick={toggleTheme}
@@ -112,7 +112,7 @@ export default function Login() {
             <div className="sf-login-brand-icon mx-auto mb-3" aria-hidden="true">
               <IconBrand />
             </div>
-            <h1 className="h3 fw-bold mb-1" style={{ letterSpacing: '-0.03em' }}>StudyFlow</h1>
+            <h1 className="h3 fw-bold mb-1">StudyFlow</h1>
             <p className="text-muted mb-0">Your personal deep work engine</p>
           </div>
 
@@ -234,6 +234,6 @@ export default function Login() {
           </div>
         </div>
       </Container>
-    </div>
+    </main>
   );
 }

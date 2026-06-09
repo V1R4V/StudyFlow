@@ -28,7 +28,7 @@ function relativeDay(dateStr, todayStr) {
 function Stat({ label, value, sub }) {
   return (
     <div className="sf-break-stat">
-      <div className="text-muted small" style={{ letterSpacing: 0.5 }}>{label}</div>
+      <div className="text-muted small">{label}</div>
       <div className="fw-bold fs-5">{value}</div>
       {sub && <div className="small" style={{ color: 'var(--muted-strong)' }}>{sub}</div>}
     </div>
@@ -102,7 +102,7 @@ export default function BreakStatsCard() {
               </Col>
             </Row>
 
-            <div className="text-muted small mb-1" style={{ letterSpacing: 0.5 }}>
+            <div className="text-muted small mb-1">
               LAST 7 DAYS · BREAK MINUTES
             </div>
             <svg
@@ -144,7 +144,7 @@ export default function BreakStatsCard() {
               })}
             </svg>
 
-            <div className="text-muted small mb-2 mt-3" style={{ letterSpacing: 0.5 }}>
+            <div className="text-muted small mb-2 mt-3">
               RECENT BREAKS
             </div>
             <ul className="list-unstyled mb-0">

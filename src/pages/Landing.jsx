@@ -214,7 +214,7 @@ export default function Landing() {
         </Container>
       </header>
 
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         {/* -------------------------------------------------------------- *
          * Hero                                                            *
          * -------------------------------------------------------------- */}

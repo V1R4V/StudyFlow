@@ -2,17 +2,18 @@
 
 :root {
   /* Primary Colors */
-  --primary: #2b4bee;
-  --primary-light: #4d5fee;
-  --primary-dark: #1f2d9f;
+  --primary: #3f51e8;
+  --primary-light: #6d7bff;
+  --primary-dark: #2734a3;
+  --lux-accent: #b9934a;
 
   /* Background Colors */
-  --bg-light: #f5f5f7;
+  --bg-light: #f6f7fb;
   --bg-dark: #101322;
   --bg-white: #ffffff;
 
   /* Neutral Colors */
-  --text-dark: #111111;
+  --text-dark: #101114;
   --text-light: #6b7280;
   --border-color: #e8e8ec;
 
@@ -57,19 +58,20 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.06);
 
   /* Card system tokens (single style) */
-  --card-bg: rgba(255, 255, 255, 0.92);
-  --card-border: rgba(148, 163, 184, 0.22);
-  --card-border-strong: rgba(59, 130, 246, 0.45);
-  --card-shadow: 0 12px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --card-shadow-hover: 0 18px 40px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.2) 55%, rgba(255, 255, 255, 0) 100%);
-  --card-kpi-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.95) 0%, rgba(235, 242, 255, 0.92) 55%, rgba(255, 255, 255, 0.92) 100%);
-  --card-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 249, 255, 0.96) 100%);
-  --card-timer-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(228, 238, 255, 0.92) 100%);
-  --card-overview-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(255, 255, 255, 0.7) 55%, rgba(14, 116, 144, 0.16) 100%);
-  --card-overview-border: rgba(59, 130, 246, 0.32);
-  --canvas-glow-1: rgba(43, 74, 238, 0.12);
-  --canvas-glow-2: rgba(43, 74, 238, 0.06);
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --card-border: rgba(125, 135, 158, 0.2);
+  --card-border-strong: rgba(63, 81, 232, 0.38);
+  --card-shadow: 0 14px 34px rgba(22, 28, 45, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  --card-shadow-hover: 0 18px 42px rgba(22, 28, 45, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  --card-highlight: linear-gradient(155deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.16) 58%, rgba(255, 255, 255, 0) 100%);
+  --card-kpi-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.96) 0%, rgba(241, 244, 255, 0.94) 54%, rgba(250, 247, 241, 0.9) 100%);
+  --card-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(249, 250, 253, 0.96) 100%);
+  --card-timer-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(239, 244, 255, 0.92) 100%);
+  --card-overview-bg: linear-gradient(135deg, rgba(63, 81, 232, 0.16) 0%, rgba(255, 255, 255, 0.72) 55%, rgba(20, 184, 166, 0.14) 100%);
+  --card-overview-border: rgba(63, 81, 232, 0.28);
+  --canvas-glow-1: rgba(63, 81, 232, 0.11);
+  --canvas-glow-2: rgba(20, 184, 166, 0.08);
+  --canvas-glow-3: rgba(185, 147, 74, 0.08);
 
   /* Floating chart tooltip - inverted in dark mode so it pops on either bg. */
   --tooltip-bg: #1f2937;
@@ -135,9 +137,10 @@
   --border-color: rgba(255, 255, 255, 0.08);
   --muted-strong: #a7a7ad;
 
-  --primary: #7c8bff;
-  --primary-light: #9aa6ff;
-  --primary-dark: #5d6bf5;
+  --primary: #8c96ff;
+  --primary-light: #b2b9ff;
+  --primary-dark: #6875ff;
+  --lux-accent: #e0c071;
 
   /* Hume-style icon tile: a raised neutral glass chip + crisp white glyph. */
   --tile-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.03));
@@ -152,19 +155,20 @@
 
   /* Frosted glass: translucent surfaces (blur applied in App.css) over the
      midnight canvas, with a fine light edge instead of a heavy border. */
-  --card-bg: rgba(26, 26, 30, 0.64);
+  --card-bg: rgba(24, 25, 30, 0.72);
   --card-border: rgba(255, 255, 255, 0.08);
   --card-border-strong: rgba(124, 139, 255, 0.5);
-  --card-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --card-shadow-hover: 0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --card-shadow: 0 14px 42px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow-hover: 0 20px 56px rgba(0, 0, 0, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.07);
   --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015) 55%, rgba(255, 255, 255, 0) 100%);
-  --card-kpi-bg: linear-gradient(155deg, rgba(32, 32, 37, 0.62) 0%, rgba(18, 18, 21, 0.7) 60%, rgba(14, 14, 16, 0.72) 100%);
-  --card-panel-bg: linear-gradient(180deg, rgba(28, 28, 32, 0.6) 0%, rgba(16, 16, 19, 0.72) 100%);
-  --card-timer-bg: linear-gradient(180deg, rgba(32, 32, 37, 0.6) 0%, rgba(16, 16, 19, 0.74) 100%);
+  --card-kpi-bg: linear-gradient(155deg, rgba(34, 35, 42, 0.72) 0%, rgba(19, 20, 25, 0.76) 62%, rgba(16, 16, 19, 0.78) 100%);
+  --card-panel-bg: linear-gradient(180deg, rgba(28, 29, 34, 0.7) 0%, rgba(15, 16, 20, 0.78) 100%);
+  --card-timer-bg: linear-gradient(180deg, rgba(34, 35, 42, 0.72) 0%, rgba(15, 16, 20, 0.78) 100%);
   --card-overview-bg: linear-gradient(135deg, rgba(124, 139, 255, 0.14) 0%, rgba(16, 16, 19, 0.72) 62%, rgba(124, 139, 255, 0.05) 100%);
   --card-overview-border: rgba(124, 139, 255, 0.32);
   --canvas-glow-1: rgba(124, 139, 255, 0.12);
-  --canvas-glow-2: rgba(124, 139, 255, 0.05);
+  --canvas-glow-2: rgba(45, 212, 191, 0.07);
+  --canvas-glow-3: rgba(224, 192, 113, 0.08);
 
   /* Light pill on the dark canvas - readable and high-contrast. */
   --tooltip-bg: #f3f4f6;
@@ -221,14 +225,17 @@ body {
 .sf-sidebar {
   width: 248px;
   flex-shrink: 0;
-  background: var(--bg-white);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-white) 94%, #fff 6%), color-mix(in srgb, var(--bg-white) 90%, var(--primary) 10%));
   border-right: 1px solid var(--border-color);
+  box-shadow: 10px 0 34px rgba(15, 23, 42, 0.04);
   padding: 1.75rem 1.25rem;
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
+  z-index: 5;
 }
 
 .sf-main {
@@ -273,28 +280,33 @@ body {
 .sf-brand-icon {
   width: 38px;
   height: 38px;
-  background: var(--primary);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--lux-accent) 82%, #fff 18%), var(--primary) 58%, var(--primary-dark));
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   flex-shrink: 0;
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--primary) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .sf-brand-name {
   font-weight: 800;
   font-size: 1rem;
   line-height: 1.1;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--text-dark);
 }
 
 .sf-brand-sub {
   color: var(--text-light);
   font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   margin-top: 1px;
 }
 
@@ -315,12 +327,14 @@ body {
   text-decoration: none;
   font-weight: 500;
   font-size: 0.875rem;
-  transition: background 0.12s ease, color 0.12s ease;
+  border: 1px solid transparent;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
   position: relative;
 }
 
 .sf-navlink:hover {
-  background: var(--primary-tint);
+  background: color-mix(in srgb, var(--primary-tint) 78%, var(--bg-white) 22%);
+  border-color: color-mix(in srgb, var(--primary) 16%, transparent);
   color: var(--primary);
   text-decoration: none;
 }
@@ -336,8 +350,7 @@ body {
   box-shadow:
     0 6px 18px color-mix(in srgb, var(--primary) 22%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  /* Compensate the 1px border so the active pill doesn't nudge siblings. */
-  padding: calc(0.625rem - 1px) calc(0.75rem - 1px);
+  padding: 0.625rem 0.75rem;
 }
 
 .sf-navlink-active::before {
@@ -510,18 +523,18 @@ body {
 
 h1, .h1 {
   font-weight: 800;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   color: var(--text-dark);
 }
 
 h2, .h2 {
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 h3, h4, h5, h6 {
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /* ==========================================================================
@@ -532,7 +545,7 @@ h3, h4, h5, h6 {
   font-size: 4.5rem;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: var(--text-dark);
 }
@@ -567,7 +580,7 @@ h3, h4, h5, h6 {
   font-size: 2.25rem;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: var(--text-dark);
 }
 
@@ -647,7 +660,7 @@ h3, h4, h5, h6 {
 .btn {
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .btn-primary {
@@ -730,7 +743,7 @@ a:hover {
   border-bottom: 1px solid var(--border-color);
   font-weight: 700;
   font-size: 0.875rem;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   padding: 1.125rem 1.5rem;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
 }
@@ -741,19 +754,36 @@ a:hover {
 
 /* Skip link for accessibility */
 .skip-link {
-  position: absolute;
-  top: -40px;
-  left: 0;
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -120%);
   background: var(--primary);
   color: white;
-  padding: 8px;
+  padding: 0.65rem 0.95rem;
   text-decoration: none;
-  z-index: 100;
+  font-weight: 700;
+  line-height: 1;
+  z-index: 2147483647;
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.12s ease;
 }
 
-.skip-link:focus {
-  top: 0;
+.skip-link:focus,
+.skip-link:focus-visible {
+  color: white;
+  transform: translate(-50%, 0.75rem);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+#main-content {
+  scroll-margin-top: 5.5rem;
+}
+
+#main-content:focus {
+  outline: none;
 }
 
 *:focus-visible {
@@ -772,4 +802,132 @@ a:hover {
 /* Small text refinement */
 .small, small {
   font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   Liquid glass refresh
+   Late token layer for the authenticated app. The earlier palette remains as
+   fallback; these values make surfaces quieter, more tactile, and less bright.
+   ========================================================================== */
+
+:root {
+  --primary: #3b66f6;
+  --primary-light: #9ab0ff;
+  --primary-dark: #2846b8;
+  --lux-accent: #b58a45;
+
+  --bg-light: #eef4ff;
+  --bg-white: #ffffff;
+  --text-dark: #121722;
+  --text-light: #6f7a8e;
+  --muted-strong: #4d586d;
+  --border-color: rgba(30, 64, 175, 0.1);
+
+  --success: #2fa36a;
+  --warning: #c98724;
+  --danger: #cf4a4a;
+  --info: #3576d4;
+  --success-text: #167247;
+  --warning-text: #8f5c12;
+  --danger-text: #a93535;
+  --info-text: #2b5fad;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
+
+  --glass-blur: 8px;
+  --glass-saturate: 145%;
+  --line-soft: rgba(47, 76, 150, 0.1);
+  --surface-quiet: rgba(245, 249, 255, 0.58);
+  --surface-raised: rgba(255, 255, 255, 0.76);
+  --control-bg: rgba(247, 250, 255, 0.64);
+  --control-border: rgba(59, 102, 246, 0.14);
+
+  --shadow-xs: 0 1px 2px rgba(28, 57, 130, 0.045);
+  --shadow-sm: 0 6px 18px rgba(28, 57, 130, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --shadow-md: 0 12px 34px rgba(28, 57, 130, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --shadow-lg: 0 18px 52px rgba(28, 57, 130, 0.095), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+
+  --card-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(236, 244, 255, 0.54));
+  --card-border: rgba(255, 255, 255, 0.64);
+  --card-border-strong: rgba(59, 102, 246, 0.34);
+  --card-shadow: 0 10px 28px rgba(28, 57, 130, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --card-shadow-hover: 0 12px 32px rgba(28, 57, 130, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.16) 58%, rgba(255, 255, 255, 0) 100%);
+  --card-kpi-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.84), rgba(232, 241, 255, 0.62));
+  --card-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(234, 242, 255, 0.58));
+  --card-timer-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(224, 237, 255, 0.62));
+  --card-overview-bg: linear-gradient(135deg, rgba(59, 102, 246, 0.14), rgba(255, 255, 255, 0.62) 52%, rgba(181, 138, 69, 0.12));
+  --card-overview-border: rgba(255, 255, 255, 0.62);
+  --canvas-glow-1: rgba(59, 102, 246, 0.14);
+  --canvas-glow-2: rgba(86, 132, 255, 0.08);
+  --canvas-glow-3: rgba(181, 138, 69, 0.06);
+
+  --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(229, 239, 255, 0.44));
+  --tile-border: rgba(255, 255, 255, 0.64);
+  --tile-icon: #242933;
+  --tile-shadow: 0 8px 22px rgba(28, 57, 130, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.74);
+
+  --primary-tint: rgba(59, 102, 246, 0.09);
+  --primary-tint-strong: rgba(59, 102, 246, 0.15);
+  --danger-tint: rgba(207, 74, 74, 0.09);
+  --focus-ring: rgba(59, 102, 246, 0.2);
+  --row-hover: rgba(59, 102, 246, 0.055);
+}
+
+[data-theme="dark"] {
+  --bg-light: #070a14;
+  --bg-white: #101624;
+  --text-dark: #f2f5ff;
+  --text-light: #9aa7bf;
+  --muted-strong: #b7c1d4;
+  --border-color: rgba(145, 176, 255, 0.12);
+
+  --primary: #8cabff;
+  --primary-light: #c3d2ff;
+  --primary-dark: #668dff;
+  --lux-accent: #d7b46d;
+
+  --success-text: #7ed7a4;
+  --warning-text: #e6b86e;
+  --danger-text: #f09999;
+  --info-text: #a7bdff;
+
+  --line-soft: rgba(145, 176, 255, 0.11);
+  --surface-quiet: rgba(109, 139, 255, 0.07);
+  --surface-raised: rgba(122, 152, 255, 0.11);
+  --control-bg: rgba(112, 142, 255, 0.075);
+  --control-border: rgba(145, 176, 255, 0.16);
+
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-md: 0 14px 42px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  --shadow-lg: 0 22px 62px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.065);
+
+  --card-bg: linear-gradient(160deg, rgba(23, 30, 48, 0.76), rgba(9, 13, 24, 0.64));
+  --card-border: rgba(145, 176, 255, 0.12);
+  --card-border-strong: rgba(140, 171, 255, 0.5);
+  --card-shadow: 0 12px 36px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  --card-shadow-hover: 0 14px 42px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  --card-highlight: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.018) 58%, rgba(255, 255, 255, 0) 100%);
+  --card-kpi-bg: linear-gradient(160deg, rgba(25, 34, 56, 0.82), rgba(9, 14, 27, 0.68));
+  --card-panel-bg: linear-gradient(180deg, rgba(23, 31, 52, 0.78), rgba(8, 12, 23, 0.66));
+  --card-timer-bg: linear-gradient(180deg, rgba(28, 39, 66, 0.82), rgba(8, 13, 25, 0.68));
+  --card-overview-bg: linear-gradient(135deg, rgba(140, 171, 255, 0.17), rgba(9, 14, 27, 0.68) 58%, rgba(215, 180, 109, 0.1));
+  --card-overview-border: rgba(145, 176, 255, 0.13);
+  --canvas-glow-1: rgba(140, 171, 255, 0.16);
+  --canvas-glow-2: rgba(96, 132, 255, 0.09);
+  --canvas-glow-3: rgba(215, 180, 109, 0.08);
+
+  --tile-bg: linear-gradient(160deg, rgba(145, 176, 255, 0.14), rgba(255, 255, 255, 0.045));
+  --tile-border: rgba(145, 176, 255, 0.16);
+  --tile-icon: #f4f5f7;
+  --tile-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  --primary-tint: rgba(140, 171, 255, 0.14);
+  --primary-tint-strong: rgba(140, 171, 255, 0.22);
+  --danger-tint: rgba(240, 153, 153, 0.12);
+  --focus-ring: rgba(140, 171, 255, 0.32);
+  --row-hover: rgba(140, 171, 255, 0.06);
 }

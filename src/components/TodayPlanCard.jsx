@@ -22,30 +22,34 @@ export default function TodayPlanCard() {
   );
 
   const plannedTotal = round1(items.reduce((a, i) => a + i.plannedHours, 0));
-  const loggedTotal = round1(items.reduce((a, i) => a + Math.min(i.logged, i.plannedHours), 0));
-  const remaining = round1(Math.max(0, plannedTotal - loggedTotal));
+  const cappedLoggedTotal = round1(items.reduce((a, i) => a + Math.min(i.logged, i.plannedHours), 0));
+  const rawLoggedTotal = round1(items.reduce((a, i) => a + i.logged, 0));
+  const remaining = round1(Math.max(0, plannedTotal - cappedLoggedTotal));
+  const extra = round1(Math.max(0, rawLoggedTotal - plannedTotal));
 
   return (
     <Card className="h-100 sf-card-panel">
       <Card.Body className="sf-panel-body">
         <div className="d-flex justify-content-between align-items-center mb-1">
-          <h2 className="h5 mb-0">Today's Plan</h2>
+          <h2 className="h5 mb-0">Today's Subject Schedule</h2>
           <Button as={Link} to="/app/command" variant="link" size="sm" className="p-0" style={{ textDecoration: 'none' }}>
             Edit
           </Button>
         </div>
         <small className="text-muted">
           {items.length === 0
-            ? 'Nothing scheduled for today'
+            ? 'No subjects scheduled today'
             : remaining > 0
-            ? `${remaining}h left of ${plannedTotal}h planned`
-            : `All ${plannedTotal}h done — nice.`}
+            ? `${remaining}h left of ${plannedTotal}h scheduled`
+            : extra > 0.05
+            ? `${extra}h above today's schedule`
+            : 'Scheduled study complete'}
         </small>
 
         <div className="flex-grow-1 overflow-auto mt-3" style={{ maxHeight: 280 }}>
           {items.length === 0 ? (
             <div className="text-center text-muted small py-4">
-              No subjects planned today.
+              No subjects scheduled today.
               <div className="mt-2">
                 <Button as={Link} to="/app/command" variant="outline-primary" size="sm">Plan your week</Button>
               </div>

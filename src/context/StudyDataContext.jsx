@@ -9,20 +9,7 @@ import {
   addSession as fsAddSession,
   updateSession as fsUpdateSession,
   deleteSession as fsDeleteSession,
-  getAllTodos,
-  addTodo as fsAddTodo,
-  updateTodo as fsUpdateTodo,
-  deleteTodo as fsDeleteTodo,
-  getAllBreaks,
   addBreak as fsAddBreak,
-  deleteBreak as fsDeleteBreak,
-  getAllHabits,
-  addHabit as fsAddHabit,
-  updateHabit as fsUpdateHabit,
-  deleteHabit as fsDeleteHabit,
-  getAllHabitLogs,
-  addHabitLog as fsAddHabitLog,
-  deleteHabitLog as fsDeleteHabitLog,
   getAllPlanEntries,
   addPlanEntry as fsAddPlanEntry,
   updatePlanEntry as fsUpdatePlanEntry,
@@ -37,16 +24,19 @@ const Context = createContext(null);
 
 const SUBJECTS_KEY = 'studyflow-subjects';
 const SESSIONS_KEY = 'studyflow-sessions';
-const TODOS_KEY = 'studyflow-todos';
-const BREAKS_KEY = 'studyflow-breaks';
-const HABITS_KEY = 'studyflow-habits';
-const HABIT_LOGS_KEY = 'studyflow-habit-logs';
 const PLAN_ENTRIES_KEY = 'studyflow-plan-entries';
+const PLAN_PENDING_KEY = 'studyflow-plan-pending-writes';
+let planSyncInFlight = false;
+
+// Habit/todo/break insight surfaces are archived until v3. Their old
+// components/services remain in the repo, but the active app intentionally
+// skips those collection reads.
 
 function readGuestSubjects() {
   try {
     const raw = localStorage.getItem(SUBJECTS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -55,43 +45,8 @@ function readGuestSubjects() {
 function readGuestSessions() {
   try {
     const raw = localStorage.getItem(SESSIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function readGuestTodos() {
-  try {
-    const raw = localStorage.getItem(TODOS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function readGuestBreaks() {
-  try {
-    const raw = localStorage.getItem(BREAKS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function readGuestHabits() {
-  try {
-    const raw = localStorage.getItem(HABITS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function readGuestHabitLogs() {
-  try {
-    const raw = localStorage.getItem(HABIT_LOGS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -100,10 +55,73 @@ function readGuestHabitLogs() {
 function readGuestPlanEntries() {
   try {
     const raw = localStorage.getItem(PLAN_ENTRIES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
+}
+
+function readPendingPlanWrites() {
+  try {
+    const raw = localStorage.getItem(PLAN_PENDING_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingPlanWrites(writes) {
+  localStorage.setItem(PLAN_PENDING_KEY, JSON.stringify(Array.isArray(writes) ? writes : []));
+}
+
+function planWriteKey(subjectId, scope, day, date) {
+  const safeScope = scope === 'once' ? 'once' : 'weekly';
+  return `${safeScope}:${String(subjectId)}:${safeScope === 'weekly' ? day : date}`;
+}
+
+function planEntryWriteKey(entry) {
+  return planWriteKey(entry.subjectId, entry.scope, entry.day, entry.date);
+}
+
+function queuePendingPlanWrite(write) {
+  const key = write.key || planEntryWriteKey(write.entry || write);
+  const pending = readPendingPlanWrites().filter(item => item.key !== key);
+
+  if (write.op === 'delete' && !write.firestoreId) {
+    writePendingPlanWrites(pending);
+    return;
+  }
+
+  writePendingPlanWrites([
+    ...pending,
+    { ...write, key, createdAt: write.createdAt || Date.now() },
+  ]);
+}
+
+function removePendingPlanWrite(key) {
+  writePendingPlanWrites(readPendingPlanWrites().filter(item => item.key !== key));
+}
+
+function applyPendingPlanWrites(entries, writes) {
+  let next = Array.isArray(entries) ? [...entries] : [];
+  (Array.isArray(writes) ? writes : []).forEach(write => {
+    const key = write.key || (write.entry ? planEntryWriteKey(write.entry) : null);
+    if (!key) return;
+
+    if (write.op === 'delete') {
+      next = next.filter(entry => planEntryWriteKey(entry) !== key);
+      return;
+    }
+
+    if (write.op === 'upsert' && write.entry) {
+      const index = next.findIndex(entry => planEntryWriteKey(entry) === key);
+      if (index === -1) next.push(write.entry);
+      else next[index] = { ...next[index], ...write.entry };
+    }
+  });
+  return next;
 }
 
 export function StudyDataProvider({ children }) {
@@ -112,45 +130,60 @@ export function StudyDataProvider({ children }) {
   // Hydrate immediately from the cache so the UI doesn't flash empty.
   const [subjects, setSubjects] = useState(readGuestSubjects);
   const [sessions, setSessions] = useState(readGuestSessions);
-  const [todos, setTodos] = useState(readGuestTodos);
-  const [breaks, setBreaks] = useState(readGuestBreaks);
-  const [habits, setHabits] = useState(readGuestHabits);
-  const [habitLogs, setHabitLogs] = useState(readGuestHabitLogs);
   const [planEntries, setPlanEntries] = useState(readGuestPlanEntries);
   const [loading, setLoading] = useState(true);
+  const safePlanEntries = Array.isArray(planEntries) ? planEntries : [];
 
   const refresh = useCallback(async () => {
     if (user) {
-      const [fsSubjects, fsSessions, fsTodos, fsBreaks, fsHabits, fsHabitLogs, fsPlan] = await Promise.all([
+      const [fsSubjects, fsSessions, fsPlan] = await Promise.all([
         getSubjects(user.uid),
         getAllSessions(user.uid),
-        getAllTodos(user.uid),
-        getAllBreaks(user.uid),
-        getAllHabits(user.uid),
-        getAllHabitLogs(user.uid),
         getAllPlanEntries(user.uid),
       ]);
       setSubjects(fsSubjects);
       setSessions(fsSessions);
-      setTodos(fsTodos);
-      setBreaks(fsBreaks);
-      setHabits(fsHabits);
-      setHabitLogs(fsHabitLogs);
-      setPlanEntries(fsPlan);
+      const cachedPlan = readGuestPlanEntries();
+      let pendingPlanWrites = readPendingPlanWrites();
+
+      if (Array.isArray(fsPlan)) {
+        const localOnly = cachedPlan.filter(entry => {
+          const key = planEntryWriteKey(entry);
+          return (
+            !entry.firestoreId &&
+            !fsPlan.some(serverEntry => planEntryWriteKey(serverEntry) === key) &&
+            !pendingPlanWrites.some(write => write.key === key)
+          );
+        });
+
+        if (localOnly.length > 0) {
+          pendingPlanWrites = [
+            ...pendingPlanWrites,
+            ...localOnly.map(entry => ({
+              op: 'upsert',
+              key: planEntryWriteKey(entry),
+              entry,
+              createdAt: Date.now(),
+            })),
+          ];
+          writePendingPlanWrites(pendingPlanWrites);
+        }
+      }
+
+      const nextPlan = Array.isArray(fsPlan)
+        ? applyPendingPlanWrites(fsPlan, pendingPlanWrites)
+        : applyPendingPlanWrites(cachedPlan, pendingPlanWrites);
+
+      setPlanEntries(nextPlan);
+      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(nextPlan));
       localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));
-      localStorage.setItem(TODOS_KEY, JSON.stringify(fsTodos));
-      localStorage.setItem(BREAKS_KEY, JSON.stringify(fsBreaks));
-      localStorage.setItem(HABITS_KEY, JSON.stringify(fsHabits));
-      localStorage.setItem(HABIT_LOGS_KEY, JSON.stringify(fsHabitLogs));
-      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(fsPlan));
+      if (pendingPlanWrites.length > 0) {
+        await flushPendingPlanWrites(user.uid);
+      }
     } else {
       setSubjects(readGuestSubjects());
       setSessions(readGuestSessions());
-      setTodos(readGuestTodos());
-      setBreaks(readGuestBreaks());
-      setHabits(readGuestHabits());
-      setHabitLogs(readGuestHabitLogs());
       setPlanEntries(readGuestPlanEntries());
     }
   }, [user]);
@@ -185,30 +218,10 @@ export function StudyDataProvider({ children }) {
     }
   }, [sessions, user, authLoading]);
   useEffect(() => {
-    if (!user && !authLoading) {
-      localStorage.setItem(TODOS_KEY, JSON.stringify(todos));
+    if (!authLoading) {
+      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(safePlanEntries));
     }
-  }, [todos, user, authLoading]);
-  useEffect(() => {
-    if (!user && !authLoading) {
-      localStorage.setItem(BREAKS_KEY, JSON.stringify(breaks));
-    }
-  }, [breaks, user, authLoading]);
-  useEffect(() => {
-    if (!user && !authLoading) {
-      localStorage.setItem(HABITS_KEY, JSON.stringify(habits));
-    }
-  }, [habits, user, authLoading]);
-  useEffect(() => {
-    if (!user && !authLoading) {
-      localStorage.setItem(HABIT_LOGS_KEY, JSON.stringify(habitLogs));
-    }
-  }, [habitLogs, user, authLoading]);
-  useEffect(() => {
-    if (!user && !authLoading) {
-      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(planEntries));
-    }
-  }, [planEntries, user, authLoading]);
+  }, [safePlanEntries, user, authLoading]);
 
   // ---------- Mutations ----------
 
@@ -244,15 +257,6 @@ export function StudyDataProvider({ children }) {
       setSubjects(prev => prev.filter(s => s.id !== localId));
       setSessions(prev => prev.filter(s => s.subjectId !== localId));
       setPlanEntries(prev => prev.filter(p => String(p.subjectId) !== String(localId)));
-      setHabits(prev => prev.filter(h => String(h.subjectId) !== String(localId)));
-      setHabitLogs(prev => {
-        const subjectHabitIds = new Set(
-          habits
-            .filter(h => String(h.subjectId) === String(localId))
-            .map(h => String(h.id))
-        );
-        return prev.filter(l => !subjectHabitIds.has(String(l.habitId)));
-      });
     }
   }
 
@@ -292,130 +296,23 @@ export function StudyDataProvider({ children }) {
     }
   }
 
-  // ---------- Todos ----------
-
-  async function addTodo(todoData) {
-    if (user) {
-      await fsAddTodo(user.uid, todoData);
-      await refresh();
-    } else {
-      const id = Date.now();
-      setTodos(prev => [{ ...todoData, id, done: Boolean(todoData.done) }, ...prev]);
-    }
-  }
-
-  async function updateTodo(todoLocalId, updates) {
-    if (user) {
-      const t = todos.find(x => x.id === todoLocalId);
-      if (t?.firestoreId) {
-        await fsUpdateTodo(user.uid, t.firestoreId, updates);
-        await refresh();
-      }
-    } else {
-      setTodos(prev => prev.map(t => t.id === todoLocalId ? { ...t, ...updates } : t));
-    }
-  }
-
-  async function deleteTodo(todoLocalId) {
-    if (user) {
-      const t = todos.find(x => x.id === todoLocalId);
-      if (t?.firestoreId) {
-        await fsDeleteTodo(user.uid, t.firestoreId);
-        await refresh();
-      }
-    } else {
-      setTodos(prev => prev.filter(t => t.id !== todoLocalId));
-    }
-  }
-
   // ---------- Breaks ----------
-  // Breaks live in their own collection and are kept out of every study
-  // aggregation. The break timer (BreakContext) is the only writer.
+  // Breaks live in their own collection and never count toward study minutes.
+  // Break insights are archived, so break saves do not trigger a full refresh.
 
   async function addBreak(breakData) {
     if (user) {
       await fsAddBreak(user.uid, breakData);
-      await refresh();
     } else {
-      const id = Date.now();
-      setBreaks(prev => [{ ...breakData, id }, ...prev]);
-    }
-  }
-
-  async function deleteBreak(breakLocalId) {
-    if (user) {
-      const b = breaks.find(x => x.id === breakLocalId);
-      if (b?.firestoreId) {
-        await fsDeleteBreak(user.uid, b.firestoreId);
-        await refresh();
+      // Archived surface: keep break logging non-blocking in guest mode.
+      let prev = [];
+      try {
+        const raw = localStorage.getItem('studyflow-breaks');
+        prev = raw ? JSON.parse(raw) : [];
+      } catch {
+        prev = [];
       }
-    } else {
-      setBreaks(prev => prev.filter(b => b.id !== breakLocalId));
-    }
-  }
-
-  // ---------- Habits + habit logs ----------
-  // The Command Center habit tracker. Completions are stored only when a habit
-  // is marked done; "missed"/"pending" are derived at render time.
-
-  async function addHabit(habitData) {
-    if (user) {
-      await fsAddHabit(user.uid, habitData);
-      await refresh();
-    } else {
-      setHabits(prev => [...prev, habitData]);
-    }
-  }
-
-  async function updateHabit(habitLocalId, updates) {
-    if (user) {
-      const h = habits.find(x => x.id === habitLocalId);
-      if (h?.firestoreId) {
-        await fsUpdateHabit(user.uid, h.firestoreId, updates);
-        await refresh();
-      }
-    } else {
-      setHabits(prev => prev.map(h => h.id === habitLocalId ? { ...h, ...updates } : h));
-    }
-  }
-
-  async function deleteHabit(habitLocalId) {
-    if (user) {
-      const h = habits.find(x => x.id === habitLocalId);
-      if (h?.firestoreId) {
-        await fsDeleteHabit(user.uid, h.firestoreId);
-        await refresh();
-      }
-    } else {
-      setHabits(prev => prev.filter(h => h.id !== habitLocalId));
-      // Drop the now-orphaned completion logs too.
-      setHabitLogs(prev => prev.filter(l => String(l.habitId) !== String(habitLocalId)));
-    }
-  }
-
-  // Mark a habit done/undone for a given date. Done = ensure a log exists;
-  // undone = remove the existing log. Idempotent.
-  async function toggleHabitDone(habitId, dateStr, done) {
-    const existing = habitLogs.find(
-      l => String(l.habitId) === String(habitId) && l.date === dateStr
-    );
-    if (user) {
-      if (done && !existing) {
-        await fsAddHabitLog(user.uid, { habitId: String(habitId), date: dateStr });
-        await refresh();
-      } else if (!done && existing?.firestoreId) {
-        await fsDeleteHabitLog(user.uid, existing.firestoreId);
-        await refresh();
-      }
-    } else {
-      if (done && !existing) {
-        setHabitLogs(prev => [
-          { id: Date.now(), habitId: String(habitId), date: dateStr, done: true },
-          ...prev,
-        ]);
-      } else if (!done && existing) {
-        setHabitLogs(prev => prev.filter(l => l.id !== existing.id));
-      }
+      localStorage.setItem('studyflow-breaks', JSON.stringify([{ ...breakData, id: Date.now() }, ...prev]));
     }
   }
 
@@ -431,6 +328,74 @@ export function StudyDataProvider({ children }) {
     );
   }
 
+  async function flushPendingPlanWrites(userId) {
+    const pending = readPendingPlanWrites();
+    if (!userId || pending.length === 0 || planSyncInFlight) return;
+
+    planSyncInFlight = true;
+
+    try {
+      const remaining = [];
+      const synced = [];
+
+      for (const write of pending) {
+        if (write.op === 'delete') {
+          if (!write.firestoreId) continue;
+          const ok = await fsDeletePlanEntry(userId, write.firestoreId);
+          if (!ok) remaining.push(write);
+          continue;
+        }
+
+        if (write.op !== 'upsert' || !write.entry) continue;
+
+        const firestoreId = write.firestoreId || write.entry.firestoreId;
+        if (firestoreId) {
+          const ok = await fsUpdatePlanEntry(userId, firestoreId, { hours: write.entry.hours });
+          if (ok) synced.push({ ...write.entry, firestoreId });
+          else remaining.push(write);
+          continue;
+        }
+
+        const saved = await fsAddPlanEntry(userId, write.entry);
+        if (saved) synced.push(saved);
+        else remaining.push(write);
+      }
+
+      writePendingPlanWrites(remaining);
+
+      if (synced.length > 0) {
+        setPlanEntries(prev => {
+          const base = Array.isArray(prev) ? prev : [];
+          return base.map(entry => {
+            const saved = synced.find(item => planEntryWriteKey(item) === planEntryWriteKey(entry));
+            return saved ? { ...entry, ...saved } : entry;
+          });
+        });
+      }
+    } finally {
+      planSyncInFlight = false;
+    }
+  }
+
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    function retryPlanSync() {
+      if (readPendingPlanWrites().length > 0) {
+        flushPendingPlanWrites(user.uid);
+      }
+    }
+
+    window.addEventListener('online', retryPlanSync);
+    const intervalId = window.setInterval(retryPlanSync, 30000);
+    retryPlanSync();
+
+    return () => {
+      window.removeEventListener('online', retryPlanSync);
+      window.clearInterval(intervalId);
+    };
+  }, [user, authLoading]);
+
   async function upsertPlanEntry(subjectId, { scope, day = null, date = null, hours }) {
     const safeScope = scope === 'once' ? 'once' : 'weekly';
     const key = {
@@ -438,58 +403,98 @@ export function StudyDataProvider({ children }) {
       date: safeScope === 'once' ? date : null,
     };
     const h = Math.max(0, Number(hours) || 0);
-    const existing = planEntries.find(entry =>
+    const existing = safePlanEntries.find(entry =>
       planKeyMatch(entry, subjectId, safeScope, key.day, key.date)
     );
-
-    if (user) {
-      if (h <= 0) {
-        if (existing?.firestoreId) {
-          await fsDeletePlanEntry(user.uid, existing.firestoreId);
-          await refresh();
-        }
-      } else if (existing?.firestoreId) {
-        await fsUpdatePlanEntry(user.uid, existing.firestoreId, { hours: h });
-        await refresh();
-      } else {
-        await fsAddPlanEntry(user.uid, {
+    const localEntry = existing
+      ? { ...existing, subjectId: String(subjectId), scope: safeScope, ...key, hours: h }
+      : {
+          id: Date.now() + Math.floor(Math.random() * 1000),
           subjectId: String(subjectId),
           scope: safeScope,
           ...key,
           hours: h,
+        };
+
+    if (h <= 0) {
+      setPlanEntries(prev => {
+        const base = Array.isArray(prev) ? prev : [];
+        return base.filter(entry =>
+          !planKeyMatch(entry, subjectId, safeScope, key.day, key.date)
+        );
+      });
+
+      if (user && existing?.firestoreId) {
+        const ok = await fsDeletePlanEntry(user.uid, existing.firestoreId);
+        if (!ok) {
+          queuePendingPlanWrite({
+            op: 'delete',
+            key: planWriteKey(subjectId, safeScope, key.day, key.date),
+            firestoreId: existing.firestoreId,
+          });
+        } else {
+          removePendingPlanWrite(planWriteKey(subjectId, safeScope, key.day, key.date));
+        }
+      } else if (user) {
+        removePendingPlanWrite(planWriteKey(subjectId, safeScope, key.day, key.date));
+      }
+      return;
+    }
+
+    setPlanEntries(prev => {
+      const base = Array.isArray(prev) ? prev : [];
+      const index = base.findIndex(entry =>
+        planKeyMatch(entry, subjectId, safeScope, key.day, key.date)
+      );
+      if (index === -1) return [...base, localEntry];
+      return base.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...localEntry } : entry
+      );
+    });
+
+    if (!user) return;
+
+    if (existing?.firestoreId) {
+      const ok = await fsUpdatePlanEntry(user.uid, existing.firestoreId, { hours: h });
+      if (!ok) {
+        queuePendingPlanWrite({
+          op: 'upsert',
+          key: planWriteKey(subjectId, safeScope, key.day, key.date),
+          entry: localEntry,
+          firestoreId: existing.firestoreId,
         });
-        await refresh();
-      }
-    } else {
-      if (h <= 0) {
-        if (existing) setPlanEntries(prev => prev.filter(entry => entry.id !== existing.id));
-      } else if (existing) {
-        setPlanEntries(prev => prev.map(entry =>
-          entry.id === existing.id ? { ...entry, hours: h } : entry
-        ));
       } else {
-        setPlanEntries(prev => [
-          ...prev,
-          {
-            id: Date.now() + Math.floor(Math.random() * 1000),
-            subjectId: String(subjectId),
-            scope: safeScope,
-            ...key,
-            hours: h,
-          },
-        ]);
+        removePendingPlanWrite(planWriteKey(subjectId, safeScope, key.day, key.date));
       }
+      return;
+    }
+
+    const saved = await fsAddPlanEntry(user.uid, localEntry);
+    if (saved) {
+      removePendingPlanWrite(planWriteKey(subjectId, safeScope, key.day, key.date));
+      setPlanEntries(prev => {
+        const base = Array.isArray(prev) ? prev : [];
+        return base.map(entry =>
+          planKeyMatch(entry, subjectId, safeScope, key.day, key.date)
+            ? { ...entry, ...saved }
+            : entry
+        );
+      });
+    } else {
+      queuePendingPlanWrite({
+        op: 'upsert',
+        key: planWriteKey(subjectId, safeScope, key.day, key.date),
+        entry: localEntry,
+      });
     }
   }
 
   return (
     <Context.Provider value={{
-      subjects, sessions, todos, breaks, habits, habitLogs, planEntries, loading,
+      subjects, sessions, planEntries: safePlanEntries, loading,
       addSubject, updateSubject, deleteSubject,
       addSession, updateSession, deleteSession,
-      addTodo, updateTodo, deleteTodo,
-      addBreak, deleteBreak,
-      addHabit, updateHabit, deleteHabit, toggleHabitDone,
+      addBreak,
       upsertPlanEntry,
       refresh,
     }}>

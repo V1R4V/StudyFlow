@@ -96,14 +96,14 @@ export function feasibility(subject, plannedWeekHours) {
     return {
       status: 'short',
       deltaHours: delta,
-      message: `${Math.abs(delta)}h short of your ${goal}h goal — add time`,
+      message: `${Math.abs(delta)}h short of your ${goal}h goal. Add time when the week has room.`,
       pct,
     };
   }
   return {
-    status: 'over',
+    status: 'stretch',
     deltaHours: delta,
-    message: `${delta}h over your ${goal}h goal`,
+    message: `${delta}h above your ${goal}h goal. Useful for exam weeks; watch your balance.`,
     pct: 100,
   };
 }
