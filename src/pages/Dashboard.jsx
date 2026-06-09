@@ -12,33 +12,30 @@ import { useStudyData } from '../context/StudyDataContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
 import { planForDate, loggedHoursFor } from '../utils/plan';
 
-const IconClock = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="7.5" />
-    <path d="M10 6v4l2.5 2.5" />
-  </svg>
+// iOS-style native emoji for the KPI tiles. Wrapped in a flex-centered span so
+// they sit dead-center in the 44px gradient chip regardless of glyph metrics.
+const EmojiIcon = ({ symbol, label }) => (
+  <span
+    role="img"
+    aria-label={label}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      height: '100%',
+      fontSize: '1.35rem',
+      lineHeight: 1,
+    }}
+  >
+    {symbol}
+  </span>
 );
 
-const IconFlame = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2C12 2 13.5 5 12 7.5C14.5 6 16 8 14.5 10.5C16 9.5 17 11 16 13C16 16 13.5 18 10 18C6.5 18 4 16 4 13C4 10.5 5.5 9 7 8.5C7 10.5 8 11.5 9 12C8.5 10 9 7 12 2Z" />
-  </svg>
-);
-
-const IconCheck = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="7.5" />
-    <path d="M7 10.5l2.5 2.5L13 8" />
-  </svg>
-);
-
-const IconTarget = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="7.5" />
-    <circle cx="10" cy="10" r="4" />
-    <circle cx="10" cy="10" r="1.25" fill="currentColor" />
-  </svg>
-);
+const IconClock = () => <EmojiIcon symbol="⏱️" label="focus time" />;
+const IconFlame = () => <EmojiIcon symbol="🔥" label="streak" />;
+const IconCheck = () => <EmojiIcon symbol="✅" label="schedule" />;
+const IconTarget = () => <EmojiIcon symbol="🎯" label="weekly goal" />;
 
 const IconChevronLeft = () => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
