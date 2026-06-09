@@ -23,6 +23,10 @@ import {
   getAllHabitLogs,
   addHabitLog as fsAddHabitLog,
   deleteHabitLog as fsDeleteHabitLog,
+  getAllPlanEntries,
+  addPlanEntry as fsAddPlanEntry,
+  updatePlanEntry as fsUpdatePlanEntry,
+  deletePlanEntry as fsDeletePlanEntry,
 } from '../services/firebaseService';
 
 // Single shared store for subjects + sessions. One fetch per session,
@@ -37,6 +41,7 @@ const TODOS_KEY = 'studyflow-todos';
 const BREAKS_KEY = 'studyflow-breaks';
 const HABITS_KEY = 'studyflow-habits';
 const HABIT_LOGS_KEY = 'studyflow-habit-logs';
+const PLAN_ENTRIES_KEY = 'studyflow-plan-entries';
 
 function readGuestSubjects() {
   try {
@@ -92,6 +97,15 @@ function readGuestHabitLogs() {
   }
 }
 
+function readGuestPlanEntries() {
+  try {
+    const raw = localStorage.getItem(PLAN_ENTRIES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function StudyDataProvider({ children }) {
   const { user, loading: authLoading } = useAuthContext();
 
@@ -102,17 +116,19 @@ export function StudyDataProvider({ children }) {
   const [breaks, setBreaks] = useState(readGuestBreaks);
   const [habits, setHabits] = useState(readGuestHabits);
   const [habitLogs, setHabitLogs] = useState(readGuestHabitLogs);
+  const [planEntries, setPlanEntries] = useState(readGuestPlanEntries);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (user) {
-      const [fsSubjects, fsSessions, fsTodos, fsBreaks, fsHabits, fsHabitLogs] = await Promise.all([
+      const [fsSubjects, fsSessions, fsTodos, fsBreaks, fsHabits, fsHabitLogs, fsPlan] = await Promise.all([
         getSubjects(user.uid),
         getAllSessions(user.uid),
         getAllTodos(user.uid),
         getAllBreaks(user.uid),
         getAllHabits(user.uid),
         getAllHabitLogs(user.uid),
+        getAllPlanEntries(user.uid),
       ]);
       setSubjects(fsSubjects);
       setSessions(fsSessions);
@@ -120,12 +136,14 @@ export function StudyDataProvider({ children }) {
       setBreaks(fsBreaks);
       setHabits(fsHabits);
       setHabitLogs(fsHabitLogs);
+      setPlanEntries(fsPlan);
       localStorage.setItem(SUBJECTS_KEY, JSON.stringify(fsSubjects));
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(fsSessions));
       localStorage.setItem(TODOS_KEY, JSON.stringify(fsTodos));
       localStorage.setItem(BREAKS_KEY, JSON.stringify(fsBreaks));
       localStorage.setItem(HABITS_KEY, JSON.stringify(fsHabits));
       localStorage.setItem(HABIT_LOGS_KEY, JSON.stringify(fsHabitLogs));
+      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(fsPlan));
     } else {
       setSubjects(readGuestSubjects());
       setSessions(readGuestSessions());
@@ -133,6 +151,7 @@ export function StudyDataProvider({ children }) {
       setBreaks(readGuestBreaks());
       setHabits(readGuestHabits());
       setHabitLogs(readGuestHabitLogs());
+      setPlanEntries(readGuestPlanEntries());
     }
   }, [user]);
 
@@ -185,6 +204,11 @@ export function StudyDataProvider({ children }) {
       localStorage.setItem(HABIT_LOGS_KEY, JSON.stringify(habitLogs));
     }
   }, [habitLogs, user, authLoading]);
+  useEffect(() => {
+    if (!user && !authLoading) {
+      localStorage.setItem(PLAN_ENTRIES_KEY, JSON.stringify(planEntries));
+    }
+  }, [planEntries, user, authLoading]);
 
   // ---------- Mutations ----------
 
@@ -219,6 +243,16 @@ export function StudyDataProvider({ children }) {
     } else {
       setSubjects(prev => prev.filter(s => s.id !== localId));
       setSessions(prev => prev.filter(s => s.subjectId !== localId));
+      setPlanEntries(prev => prev.filter(p => String(p.subjectId) !== String(localId)));
+      setHabits(prev => prev.filter(h => String(h.subjectId) !== String(localId)));
+      setHabitLogs(prev => {
+        const subjectHabitIds = new Set(
+          habits
+            .filter(h => String(h.subjectId) === String(localId))
+            .map(h => String(h.id))
+        );
+        return prev.filter(l => !subjectHabitIds.has(String(l.habitId)));
+      });
     }
   }
 
@@ -385,14 +419,78 @@ export function StudyDataProvider({ children }) {
     }
   }
 
+  // ---------- Plan entries ----------
+  // Weekly planner cells share one write path. Hours > 0 creates/updates a
+  // cell; hours <= 0 clears it.
+
+  function planKeyMatch(entry, subjectId, scope, day, date) {
+    return (
+      String(entry.subjectId) === String(subjectId) &&
+      entry.scope === scope &&
+      (scope === 'weekly' ? entry.day === day : entry.date === date)
+    );
+  }
+
+  async function upsertPlanEntry(subjectId, { scope, day = null, date = null, hours }) {
+    const safeScope = scope === 'once' ? 'once' : 'weekly';
+    const key = {
+      day: safeScope === 'weekly' ? day : null,
+      date: safeScope === 'once' ? date : null,
+    };
+    const h = Math.max(0, Number(hours) || 0);
+    const existing = planEntries.find(entry =>
+      planKeyMatch(entry, subjectId, safeScope, key.day, key.date)
+    );
+
+    if (user) {
+      if (h <= 0) {
+        if (existing?.firestoreId) {
+          await fsDeletePlanEntry(user.uid, existing.firestoreId);
+          await refresh();
+        }
+      } else if (existing?.firestoreId) {
+        await fsUpdatePlanEntry(user.uid, existing.firestoreId, { hours: h });
+        await refresh();
+      } else {
+        await fsAddPlanEntry(user.uid, {
+          subjectId: String(subjectId),
+          scope: safeScope,
+          ...key,
+          hours: h,
+        });
+        await refresh();
+      }
+    } else {
+      if (h <= 0) {
+        if (existing) setPlanEntries(prev => prev.filter(entry => entry.id !== existing.id));
+      } else if (existing) {
+        setPlanEntries(prev => prev.map(entry =>
+          entry.id === existing.id ? { ...entry, hours: h } : entry
+        ));
+      } else {
+        setPlanEntries(prev => [
+          ...prev,
+          {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            subjectId: String(subjectId),
+            scope: safeScope,
+            ...key,
+            hours: h,
+          },
+        ]);
+      }
+    }
+  }
+
   return (
     <Context.Provider value={{
-      subjects, sessions, todos, breaks, habits, habitLogs, loading,
+      subjects, sessions, todos, breaks, habits, habitLogs, planEntries, loading,
       addSubject, updateSubject, deleteSubject,
       addSession, updateSession, deleteSession,
       addTodo, updateTodo, deleteTodo,
       addBreak, deleteBreak,
       addHabit, updateHabit, deleteHabit, toggleHabitDone,
+      upsertPlanEntry,
       refresh,
     }}>
       {children}

@@ -8,6 +8,8 @@ import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
 import BreakStatsCard from '../components/BreakStatsCard';
 import DailyPlanner from '../components/DailyPlanner';
+import TodayPlanCard from '../components/TodayPlanCard';
+import WeekCalendarCard from '../components/WeekCalendarCard';
 import { useStudyData } from '../context/StudyDataContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
 
@@ -350,7 +352,16 @@ export default function Dashboard() {
           <StudyTimer subjects={subjects} />
         </Col>
         <Col lg={3} md={6}>
+          <TodayPlanCard />
+        </Col>
+      </Row>
+
+      <Row className="g-3 mb-4">
+        <Col lg={4}>
           <DailyPlanner />
+        </Col>
+        <Col lg={8}>
+          <WeekCalendarCard />
         </Col>
       </Row>
 
