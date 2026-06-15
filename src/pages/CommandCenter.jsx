@@ -4,11 +4,8 @@ import {
   Row,
   Col,
   Card,
-  Form,
   Button,
   Alert,
-  ToggleButtonGroup,
-  ToggleButton,
 } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useStudyData } from '../context/StudyDataContext';
@@ -18,6 +15,7 @@ import {
   weekStartStr,
   plannedHoursFor,
   hasOnceOverride,
+  legacyWeeklyHoursFor,
   subjectWeekPlanned,
   loggedHoursForWeek,
   feasibility,
@@ -46,22 +44,15 @@ const fmtDay = dateStr =>
 
 const round1 = value => Math.round(value * 10) / 10;
 
-function weeklyHoursFor(planEntries, key, dow) {
-  const entry = planEntries.find(
-    item => item.scope === 'weekly' && String(item.subjectId) === key && item.day === dow
-  );
-  return entry ? entry.hours || 0 : 0;
-}
-
 function planEntryMatchesDraft(entry, draft) {
   return (
     String(entry.subjectId) === String(draft.subjectId) &&
-    entry.scope === draft.scope &&
-    (draft.scope === 'weekly' ? entry.day === draft.day : entry.date === draft.date)
+    entry.scope === 'once' &&
+    entry.date === draft.date
   );
 }
 
-function PlanCell({ value, override, onDraft, onCommit, ariaLabel }) {
+function PlanCell({ value, onDraft, onCommit, ariaLabel }) {
   const [text, setText] = useState(value ? String(value) : '');
   const [editing, setEditing] = useState(false);
 
@@ -93,7 +84,7 @@ function PlanCell({ value, override, onDraft, onCommit, ariaLabel }) {
       max={24}
       step={0.5}
       inputMode="decimal"
-      className={`sf-plan-cell${override ? ' sf-plan-cell-override' : ''}${value ? ' sf-plan-cell-filled' : ''}`}
+      className={`sf-plan-cell${value ? ' sf-plan-cell-filled' : ''}`}
       value={text}
       placeholder="-"
       onFocus={() => setEditing(true)}
@@ -113,36 +104,30 @@ function PlanCell({ value, override, onDraft, onCommit, ariaLabel }) {
 function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry }) {
   const todayStr = localDateString();
   const [anchor, setAnchor] = useState(todayStr);
-  const [scope, setScope] = useState('weekly');
   const [draftEntries, setDraftEntries] = useState({});
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState('');
 
   const weekStart = weekStartStr(anchor);
   const thisWeekStart = weekStartStr(todayStr);
   const isThisWeek = weekStart === thisWeekStart;
+  const isPastWeek = weekStart < thisWeekStart;
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, index) => shiftDateStr(weekStart, index)),
     [weekStart]
   );
 
-  function draftKey(subject, dateStr, activeScope = scope) {
-    const key = subjectKey(subject);
-    if (activeScope === 'weekly') {
-      return `weekly:${key}:${new Date(`${dateStr}T00:00:00`).getDay()}`;
-    }
-    return `once:${key}:${dateStr}`;
+  // Import feedback belongs to the week it ran on; clear it when navigating.
+  useEffect(() => {
+    setImportNote('');
+  }, [weekStart]);
+
+  function draftKey(subject, dateStr) {
+    return `once:${subjectKey(subject)}:${dateStr}`;
   }
 
-  function makeDraft(subject, dateStr, hours, activeScope = scope) {
-    const key = subjectKey(subject);
-    if (activeScope === 'weekly') {
-      return {
-        subjectId: key,
-        scope: 'weekly',
-        day: new Date(`${dateStr}T00:00:00`).getDay(),
-        hours,
-      };
-    }
-    return { subjectId: key, scope: 'once', date: dateStr, hours };
+  function makeDraft(subject, dateStr, hours) {
+    return { subjectId: subjectKey(subject), scope: 'once', date: dateStr, hours };
   }
 
   const effectivePlanEntries = useMemo(() => {
@@ -175,29 +160,78 @@ function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry }) {
   const goalSubjects = rows.filter(row => row.feas.status !== 'nogoal');
   const stretchSubjects = rows.filter(row => row.feas.status === 'stretch');
 
-  function handleDraft(subject, dateStr, hours, activeScope = scope) {
-    const key = draftKey(subject, dateStr, activeScope);
-    const draft = makeDraft(subject, dateStr, hours, activeScope);
+  const weekScheduled = round1(rows.reduce((acc, row) => acc + row.planned, 0));
+  const weekLogged = round1(rows.reduce((acc, row) => acc + row.logged, 0));
+
+  // The subhead doubles as a per-week recap so past weeks read as a review.
+  let subhead = 'Plan the week, then watch logged time stack up against it.';
+  if (isPastWeek) {
+    subhead = weekScheduled > 0
+      ? `Review: you logged ${weekLogged}h against ${weekScheduled}h planned this week.`
+      : `Review: you logged ${weekLogged}h this week.`;
+  } else if (!isThisWeek) {
+    subhead = 'Planning ahead. Import last week to start fast.';
+  }
+
+  function handleDraft(subject, dateStr, hours) {
+    const key = draftKey(subject, dateStr);
+    const draft = makeDraft(subject, dateStr, hours);
     setDraftEntries(prev => ({ ...prev, [key]: draft }));
   }
 
-  async function handleCommit(subject, dateStr, hours, activeScope = scope) {
+  async function handleCommit(subject, dateStr, hours) {
     const key = subjectKey(subject);
-    if (activeScope === 'weekly') {
-      await upsertPlanEntry(key, {
-        scope: 'weekly',
-        day: new Date(`${dateStr}T00:00:00`).getDay(),
-        hours,
-      });
-    } else {
-      await upsertPlanEntry(key, { scope: 'once', date: dateStr, hours });
-    }
-    const id = draftKey(subject, dateStr, activeScope);
+    // Clearing a cell that a legacy recurring entry still fills needs an
+    // explicit 0 stored, otherwise the legacy value would resurface.
+    const legacyHours = legacyWeeklyHoursFor(planEntries, key, dateStr);
+    await upsertPlanEntry(key, {
+      scope: 'once',
+      date: dateStr,
+      hours,
+      keepZero: hours <= 0 && legacyHours > 0,
+    });
+    const id = draftKey(subject, dateStr);
     setDraftEntries(prev => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
+  }
+
+  // Copies last week's plan into this week's empty cells. Cells the user
+  // already filled (or explicitly cleared) are never overwritten, so the
+  // action is always safe to click.
+  const prevWeekStart = shiftDateStr(weekStart, -7);
+  const prevWeekHasPlan = useMemo(
+    () => subjects.some(s => subjectWeekPlanned(planEntries, s, prevWeekStart) > 0),
+    [subjects, planEntries, prevWeekStart]
+  );
+
+  async function importLastWeek() {
+    setImporting(true);
+    let slots = 0;
+    let importedHours = 0;
+    for (const subject of subjects) {
+      const key = subjectKey(subject);
+      for (let i = 0; i < 7; i++) {
+        const fromHours = plannedHoursFor(planEntries, key, shiftDateStr(prevWeekStart, i));
+        const toDate = shiftDateStr(weekStart, i);
+        const alreadySet =
+          hasOnceOverride(planEntries, key, toDate) ||
+          plannedHoursFor(planEntries, key, toDate) > 0;
+        if (fromHours > 0 && !alreadySet) {
+          await upsertPlanEntry(key, { scope: 'once', date: toDate, hours: fromHours });
+          slots += 1;
+          importedHours += fromHours;
+        }
+      }
+    }
+    setImporting(false);
+    setImportNote(
+      slots > 0
+        ? `Imported ${round1(importedHours)}h into ${slots} open slot${slots === 1 ? '' : 's'} from last week.`
+        : 'Nothing new to import. Your filled cells were left untouched.'
+    );
   }
 
   return (
@@ -206,7 +240,7 @@ function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry }) {
         <div>
           <h2 className="h4 mb-1">Weekly Planner</h2>
           <p className="mb-0" style={{ color: 'var(--muted-strong)' }}>
-            Distribute weekly goals, then compare scheduled time against logged sessions.
+            {subhead}
           </p>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -241,29 +275,31 @@ function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry }) {
       </div>
 
       <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
-        <ToggleButtonGroup type="radio" name="plan-scope" value={scope} onChange={setScope}>
-          <ToggleButton id="scope-weekly" value="weekly" variant={scope === 'weekly' ? 'primary' : 'outline-primary'} size="sm">
-            Repeat weekly
-          </ToggleButton>
-          <ToggleButton id="scope-once" value="once" variant={scope === 'once' ? 'primary' : 'outline-primary'} size="sm">
-            This week only
-          </ToggleButton>
-        </ToggleButtonGroup>
-        <span className="small" style={{ color: 'var(--muted-strong)' }}>
-          {scope === 'weekly'
-            ? 'Edits set your recurring plan.'
-            : 'Edits apply only to this displayed week.'}
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={importLastWeek}
+          disabled={importing || !prevWeekHasPlan}
+        >
+          {importing ? 'Importing…' : 'Import last week'}
+        </Button>
+        <span className="small" style={{ color: 'var(--muted-strong)' }} role="status">
+          {importNote ||
+            (prevWeekHasPlan
+              ? "Edits apply to the week shown. Import copies last week's plan into empty cells."
+              : 'Edits apply to the week shown.')}
         </span>
       </div>
 
       {overloadedDays.length > 0 ? (
         <Alert variant="warning" className="py-2 sf-plan-insight">
-          {DAY_ABBR[new Date(`${overloadedDays[0].date}T00:00:00`).getDay()]} {fmtDay(overloadedDays[0].date)} is a very heavy day
-          ({overloadedDays[0].hours}h scheduled). If that is exam prep, fine; otherwise spread some time out.
+          {DAY_ABBR[new Date(`${overloadedDays[0].date}T00:00:00`).getDay()]} {fmtDay(overloadedDays[0].date)} is a big day
+          ({overloadedDays[0].hours}h scheduled). Great if that is exam prep, otherwise spread a few hours out to stay fresh.
         </Alert>
       ) : shortSubjects.length > 0 ? (
-        <Alert variant="warning" className="py-2 sf-plan-insight">
-          {shortSubjects.length} subject{shortSubjects.length > 1 ? 's are' : ' is'} short of the weekly goal. Add hours where the week has room.
+        <Alert variant="info" className="py-2 sf-plan-insight">
+          Your plan covers {goalSubjects.length - shortSubjects.length} of {goalSubjects.length} weekly goals so far.{' '}
+          {shortSubjects.length === 1 ? '1 subject has' : `${shortSubjects.length} subjects have`} room to grow. Add hours where the week is open.
         </Alert>
       ) : stretchSubjects.length > 0 ? (
         <Alert variant="info" className="py-2 sf-plan-insight">
@@ -299,19 +335,14 @@ function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry }) {
                     {days.map(dateStr => {
                       const dow = new Date(`${dateStr}T00:00:00`).getDay();
                       const key = subjectKey(subject);
-                      const activeScope = scope;
-                      const display = scope === 'weekly'
-                        ? weeklyHoursFor(effectivePlanEntries, key, dow)
-                        : plannedHoursFor(effectivePlanEntries, key, dateStr);
-                      const override = scope === 'once' && hasOnceOverride(effectivePlanEntries, key, dateStr);
+                      const display = plannedHoursFor(effectivePlanEntries, key, dateStr);
                       return (
                         <td key={dateStr} className={dateStr === todayStr ? 'sf-plan-today' : ''}>
                           <PlanCell
-                            key={`${scope}-${dateStr}`}
+                            key={dateStr}
                             value={display}
-                            override={override}
-                            onDraft={hours => handleDraft(subject, dateStr, hours, activeScope)}
-                            onCommit={hours => handleCommit(subject, dateStr, hours, activeScope)}
+                            onDraft={hours => handleDraft(subject, dateStr, hours)}
+                            onCommit={hours => handleCommit(subject, dateStr, hours)}
                             ariaLabel={`${subject.name} hours on ${DAY_ABBR[dow]}`}
                           />
                         </td>

@@ -66,7 +66,7 @@ export default function BreakStatsCard() {
           <span className="sf-pill sf-pill-break" aria-hidden="true">EXTRA INFO</span>
         </div>
         <p className="small mb-3" style={{ color: 'var(--muted-strong)' }}>
-          Tracked separately — breaks never count toward your focus time.
+          Tracked separately. Breaks never count toward your focus time.
         </p>
 
         {breaks.length === 0 ? (

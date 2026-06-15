@@ -43,6 +43,10 @@ export default function WeeklySubjectsCard() {
   const totalScheduled = round1(rows.reduce((acc, row) => acc + row.scheduled, 0));
   const totalLogged = round1(rows.reduce((acc, row) => acc + row.logged, 0));
   const totalGoal = round1(rows.reduce((acc, row) => acc + row.goal, 0));
+  const weekPct = totalScheduled > 0
+    ? Math.min(100, Math.round((totalLogged / totalScheduled) * 100))
+    : 0;
+  const weekLeft = round1(Math.max(0, totalScheduled - totalLogged));
 
   return (
     <Card className="h-100 sf-card-panel">
@@ -51,8 +55,10 @@ export default function WeeklySubjectsCard() {
           <div>
             <h2 className="h5 mb-0">Weekly Subjects</h2>
             <small className="text-muted">
-              {totalGoal > 0
-                ? `${totalScheduled}/${totalGoal}h scheduled · ${totalLogged}h logged`
+              {totalScheduled > 0
+                ? `${totalLogged}h done of ${totalScheduled}h scheduled${totalGoal > 0 ? ` · ${totalGoal}h goal` : ''}`
+                : totalGoal > 0
+                ? `Nothing scheduled yet · ${totalGoal}h goal`
                 : `${totalLogged}h logged this week`}
             </small>
           </div>
@@ -61,6 +67,28 @@ export default function WeeklySubjectsCard() {
           </Button>
         </div>
 
+        {totalScheduled > 0 && (
+          <div className="mb-1">
+            <div
+              className="sf-plan-bar"
+              role="progressbar"
+              aria-valuenow={weekPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Weekly scheduled study completed"
+            >
+              <div
+                className="sf-plan-bar-fill"
+                style={{ width: `${weekPct}%`, background: 'var(--primary)' }}
+              />
+            </div>
+            <div className="d-flex justify-content-between gap-2 mt-1 small text-muted">
+              <span>{weekPct}% of weekly schedule done</span>
+              <span>{weekLeft > 0 ? `${weekLeft}h left` : 'Schedule complete'}</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex-grow-1 overflow-auto mt-2" style={{ maxHeight: 330 }}>
           {rows.length === 0 ? (
             <div className="text-center text-muted small py-4">
@@ -68,11 +96,11 @@ export default function WeeklySubjectsCard() {
             </div>
           ) : (
             rows.map(({ subject, scheduled, logged, goal, feas, scheduleGap, studyLeft, extra }) => {
-              let note = 'Set a weekly goal';
-              if (goal > 0 && scheduleGap > 0) note = `${scheduleGap}h still needs a scheduled slot`;
-              else if (studyLeft > 0) note = `${studyLeft}h scheduled study left`;
-              else if (extra > 0.05) note = `${extra}h above scheduled time`;
-              else if (scheduled > 0) note = 'Scheduled study complete';
+              let note = 'Set a weekly goal to track this';
+              if (goal > 0 && scheduleGap > 0) note = `${scheduleGap}h ready to schedule`;
+              else if (studyLeft > 0) note = `${studyLeft}h to go this week`;
+              else if (extra > 0.05) note = `${extra}h of bonus study logged`;
+              else if (scheduled > 0) note = 'Schedule complete. Nice work.';
 
               return (
                 <div key={subjectId(subject)} className="sf-week-subject-row py-2">

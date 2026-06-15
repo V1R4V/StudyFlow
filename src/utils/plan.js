@@ -23,19 +23,35 @@ function weekday(dateStr) {
   return new Date(`${dateStr}T00:00:00`).getDay();
 }
 
+// The planner used to have a "repeat weekly" mode that stored day-of-week
+// entries applying to every week, which made future weeks look pre-filled.
+// Those legacy entries still resolve for weeks that started before this
+// cutoff (so past plans and reviews stay intact, with no data migration),
+// but every week from the cutoff on is owned by explicit per-date entries.
+export const LEGACY_WEEKLY_CUTOFF = '2026-06-14';
+
+// Hours contributed by a legacy recurring entry for this date, or 0 when the
+// date falls in a post-cutoff week.
+export function legacyWeeklyHoursFor(planEntries, subjectIdKey, dateStr) {
+  if (weekStartStr(dateStr) >= LEGACY_WEEKLY_CUTOFF) return 0;
+  const key = String(subjectIdKey);
+  const dow = weekday(dateStr);
+  const weekly = planEntries.find(
+    e => e.scope === 'weekly' && String(e.subjectId) === key && e.day === dow
+  );
+  return weekly ? weekly.hours || 0 : 0;
+}
+
 // Resolved planned hours for a subject on a date: a 'once' entry for that exact
-// date overrides the recurring 'weekly' entry for that weekday.
+// date (including an explicit 0 that clears a legacy value) wins, then the
+// legacy recurring entry for pre-cutoff weeks.
 export function plannedHoursFor(planEntries, subjectIdKey, dateStr) {
   const key = String(subjectIdKey);
   const once = planEntries.find(
     e => e.scope === 'once' && String(e.subjectId) === key && e.date === dateStr
   );
   if (once) return once.hours || 0;
-  const dow = weekday(dateStr);
-  const weekly = planEntries.find(
-    e => e.scope === 'weekly' && String(e.subjectId) === key && e.day === dow
-  );
-  return weekly ? weekly.hours || 0 : 0;
+  return legacyWeeklyHoursFor(planEntries, subjectIdKey, dateStr);
 }
 
 // True when a 'once' entry overrides the recurring plan for this subject+date.
@@ -96,14 +112,14 @@ export function feasibility(subject, plannedWeekHours) {
     return {
       status: 'short',
       deltaHours: delta,
-      message: `${Math.abs(delta)}h short of your ${goal}h goal. Add time when the week has room.`,
+      message: `${Math.abs(delta)}h more to plan for your ${goal}h goal. Add it where the week has room.`,
       pct,
     };
   }
   return {
     status: 'stretch',
     deltaHours: delta,
-    message: `${delta}h above your ${goal}h goal. Useful for exam weeks; watch your balance.`,
+    message: `${delta}h above your ${goal}h goal. Great for exam weeks, just keep the balance.`,
     pct: 100,
   };
 }

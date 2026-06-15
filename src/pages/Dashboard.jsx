@@ -9,8 +9,24 @@ import RecentSessionsList from '../components/RecentSessionsList';
 import TodayPlanCard from '../components/TodayPlanCard';
 import WeeklySubjectsCard from '../components/WeeklySubjectsCard';
 import { useStudyData } from '../context/StudyDataContext';
+import { useAuthContext } from '../context/AuthContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
 import { planForDate, loggedHoursFor } from '../utils/plan';
+
+const round1 = n => Math.round(n * 10) / 10;
+
+// Time-of-day greeting so the dashboard opens with something human instead of
+// a static headline. Name comes from auth state already in memory.
+function timeGreeting(name) {
+  const hr = new Date().getHours();
+  let base;
+  if (hr < 5) base = 'Late night focus';
+  else if (hr < 12) base = 'Good morning';
+  else if (hr < 17) base = 'Good afternoon';
+  else if (hr < 21) base = 'Good evening';
+  else base = 'Night session';
+  return name ? `${base}, ${name}.` : `${base}.`;
+}
 
 // iOS-style native emoji for the KPI tiles. Wrapped in a flex-centered span so
 // they sit dead-center in the 44px gradient chip regardless of glyph metrics.
@@ -91,6 +107,8 @@ function relativeLabel(dateStr, todayStr) {
 
 export default function Dashboard() {
   const { subjects, sessions, planEntries } = useStudyData();
+  const { user } = useAuthContext();
+  const firstName = user?.displayName?.split(' ')[0] || '';
   const todayStr = localDateString();
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
@@ -115,14 +133,14 @@ export default function Dashboard() {
     [sessions, prevDate]
   );
 
-  let focusChangeText = isToday ? 'No data yesterday' : 'No data prior day';
+  let focusChangeText = isToday ? 'Fresh slate, you set the pace' : 'No data prior day';
   let focusChangeColor = 'var(--muted-strong)';
   if (yesterdaysMinutes > 0) {
     const diff = Math.round(((todaysMinutes - yesterdaysMinutes) / yesterdaysMinutes) * 100);
-    focusChangeText = `${diff >= 0 ? '+' : ''}${diff}% vs prior day`;
+    focusChangeText = `${diff >= 0 ? '+' : ''}${diff}% ${isToday ? 'vs yesterday' : 'vs prior day'}`;
     focusChangeColor = diff >= 0 ? 'var(--success-text)' : 'var(--danger-text)';
   } else if (todaysMinutes === 0) {
-    focusChangeText = 'No sessions yet';
+    focusChangeText = isToday ? 'One session gets you on the board' : 'No sessions this day';
   }
 
   const streak = useMemo(
@@ -162,6 +180,25 @@ export default function Dashboard() {
   const weeklyPct = totalWeeklyGoalHours > 0
     ? Math.min(100, Math.round((thisWeekHours / totalWeeklyGoalHours) * 100))
     : 0;
+
+  // Pacing math, all from sessions already in memory. daysElapsed counts the
+  // selected day, so Sunday = 1/7 of the week expected, Saturday = 7/7.
+  const daysElapsed = sundayOffset + 1;
+  const expectedPct = Math.round((daysElapsed / 7) * 100);
+  const paceTargetHours = (totalWeeklyGoalHours * daysElapsed) / 7;
+  const projectedHours = round1((thisWeekHours / daysElapsed) * 7);
+
+  // Same rolling 7-day window, shifted one week back, for a week-over-week
+  // momentum readout on the trend card.
+  const prevWeekStart = shiftDateStr(selectedDate, -13);
+  const prevWeekEnd = shiftDateStr(selectedDate, -7);
+  const prevWeekMinutes = useMemo(
+    () =>
+      sessions
+        .filter(s => s.date >= prevWeekStart && s.date <= prevWeekEnd)
+        .reduce((acc, s) => acc + getSessionMinutes(s), 0),
+    [sessions, prevWeekStart, prevWeekEnd]
+  );
 
   const scheduledPlan = useMemo(() => {
     const items = planForDate(subjects, planEntries, selectedDate).map(({ subject, plannedHours }) => {
@@ -224,17 +261,29 @@ export default function Dashboard() {
     scheduleValue = '-';
   }
 
-  const weeklySubtitle = totalWeeklyGoalHours > 0
-    ? thisWeekHours > totalWeeklyGoalHours
-      ? `${(thisWeekHours - totalWeeklyGoalHours).toFixed(1)}h above weekly target`
-      : `${weeklyPct}% of weekly target`
-    : 'Set goals on Subjects';
+  // Pace-aware subtitle: compares progress to where the week "should" be by
+  // this weekday, so 41% on a Wednesday reads as on track, not as failure.
+  let weeklySubtitle = 'Set goals on Subjects to unlock pacing';
   let weeklySubtitleColor = 'var(--muted-strong)';
   if (totalWeeklyGoalHours > 0) {
-    if (thisWeekHours > totalWeeklyGoalHours) weeklySubtitleColor = 'var(--info-text)';
-    else if (weeklyPct >= 100) weeklySubtitleColor = 'var(--success-text)';
-    else if (weeklyPct >= 50) weeklySubtitleColor = 'var(--primary)';
-    else if (weeklyPct < 25 && sundayOffset >= 4) weeklySubtitleColor = 'var(--danger-text)';
+    const bonus = round1(thisWeekHours - totalWeeklyGoalHours);
+    const catchUp = round1(Math.max(0.1, paceTargetHours - thisWeekHours));
+    if (bonus > 0.05) {
+      weeklySubtitle = `Goal hit, plus ${bonus}h of bonus focus`;
+      weeklySubtitleColor = 'var(--info-text)';
+    } else if (weeklyPct >= 100) {
+      weeklySubtitle = 'Weekly goal complete';
+      weeklySubtitleColor = 'var(--success-text)';
+    } else if (weeklyPct >= expectedPct) {
+      weeklySubtitle = `Ahead of pace at ${weeklyPct}%`;
+      weeklySubtitleColor = 'var(--success-text)';
+    } else if (weeklyPct >= expectedPct - 12) {
+      weeklySubtitle = `On pace, ${weeklyPct}% done`;
+      weeklySubtitleColor = 'var(--primary)';
+    } else {
+      weeklySubtitle = `${catchUp}h today puts you back on pace`;
+      weeklySubtitleColor = 'var(--warning-text)';
+    }
   }
 
   // Friendly explanation surfaced via the info button on the Weekly Goal tile.
@@ -243,8 +292,11 @@ export default function Dashboard() {
     month: 'short',
     day: 'numeric',
   });
+  const projectionLine = totalWeeklyGoalHours > 0 && thisWeekHours > 0 && thisWeekHours < totalWeeklyGoalHours
+    ? ` At your current pace you are on track for about ${projectedHours}h by Saturday.`
+    : '';
   const weeklyInfoText = totalWeeklyGoalHours > 0
-    ? `Counts focus time from Sunday through Saturday. Current week: ${fmtRange(weekStartStr)} - ${fmtRange(weekEndStr)}. Resets every Sunday at midnight.`
+    ? `Counts focus time from Sunday through Saturday. Current week: ${fmtRange(weekStartStr)} - ${fmtRange(weekEndStr)}. Resets every Sunday at midnight.${projectionLine}`
     : `Counts focus time from Sunday through Saturday and resets every Sunday at midnight. Set weekly goals on the Subjects page to see a target here.`;
 
   return (
@@ -259,7 +311,7 @@ export default function Dashboard() {
             {formatPrettyDate(selectedDate).toUpperCase()}
           </div>
           <h1 className="mb-2 mt-1">
-            {isToday ? 'Welcome back.' : relativeLabel(selectedDate, todayStr)}
+            {isToday ? timeGreeting(firstName) : relativeLabel(selectedDate, todayStr)}
           </h1>
           <StreakBanner streak={streak} />
         </div>
@@ -358,7 +410,7 @@ export default function Dashboard() {
 
       <Row className="g-3 mb-4">
         <Col lg={3} md={6}>
-          <WeeklyTrendCard dailyMinutes={weeklyData} />
+          <WeeklyTrendCard dailyMinutes={weeklyData} prevTotalMinutes={prevWeekMinutes} />
         </Col>
         <Col lg={6} md={12}>
           <StudyTimer subjects={subjects} />

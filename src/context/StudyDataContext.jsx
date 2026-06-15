@@ -396,13 +396,17 @@ export function StudyDataProvider({ children }) {
     };
   }, [user, authLoading]);
 
-  async function upsertPlanEntry(subjectId, { scope, day = null, date = null, hours }) {
+  // keepZero stores an explicit 0-hour 'once' entry instead of deleting, so a
+  // cleared cell can override a legacy recurring value instead of letting it
+  // resurface.
+  async function upsertPlanEntry(subjectId, { scope, day = null, date = null, hours, keepZero = false }) {
     const safeScope = scope === 'once' ? 'once' : 'weekly';
     const key = {
       day: safeScope === 'weekly' ? day : null,
       date: safeScope === 'once' ? date : null,
     };
     const h = Math.max(0, Number(hours) || 0);
+    const deleteOnZero = !(keepZero && safeScope === 'once');
     const existing = safePlanEntries.find(entry =>
       planKeyMatch(entry, subjectId, safeScope, key.day, key.date)
     );
@@ -416,7 +420,7 @@ export function StudyDataProvider({ children }) {
           hours: h,
         };
 
-    if (h <= 0) {
+    if (h <= 0 && deleteOnZero) {
       setPlanEntries(prev => {
         const base = Array.isArray(prev) ? prev : [];
         return base.filter(entry =>

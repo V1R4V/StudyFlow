@@ -11,8 +11,8 @@ export default function StreakBanner(props) {
         }}
         className="mb-0"
       >
-        <span role="img" aria-label="sleeping">😴</span>
-        <span>Start a session today to begin your streak.</span>
+        <span role="img" aria-label="seedling">🌱</span>
+        <span>One session today starts your streak.</span>
       </p>
     );
   }
@@ -30,7 +30,7 @@ export default function StreakBanner(props) {
     >
       <span role="img" aria-label="streak on fire" style={{ fontSize: '1.1rem' }}>🔥</span>
       <strong style={{ color: 'var(--text-dark)' }}>{props.streak}-day streak</strong>
-      <span>active. Don't break it.</span>
+      <span>{props.streak === 1 ? 'going. Every streak starts here.' : 'strong. Keep it rolling.'}</span>
     </p>
   );
 }

@@ -2534,6 +2534,15 @@
   box-shadow: 0 0 0 3px var(--focus-ring), inset 0 1px 0 rgba(255, 255, 255, 0.38);
 }
 
+/* Native <select> popups paint options on the OS popup surface, not the
+   translucent control background, so options would inherit the app's light
+   text and turn invisible on the white list in dark mode. Pin both colors. */
+.sf-app select option,
+.sf-app .form-select option {
+  background-color: var(--bg-white);
+  color: var(--text-dark);
+}
+
 .sf-app .form-label {
   color: var(--muted-strong);
   font-weight: 620;
@@ -2683,5 +2692,76 @@
 
   .sf-page {
     padding: 1.2rem 0.9rem;
+  }
+}
+
+/* ==========================================================================
+   Tactile 3D depth layer
+   CSS-only: compositor-friendly transforms and shadows, no JS or libraries,
+   so it adds zero bundle weight and zero page-load cost. Every effect is
+   small on purpose; depth should be felt, not noticed.
+   ========================================================================== */
+
+/* KPI tiles tilt back a hair and lift on hover, like physical cards. */
+.sf-card-kpi {
+  transform: perspective(900px) translateY(0) rotateX(0);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.sf-card-kpi:hover {
+  transform: perspective(900px) translateY(-3px) rotateX(1.3deg);
+  box-shadow:
+    var(--card-shadow-hover),
+    0 22px 44px color-mix(in srgb, var(--primary) 9%, transparent);
+}
+
+/* The emoji chip pops forward with the card, a coin sitting on the tile. */
+.sf-stats-icon {
+  transition: transform 0.22s ease, border-color 0.18s ease, box-shadow 0.22s ease;
+}
+
+.sf-card-kpi:hover .sf-stats-icon {
+  transform: translateY(-2px) scale(1.06) rotate(-4deg);
+  box-shadow:
+    0 10px 20px color-mix(in srgb, var(--primary) 16%, transparent),
+    var(--tile-shadow);
+}
+
+/* Content panels get a quieter half-step lift, enough to feel layered. */
+.sf-card-panel,
+.sf-card-timer {
+  transition: transform 0.24s ease, box-shadow 0.24s ease;
+}
+
+.sf-card-panel:hover,
+.sf-card-timer:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+/* The big clock gets gentle engraved depth plus a soft accent bloom. */
+.sf-app .sf-timer-display {
+  text-shadow:
+    0 1px 0 color-mix(in srgb, var(--text-dark) 14%, transparent),
+    0 16px 38px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Progress fills read as raised glass rods: lit top edge, soft underglow. */
+.sf-kpi-progress-fill,
+.sf-plan-bar-fill,
+.sf-app .progress-bar {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 1px 4px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+/* Respect users who opt out of motion: keep surfaces flat and still. */
+@media (prefers-reduced-motion: reduce) {
+  .sf-card-kpi,
+  .sf-card-panel,
+  .sf-card-timer,
+  .sf-stats-icon {
+    transition: none;
+    transform: none !important;
   }
 }

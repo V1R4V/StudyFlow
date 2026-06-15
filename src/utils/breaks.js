@@ -79,7 +79,7 @@ export function summarizeBreaks(breaks = [], sessions = [], anchorStr = localDat
 // Compact "study : break" ratio text, e.g. "4.0 : 1" or "—" when there is no
 // break time to compare against.
 export function ratioText(studyMinutes, breakMinutes) {
-  if (breakMinutes <= 0) return studyMinutes > 0 ? '∞ : 1' : '—';
+  if (breakMinutes <= 0) return studyMinutes > 0 ? '∞ : 1' : '-';
   const ratio = studyMinutes / breakMinutes;
   return `${ratio.toFixed(1)} : 1`;
 }

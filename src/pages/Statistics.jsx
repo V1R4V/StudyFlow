@@ -122,14 +122,40 @@ function formatPrettyDate(dateStr) {
   });
 }
 
-// Percent change vs previous period. Returns null when there's no real
-// baseline to compare against: a loud "New" badge on every card during the
-// user's first weeks is noise, not insight.
-function computeDelta(current, prev) {
-  if (prev <= 0) return null;
+// Delta badges vs the previous window of equal length. Honesty rules:
+// - Previous window empty: a neutral "New" badge, never a percentage.
+//   Percent change against zero is undefined, and against a near-zero
+//   baseline it explodes into noise like "+2222%".
+// - Previous window below a per-metric floor (too little data to trend):
+//   show the absolute change instead, which is always honest.
+// - Solid baseline: classic percent change.
+// - Rate metrics (Consistency, Deep Work) compare in percentage POINTS via
+//   ptsBadge, never percent-of-percent (3% -> 80% is +77 pts, not +2567%).
+const NEW_BADGE = { text: 'New', neutral: true };
+
+function absBadge(diff, format) {
+  return {
+    text: `${diff >= 0 ? '+' : '-'}${format(Math.abs(diff))}`,
+    positive: diff >= 0,
+  };
+}
+
+// Even past the per-metric floors a thin baseline can produce comic numbers
+// ("+2222%"). Beyond +/-300% the absolute change is the readable truth, so
+// callers pass a fallback that renders it.
+function pctBadge(current, prev, fallback) {
   const diff = Math.round(((current - prev) / prev) * 100);
+  if (fallback && Math.abs(diff) > 300) return fallback();
   return {
     text: `${diff >= 0 ? '+' : ''}${diff}%`,
+    positive: diff >= 0,
+  };
+}
+
+function ptsBadge(currentPct, prevPct) {
+  const diff = Math.round(currentPct - prevPct);
+  return {
+    text: `${diff >= 0 ? '+' : ''}${diff} pts`,
     positive: diff >= 0,
   };
 }
@@ -1441,18 +1467,27 @@ function DaySessionList({ sessions, subjects }) {
   );
 }
 
-function KpiCard({ label, value, sub, delta }) {
+function KpiCard({ label, value, sub, delta, info }) {
   return (
     <Card className="h-100 sf-card-kpi">
       <Card.Body>
-        <div className="sf-section-label mb-2">{label}</div>
+        <div className="sf-section-label mb-2 d-flex align-items-center gap-1">
+          <span>{label}</span>
+          {info && <HelpTip title={label}>{info}</HelpTip>}
+        </div>
         <div className="sf-stats-value">{value}</div>
         <div className="d-flex align-items-center gap-2 mt-1" style={{ minHeight: 18 }}>
           {sub && <span className="small text-muted">{sub}</span>}
           {delta && (
             <span
               className="small fw-semibold"
-              style={{ color: delta.positive ? 'var(--success-text)' : 'var(--danger-text)' }}
+              style={{
+                color: delta.neutral
+                  ? 'var(--muted-strong)'
+                  : delta.positive
+                  ? 'var(--success-text)'
+                  : 'var(--danger-text)',
+              }}
             >
               {delta.text}
             </span>
@@ -1615,12 +1650,112 @@ export default function Statistics() {
   }));
 
   const totalHours = formatHours(totalMinutes);
-  const totalMinutesDelta = computeDelta(totalMinutes, prevTotalMinutes);
-  const totalSessionsDelta = computeDelta(totalSessions, prevTotalSessions);
-  const avgFocusDelta = computeDelta(avgFocus, prevAvgFocus);
-  const avgSessionDelta = computeDelta(avgSessionMinutes, prevAvgSessionMinutes);
-  const consistencyDelta = computeDelta(activeDaysPct, prevActiveDaysPct);
-  const deepRateDelta = computeDelta(deepRate, prevDeepRate);
+
+  // "All time" has no previous window by definition, so badges (including
+  // "New") would be permanent noise there. Every other range compares against
+  // the same number of days immediately before the window.
+  const canCompare = range !== 'all';
+
+  // Floors: below these the previous window is real but too thin for percent
+  // change to mean anything, so we show the absolute change instead.
+  const totalMinutesDelta = !canCompare
+    ? null
+    : prevTotalMinutes <= 0
+    ? totalMinutes > 0
+      ? NEW_BADGE
+      : null
+    : prevTotalMinutes < 120
+    ? absBadge((totalMinutes - prevTotalMinutes) / 60, h => `${h.toFixed(1)}h`)
+    : pctBadge(totalMinutes, prevTotalMinutes, () =>
+        absBadge((totalMinutes - prevTotalMinutes) / 60, h => `${h.toFixed(1)}h`)
+      );
+
+  const totalSessionsDelta = !canCompare
+    ? null
+    : prevTotalSessions <= 0
+    ? totalSessions > 0
+      ? NEW_BADGE
+      : null
+    : prevTotalSessions < 5
+    ? absBadge(
+        totalSessions - prevTotalSessions,
+        n => `${n} ${n === 1 ? 'session' : 'sessions'}`
+      )
+    : pctBadge(totalSessions, prevTotalSessions, () =>
+        absBadge(
+          totalSessions - prevTotalSessions,
+          n => `${n} ${n === 1 ? 'session' : 'sessions'}`
+        )
+      );
+
+  // Avg Focus is a 1-5 rating, so the absolute change in rating points is the
+  // honest readout until the previous window has enough sessions.
+  const avgFocusDelta = !canCompare
+    ? null
+    : prevTotalSessions <= 0 || prevAvgFocus <= 0
+    ? totalSessions > 0 && avgFocus > 0
+      ? NEW_BADGE
+      : null
+    : prevTotalSessions < 5
+    ? absBadge(avgFocus - prevAvgFocus, d => d.toFixed(1))
+    : pctBadge(avgFocus, prevAvgFocus, () =>
+        absBadge(avgFocus - prevAvgFocus, d => d.toFixed(1))
+      );
+
+  const avgSessionDelta = !canCompare
+    ? null
+    : prevTotalSessions <= 0
+    ? totalSessions > 0
+      ? NEW_BADGE
+      : null
+    : prevTotalSessions < 5
+    ? absBadge(avgSessionMinutes - prevAvgSessionMinutes, m =>
+        formatDurationMinutes(m)
+      )
+    : pctBadge(avgSessionMinutes, prevAvgSessionMinutes, () =>
+        absBadge(avgSessionMinutes - prevAvgSessionMinutes, m =>
+          formatDurationMinutes(m)
+        )
+      );
+
+  // Consistency and Deep Work Rate are percentages already, so their badges
+  // compare in percentage points, never percent-of-percent.
+  const consistencyDelta = !canCompare
+    ? null
+    : prevActiveDays <= 0
+    ? activeDays > 0
+      ? NEW_BADGE
+      : null
+    : prevActiveDays < 5
+    ? absBadge(activeDays - prevActiveDays, n => `${n} ${n === 1 ? 'day' : 'days'}`)
+    : ptsBadge(activeDaysPct, prevActiveDaysPct);
+
+  const deepRateDelta = !canCompare
+    ? null
+    : prevTotalSessions <= 0
+    ? totalSessions > 0
+      ? NEW_BADGE
+      : null
+    : prevTotalSessions < 5
+    ? absBadge(deepSessions - prevDeepSessions, n => `${n} deep`)
+    : ptsBadge(deepRate, prevDeepRate);
+
+  // Plain-language fragments for the KPI info popovers. They adapt to the
+  // active range so the explanation always names the exact window shown.
+  const inWindowText = isDay
+    ? `on ${formatPrettyDate(selectedDay)}`
+    : `from ${formatShortDate(startDate)} to ${formatShortDate(endDate)}`;
+  const compareWindowText = isDay
+    ? 'the day before'
+    : `the previous ${days} days (${formatShortDate(prevStart)} to ${formatShortDate(prevEnd)})`;
+  const badgeExplain = canCompare
+    ? ` The badge compares this with ${compareWindowText}. While your history is still small it shows "New" or an absolute change, and switches to a percentage once there is a solid baseline.`
+    : '';
+  const ptsBadgeExplain = canCompare
+    ? ` The badge compares this with ${compareWindowText} in percentage points, so it always reflects a real change.`
+    : '';
+  const streakInfo =
+    'How many days in a row you have studied, counting back from today. If you have not studied yet today, a streak that ended yesterday still counts. The subline shows your personal best across all your history.';
 
   const rangeLabel = RANGE_OPTIONS.find(o => o.value === range)?.label || '';
   const isEmpty = sessions.length === 0;
@@ -1748,6 +1883,7 @@ export default function Statistics() {
                     : 'no sessions'
                 }
                 delta={totalMinutesDelta}
+                info={`Counts every focused minute you logged ${inWindowText}. The subline shows your average on the days you actually studied.${badgeExplain}`}
               />
             </Col>
             <Col md={3} sm={6}>
@@ -1760,6 +1896,7 @@ export default function Statistics() {
                     : 'no sessions'
                 }
                 delta={totalSessionsDelta}
+                info={`The number of study sessions you completed ${inWindowText}. The subline is your median session length, a steadier measure than the average.${badgeExplain}`}
               />
             </Col>
             <Col md={3} sm={6}>
@@ -1781,6 +1918,7 @@ export default function Statistics() {
                     : 'no sessions'
                 }
                 delta={avgFocusDelta}
+                info={`Your average focus rating across the sessions you logged ${inWindowText}, on the 1 to 5 scale you pick when a session ends. The subline counts your high-focus sessions, rated 4 or 5.${badgeExplain}`}
               />
             </Col>
             <Col md={3} sm={6}>
@@ -1793,6 +1931,7 @@ export default function Statistics() {
                     : 'per session'
                 }
                 delta={avgSessionDelta}
+                info={`Your typical session length ${inWindowText}: total focus time divided by the number of sessions. The subline shows your single longest session in this window.${badgeExplain}`}
               />
             </Col>
           </Row>
@@ -1806,6 +1945,7 @@ export default function Statistics() {
                     value={`${activeDaysPct}%`}
                     sub={`${activeDays} of ${days} days active`}
                     delta={consistencyDelta}
+                    info={`The share of days you showed up: days with at least one session ${inWindowText}, divided by the ${days} days in the window.${ptsBadgeExplain}`}
                   />
                 </Col>
                 <Col md={3} sm={6}>
@@ -1818,6 +1958,7 @@ export default function Statistics() {
                         : 'no sessions'
                     }
                     delta={deepRateDelta}
+                    info={`The share of your sessions ${inWindowText} that ran 60 minutes or longer. Long, unbroken blocks are where deep, sustained focus happens.${ptsBadgeExplain}`}
                   />
                 </Col>
                 <Col md={3} sm={6}>
@@ -1829,6 +1970,7 @@ export default function Statistics() {
                         ? `personal best: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}`
                         : 'study today to start'
                     }
+                    info={streakInfo}
                   />
                 </Col>
                 <Col md={3} sm={6}>
@@ -1840,6 +1982,7 @@ export default function Statistics() {
                         ? `${formatDurationMinutes(peak.minutes)} on ${peak.label}s`
                         : 'no data'
                     }
+                    info={`The weekday where you logged the most total focus time ${inWindowText}. A great spot to schedule your toughest work, since it is the day you naturally show up strongest.`}
                   />
                 </Col>
               </>
@@ -1858,6 +2001,7 @@ export default function Statistics() {
                         ? `${formatDurationMinutes(last30AvgDailyMins)} typical day`
                         : 'not enough history'
                     }
+                    info={`How this day stacks up against your typical day: total focus time ${inWindowText} compared with your average daily focus over the last 30 days.`}
                   />
                 </Col>
                 <Col md={3} sm={6}>
@@ -1869,6 +2013,7 @@ export default function Statistics() {
                         ? `${deepRate}% of today's sessions`
                         : 'no sessions'
                     }
+                    info={`Sessions ${inWindowText} that ran 60 minutes or longer. Long, unbroken blocks are where deep, sustained focus happens.`}
                   />
                 </Col>
                 <Col md={3} sm={6}>
@@ -1880,6 +2025,7 @@ export default function Statistics() {
                         ? `personal best: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}`
                         : 'study today to start'
                     }
+                    info={streakInfo}
                   />
                 </Col>
                 <Col md={3} sm={6}>
@@ -1891,6 +2037,7 @@ export default function Statistics() {
                         ? `of ${subjects.length} total`
                         : 'none on this day'
                     }
+                    info={`How many different subjects you studied ${inWindowText}, out of all the subjects you track. Touching a subject even briefly keeps it fresh.`}
                   />
                 </Col>
               </>
