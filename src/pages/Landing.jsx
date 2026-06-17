@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Button } from 'react-bootstrap';
-import { useTheme } from '../context/ThemeContext';
 import heroImg from '../assets/hero.png';
 
 /* ------------------------------------------------------------------ *
@@ -10,19 +9,6 @@ import heroImg from '../assets/hero.png';
 const IconBrand = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
     <path d="M12 1.5l2.6 8.4L23 12l-8.4 2.1L12 23l-2.1-8.9L1 12l8.9-2.1L12 1.5z" />
-  </svg>
-);
-
-const IconSun = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="4" />
-    <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" />
-  </svg>
-);
-
-const IconMoon = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17.5 11.5A7.5 7.5 0 0 1 8.5 2.5a7.5 7.5 0 1 0 9 9z" />
   </svg>
 );
 
@@ -160,7 +146,6 @@ const TESTIMONIALS = [
 ];
 
 export default function Landing() {
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
@@ -180,7 +165,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="sf-landing">
+    <div className="sf-landing" data-theme="dark">
       {/* ---------------------------------------------------------------- *
        * Top navigation                                                    *
        * ---------------------------------------------------------------- */}
@@ -198,14 +183,6 @@ export default function Landing() {
           </nav>
 
           <div className="sf-lnav-actions">
-            <button
-              onClick={toggleTheme}
-              className="sf-theme-toggle"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            >
-              {theme === 'dark' ? <IconSun /> : <IconMoon />}
-            </button>
             <Link to="/login" className="sf-lnav-signin">Sign in</Link>
             <Button as={Link} to="/login" variant="primary" className="sf-lnav-cta">
               Get started

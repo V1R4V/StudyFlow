@@ -1103,6 +1103,32 @@
   color: var(--text-dark);
 }
 
+/* Password strength meter (signup) */
+.sf-pw-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: 0.5rem;
+}
+
+.sf-pw-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border-color);
+  transition: background 0.18s ease;
+}
+
+.sf-pw-seg-weak { background: var(--danger-text); }
+.sf-pw-seg-good { background: var(--warning-text); }
+.sf-pw-seg-strong { background: var(--success-text); }
+
+.sf-pw-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.775rem;
+  color: var(--text-light);
+}
+
 /* Login card - slightly more refined */
 .sf-login-bg .card {
   border-radius: var(--radius-xl);

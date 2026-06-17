@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -111,6 +111,12 @@ function readNavOrder() {
 export default function Sidebar() {
   const { user, signOut } = useAuthContext();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await signOut();
+    navigate('/');
+  }
   const [order, setOrder] = useState(readNavOrder);
   const [draggingKey, setDraggingKey] = useState(null);
   const [dragOverKey, setDragOverKey] = useState(null);
@@ -221,7 +227,7 @@ export default function Sidebar() {
               {theme === 'dark' ? <IconSun /> : <IconMoon />}
             </button>
             <button
-              onClick={signOut}
+              onClick={handleSignOut}
               className="sf-icon-btn sf-icon-btn-danger"
               aria-label="Sign out"
               title="Sign out"

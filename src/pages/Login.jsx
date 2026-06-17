@@ -4,6 +4,7 @@ import { Container, Card, Form, Button, Alert, Tab, Tabs } from 'react-bootstrap
 import { useAuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { initializeUserProfile } from '../services/firebaseService';
+import { validatePassword } from '../utils/validations';
 
 const IconBrand = () => (
   <svg width="30" height="30" viewBox="0 0 24 24" fill="white" aria-hidden="true">
@@ -34,6 +35,11 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Live password strength, only meaningful on the signup tab. The signin tab
+  // never gates on strength — that password already exists.
+  const pwCheck = validatePassword(password);
+  const showPwMeter = tab === 'signup' && password.length > 0;
 
   function friendlyError(err) {
     if (err.code === 'auth/configuration-not-found') {
@@ -203,18 +209,36 @@ export default function Login() {
                       <Form.Label>Password</Form.Label>
                       <Form.Control
                         type="password"
-                        placeholder="At least 6 characters"
+                        placeholder="At least 8 characters"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         required
                         autoComplete="new-password"
+                        aria-describedby="signup-password-hint"
                       />
+                      {showPwMeter && (
+                        <div className="sf-pw-meter" aria-hidden="true">
+                          {[0, 1, 2, 3].map(i => (
+                            <span
+                              key={i}
+                              className={`sf-pw-seg${i < pwCheck.score ? ` sf-pw-seg-${pwCheck.label.toLowerCase()}` : ''}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      <Form.Text id="signup-password-hint" className="sf-pw-hint">
+                        {pwCheck.isValid
+                          ? `Strength: ${pwCheck.label}`
+                          : showPwMeter
+                          ? pwCheck.message
+                          : 'Use at least 8 characters.'}
+                      </Form.Text>
                     </Form.Group>
                     <Button
                       type="submit"
                       variant="primary"
                       className="w-100"
-                      disabled={loading}
+                      disabled={loading || !pwCheck.isValid}
                     >
                       {loading ? 'Creating account…' : 'Create Account'}
                     </Button>
