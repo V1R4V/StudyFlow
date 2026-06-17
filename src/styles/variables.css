@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 :root {
+  /* Let the browser render native widgets (select popups, date pickers,
+     scrollbars) to match the active theme. */
+  color-scheme: light;
+
   /* Primary Colors */
   --primary: #3f51e8;
   --primary-light: #6d7bff;
@@ -128,6 +132,8 @@
    ========================================================================== */
 
 [data-theme="dark"] {
+  color-scheme: dark;
+
   /* Neutral graphite canvas - charcoal, not blue. Accent stays reserved. */
   --bg-light: #08080a;
   --bg-white: #141417;

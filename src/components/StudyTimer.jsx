@@ -18,7 +18,7 @@ export default function StudyTimer(props) {
   let subtitle = 'Ready to dive into deep work?';
   if (isBreak) {
     subtitle = t.isRunning
-      ? 'On a break — recharge.'
+      ? 'On a break. Recharge.'
       : isPaused
       ? 'Break paused. Resume when ready.'
       : 'Step away and reset.';

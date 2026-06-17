@@ -72,7 +72,7 @@ const FEATURES = [
     icon: <IconTimer />,
     tone: 'blue',
     title: 'Deep Work Timer',
-    body: 'A distraction-free focus timer built for long, uninterrupted study blocks — log a distraction without breaking flow.',
+    body: 'A distraction-free focus timer built for long, uninterrupted study blocks. Log a distraction without breaking flow.',
   },
   {
     icon: <IconSubjects />,
@@ -102,7 +102,7 @@ const FEATURES = [
     icon: <IconExport />,
     tone: 'rose',
     title: 'Import & Export',
-    body: 'Bring history in or take it with you — CSV import and export keep your data portable and yours.',
+    body: 'Bring history in or take it with you. CSV import and export keep your data portable and yours.',
   },
 ];
 
@@ -123,13 +123,13 @@ const STEPS = [
     num: '03',
     tone: 'teal',
     title: 'Review & improve',
-    body: 'See streaks, trends, and where your time goes — then plan next week with data, not guesswork.',
+    body: 'See streaks, trends, and where your time goes, then plan next week with data, not guesswork.',
   },
 ];
 
 const TESTIMONIALS = [
   {
-    quote: 'StudyFlow finally made my study hours visible. Seeing the streak grow is weirdly addictive — in a good way.',
+    quote: 'StudyFlow finally made my study hours visible. Seeing the streak grow is weirdly addictive, in a good way.',
     name: 'Maya R.',
     role: 'Pre-med student',
   },
@@ -152,7 +152,7 @@ export default function Landing() {
   // SEO: set a descriptive title while on the marketing page, restore on leave.
   useEffect(() => {
     const prev = document.title;
-    document.title = 'StudyFlow — Your personal deep work engine for focused study';
+    document.title = 'StudyFlow: Your personal deep work engine for focused study';
     return () => { document.title = prev; };
   }, []);
 
@@ -269,7 +269,7 @@ export default function Landing() {
               <h2 className="sf-section-title">A complete deep-work workflow</h2>
               <p className="sf-section-sub">
                 From the first focused minute to your end-of-week review, StudyFlow handles the
-                whole loop — so you can spend your energy studying, not managing tools.
+                whole loop, so you can spend your energy studying, not managing tools.
               </p>
             </div>
 
@@ -324,7 +324,7 @@ export default function Landing() {
                 <span className="sf-eyebrow">Insights that actually help</span>
                 <h2 className="sf-section-title sf-text-start">See your effort, then improve it</h2>
                 <p className="sf-section-sub sf-text-start">
-                  StudyFlow turns every logged minute into a picture you can act on — when you
+                  StudyFlow turns every logged minute into a picture you can act on: when you
                   focus best, which subjects you’re neglecting, and how far you are from your goals.
                 </p>
                 <ul className="sf-check-list">

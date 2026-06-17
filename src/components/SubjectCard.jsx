@@ -33,7 +33,7 @@ export default function SubjectCard(props) {
             <div>
               <h3 className="h5 mb-0">{subject.name}</h3>
               <small className="text-muted">
-                Weekly goal: {weeklyGoal} hours
+                {weeklyGoal > 0 ? `Weekly goal: ${weeklyGoal} hours` : 'No weekly goal yet'}
               </small>
               {dailyReference > 0 && (
                 <div className="text-muted" style={{ fontSize: '0.78rem' }}>
@@ -54,26 +54,47 @@ export default function SubjectCard(props) {
           </div>
         </div>
 
-        <div className="d-flex justify-content-between small mb-1">
-          <span style={{ color: 'var(--muted-strong)' }}>Weekly Progress</span>
-          <span style={{ color: 'var(--text-dark)', fontWeight: 600 }}>
-            {hoursStudied} / {weeklyGoal} hours ({percent}%)
-          </span>
-        </div>
-        <div
-          className="progress"
-          style={{ height: 8 }}
-          role="progressbar"
-          aria-label={`${subject.name} weekly progress`}
-          aria-valuenow={percent}
-          aria-valuemin="0"
-          aria-valuemax="100"
-        >
-          <div
-            className="progress-bar"
-            style={{ width: `${percent}%`, background: subject.color }}
-          />
-        </div>
+        {weeklyGoal > 0 ? (
+          <>
+            <div className="d-flex justify-content-between small mb-1">
+              <span style={{ color: 'var(--muted-strong)' }}>Weekly Progress</span>
+              <span style={{ color: 'var(--text-dark)', fontWeight: 600 }}>
+                {hoursStudied} / {weeklyGoal} hours ({percent}%)
+              </span>
+            </div>
+            <div
+              className="progress"
+              style={{ height: 8 }}
+              role="progressbar"
+              aria-label={`${subject.name} weekly progress`}
+              aria-valuenow={percent}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div
+                className="progress-bar"
+                style={{ width: `${percent}%`, background: subject.color }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="d-flex justify-content-between align-items-center small">
+            <span style={{ color: 'var(--muted-strong)' }}>
+              {hoursStudied}h logged this week
+            </span>
+            {onEdit && (
+              <Button
+                variant="link"
+                size="sm"
+                className="p-0"
+                style={{ textDecoration: 'none', fontWeight: 600 }}
+                onClick={() => onEdit(subject)}
+              >
+                Set a weekly goal
+              </Button>
+            )}
+          </div>
+        )}
       </Card.Body>
     </Card>
   );

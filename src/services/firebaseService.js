@@ -129,6 +129,8 @@ function normalizeSession(raw) {
   const date = normalizeDate(raw.date);
   const id = raw.id ?? Date.now();
 
+  const distractions = Math.max(0, Math.floor(Number(raw.distractions) || 0));
+
   return {
     id,
     subjectId,
@@ -138,6 +140,7 @@ function normalizeSession(raw) {
     durationSeconds,
     focusRating,
     notes,
+    distractions,
     date,
   };
 }
@@ -180,6 +183,9 @@ function normalizeSessionUpdates(updates) {
 
   if (Object.prototype.hasOwnProperty.call(updates, 'notes')) {
     safe.notes = trimString(updates.notes, LIMITS.NOTES_MAX);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'distractions')) {
+    safe.distractions = Math.max(0, Math.floor(Number(updates.distractions) || 0));
   }
   if (Object.prototype.hasOwnProperty.call(updates, 'date')) {
     safe.date = normalizeDate(updates.date);
