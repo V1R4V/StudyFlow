@@ -1,146 +1,81 @@
-import { Card, Row, Col } from 'react-bootstrap';
+import { useState } from 'react';
+import { Card, Button } from 'react-bootstrap';
 import CardExpand from './CardExpand';
+import { formatStudyTime, formatWeekRange } from '../utils/progress';
+import { localDateString } from '../utils/sessions';
 
-export default function WeeklyTrendCard(props) {
-  const days = props.dailyMinutes || [];
-  const maxMinutes = Math.max(...days.map(d => d.minutes), 60);
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const totalMinutes = days.reduce((acc, d) => acc + d.minutes, 0);
-  const totalHours = (totalMinutes / 60).toFixed(1);
-  const avgHours = (totalMinutes / 7 / 60).toFixed(1);
-
-  // Find peak day
-  const peak = days.reduce(
-    (acc, d) => (d.minutes > acc.minutes ? d : acc),
-    { minutes: 0, label: '–' }
-  );
-
-  // Week-over-week momentum: this rolling window vs the 7 days before it.
-  const prevMinutes = props.prevTotalMinutes || 0;
-  const deltaHours = (totalMinutes - prevMinutes) / 60;
-  const deltaText = `${deltaHours >= 0 ? '+' : ''}${deltaHours.toFixed(1)}h`;
-  const deltaColor = deltaHours >= 0 ? 'var(--success-text)' : 'var(--warning-text)';
-
-  // Chart layout. labelPad reserves headroom for the per-bar hour labels.
-  const chartWidth = 280;
-  const chartHeight = 150;
-  const labelPad = 14;
-  const barGap = 8;
-  const barWidth = (chartWidth - barGap * 7) / 7;
+export default function WeeklyTrendCard({ weekly, selectedDate, onSelectDate }) {
+  const [unit, setUnit] = useState('minutes');
+  const [inspectedDate, setInspectedDate] = useState(null);
+  const { days, totalMinutes, elapsedDays, previousMinutes } = weekly;
+  const maximum = Math.max(60, ...days.map(day => day.minutes));
+  const step = maximum <= 120 ? 30 : maximum <= 360 ? 60 : Math.ceil(maximum / 180) * 60;
+  const ceiling = Math.ceil(maximum / step) * step;
+  const activeDay = days.find(day => day.date === (inspectedDate || selectedDate)) || days[0];
+  const peak = days.reduce((best, day) => day.minutes > best.minutes ? day : best, days[0]);
+  const change = totalMinutes - previousMinutes;
+  const today = localDateString();
+  const currentWeek = days.some(day => day.date === today);
+  const average = elapsedDays > 0 ? totalMinutes / elapsedDays : 0;
+  const labelFor = date => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
   return (
-    <Card className="h-100 sf-card-panel">
+    <Card className="h-100 sf-card-panel sf-weekly-trend">
       <Card.Body className="sf-panel-body">
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex justify-content-between align-items-center gap-2 mb-1">
           <h2 className="h5 mb-0">Weekly Trend</h2>
           <CardExpand to="/app/statistics" label="Open Statistics" />
         </div>
-
-        <div className="flex-grow-1 d-flex align-items-center">
-          <svg
-            viewBox={`0 0 ${chartWidth} ${chartHeight + labelPad + 20}`}
-            width="100%"
-            style={{ maxHeight: 240 }}
-            role="img"
-            aria-label={`Bar chart of study minutes per day for the last 7 days. ${days
-              .map(d => `${d.label}: ${d.minutes} minutes`)
-              .join(', ')}.`}
-          >
-            <defs>
-              <linearGradient id="sfTrendBar" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary-light)" />
-                <stop offset="100%" stopColor="var(--primary)" />
-              </linearGradient>
-            </defs>
-            {days.map((d, i) => {
-              const h =
-                maxMinutes > 0 ? (d.minutes / maxMinutes) * chartHeight : 0;
-              const x = i * (barWidth + barGap);
-              const y = labelPad + chartHeight - h;
-              const isPeak = d.minutes > 0 && d.minutes === peak.minutes;
-              const dayHours = (d.minutes / 60).toFixed(1);
-              return (
-                <g key={i}>
-                  <title>{`${d.label}: ${dayHours}h logged. Weekly total: ${totalHours}h.`}</title>
-                  {/* faint track behind each bar for a fuller, premium look */}
-                  <rect
-                    x={x}
-                    y={labelPad}
-                    width={barWidth}
-                    height={chartHeight}
-                    fill="var(--primary)"
-                    opacity={0.06}
-                    rx={4}
-                  />
-                  <rect
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={h}
-                    fill="url(#sfTrendBar)"
-                    rx={4}
-                    opacity={d.minutes > 0 ? 1 : 0.25}
-                    style={isPeak ? { filter: 'drop-shadow(0 3px 6px var(--focus-ring))' } : undefined}
-                  />
-                  {d.minutes > 0 && (
-                    <text
-                      x={x + barWidth / 2}
-                      y={y - 4}
-                      textAnchor="middle"
-                      fontSize="8.5"
-                      fill="var(--muted-strong)"
-                      fontWeight="600"
-                    >
-                      {dayHours}
-                    </text>
-                  )}
-                  <text
-                    x={x + barWidth / 2}
-                    y={labelPad + chartHeight + 15}
-                    textAnchor="middle"
-                    fontSize="9"
-                    fill="var(--muted-strong)"
-                    fontWeight="600"
-                  >
-                    {d.label}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+        <span className="text-muted small">{formatWeekRange(weekly.start)} · Sun–Sat</span>
+        <div className="mt-2">
+            <div className="sf-unit-switch" role="group" aria-label="Chart time unit">
+              {['minutes', 'hours'].map(option => (
+                <Button key={option} size="sm" variant={unit === option ? 'primary' : 'link'}
+                  aria-pressed={unit === option} onClick={() => setUnit(option)}>
+                  {option === 'minutes' ? 'Minutes' : 'Hours'}
+                </Button>
+              ))}
+            </div>
         </div>
-
-        <Row className="mt-auto pt-3 border-top">
-          <Col>
-            <div className="text-muted small">
-              DAILY AVG
-            </div>
-            <div className="fw-bold fs-5">{avgHours}h</div>
-          </Col>
-          <Col>
-            <div className="text-muted small">
-              PEAK DAY
-            </div>
-            <div className="fw-bold fs-5">
-              {peak.label}{' '}
-              {peak.minutes > 0 && (
-                <small className="text-muted fw-normal">
-                  ({(peak.minutes / 60).toFixed(1)}h)
-                </small>
-              )}
-            </div>
-          </Col>
-          {(prevMinutes > 0 || totalMinutes > 0) && (
-            <Col>
-              <div className="text-muted small">
-                VS LAST WK
-              </div>
-              <div className="fw-bold fs-5" style={{ color: deltaColor }}>
-                {prevMinutes > 0 ? deltaText : 'New'}
-              </div>
-            </Col>
-          )}
-        </Row>
+        <div className="sf-trend-headline mt-3">
+          <span className="sf-trend-total">{formatStudyTime(totalMinutes)}</span>
+          <span className="text-muted">studied this week</span>
+        </div>
+        <div className="sf-trend-chart mt-3" aria-label={`Study time for ${formatWeekRange(weekly.start)}`}>
+          <div className="sf-trend-axis" aria-hidden="true">
+            {[ceiling, ceiling / 2, 0].map(tick => <span key={tick}>{unit === 'hours' ? Number((tick / 60).toFixed(1)) : tick}</span>)}
+          </div>
+          <div className="sf-trend-columns" onMouseLeave={() => setInspectedDate(null)}>
+            {days.map((day, index) => (
+              <button key={day.date} type="button"
+                className={`sf-trend-day${day.date === selectedDate ? ' is-selected' : ''}${day.isFuture ? ' is-future' : ''}`}
+                disabled={day.isFuture} aria-pressed={day.date === selectedDate}
+                aria-label={`${labelFor(day.date)}: ${formatStudyTime(day.minutes, 'minutes')}${day.isFuture ? ', upcoming' : ', view this day'}`}
+                onMouseEnter={() => setInspectedDate(day.date)} onFocus={() => setInspectedDate(day.date)}
+                onBlur={() => setInspectedDate(null)} onClick={() => { setInspectedDate(null); onSelectDate(day.date); }}>
+                <span className="sf-trend-day-value">{day.isFuture ? '–' : unit === 'hours' ? formatStudyTime(day.minutes, unit).replace(' h', '') : formatStudyTime(day.minutes, unit).replace(' min', '')}</span>
+                <span className="sf-trend-bar-track">
+                  <span className="sf-trend-bar" style={{ height: `${(day.minutes / ceiling) * 100}%` }} />
+                </span>
+                <span className="sf-trend-day-label">{DAYS[index]}</span>
+                <span className="sf-trend-day-date">{new Date(`${day.date}T00:00:00`).getDate()}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sf-trend-detail small" aria-live="polite">
+          <span>{labelFor(activeDay.date)}</span>
+          <strong>{activeDay.isFuture ? 'Upcoming' : formatStudyTime(activeDay.minutes, unit)}</strong>
+        </div>
+        <div className="sf-trend-facts mt-auto pt-3">
+          <div><span className="text-muted small" title={currentWeek ? 'Average per elapsed day, including today' : 'Average across all seven days'}>Daily avg</span><strong>{formatStudyTime(average)}</strong></div>
+          <div><span className="text-muted small">Best day</span><strong>{peak.minutes > 0 ? `${DAYS[days.indexOf(peak)]} · ${formatStudyTime(peak.minutes)}` : 'No sessions yet'}</strong></div>
+          <div><span className="text-muted small" title={currentWeek ? 'Compared with Sunday through the same weekday last week' : 'Compared with the previous Sunday–Saturday week'}>{currentWeek ? 'Same days last week' : 'Vs last week'}</span>
+            <strong style={{ color: change >= 0 ? 'var(--success-text)' : 'var(--warning-text)' }}>{previousMinutes > 0 ? `${change >= 0 ? '+' : '−'}${formatStudyTime(Math.abs(change))}` : totalMinutes > 0 ? 'First active week' : '—'}</strong>
+          </div>
+        </div>
       </Card.Body>
     </Card>
   );

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Card, Form } from 'react-bootstrap';
 import CardExpand from './CardExpand';
-import { sessionMatchesSubject, localDateString } from '../utils/sessions';
+import { sessionMatchesSubject, localDateString, shiftDateStr } from '../utils/sessions';
 
 function getSessionSeconds(session) {
   if (typeof session.durationSeconds === 'number') return session.durationSeconds;
@@ -26,24 +26,23 @@ const RANGE_OPTIONS = [
 ];
 
 export default function RecentSessionsList(props) {
-  const { sessions, subjects } = props;
+  const { sessions, subjects, selectedDate = localDateString() } = props;
   const [range, setRange] = useState('7d');
 
   // Filter sessions by selected range. `today` matches the local YYYY-MM-DD;
   // `7d` keeps the last 7 days inclusive; `all` returns everything.
   const filtered = useMemo(() => {
     if (range === 'all') return sessions;
-    const now = new Date();
-    const todayStr = localDateString(now);
+    const todayStr = selectedDate;
     if (range === 'today') {
       return sessions.filter(s => s.date === todayStr);
     }
-    const cutoff = localDateString(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return sessions.filter(s => s.date >= cutoff);
-  }, [sessions, range]);
+    const cutoff = shiftDateStr(todayStr, -6);
+    return sessions.filter(s => s.date >= cutoff && s.date <= todayStr);
+  }, [sessions, range, selectedDate]);
 
   // Cap to 8 items in the list to keep the dashboard tidy.
-  const visible = filtered.slice(0, 8);
+  const visible = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 8);
 
   return (
     <Card className="sf-card-panel">
@@ -58,7 +57,7 @@ export default function RecentSessionsList(props) {
             aria-label="Time range filter"
           >
             {RANGE_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{o.value === 'today' && selectedDate !== localDateString() ? 'Selected day' : o.label}</option>
             ))}
           </Form.Select>
           <CardExpand to="/app/sessions" label="Open Sessions" />

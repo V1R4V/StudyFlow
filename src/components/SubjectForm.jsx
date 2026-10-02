@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { Card, Form, Button, Row, Col, Alert } from 'react-bootstrap';
+import { Card, Form, Button, Alert } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 
 const RAINBOW_GRADIENT =
   'conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #84cc16, #10b981, #06b6d4, #3b82f6, #8b5cf6, #d946ef, #ec4899, #ef4444)';
@@ -22,8 +23,6 @@ const COLOR_OPTIONS = [
 ];
 
 const MAX_NAME = 60;
-const MAX_DAILY_GOAL = 24;
-const MAX_WEEKLY_GOAL = 168;
 
 export default function SubjectForm(props) {
   const { initial, onAdd, onSave, onCancel } = props;
@@ -31,14 +30,13 @@ export default function SubjectForm(props) {
 
   const [name, setName] = useState(initial?.name ?? '');
   const [color, setColor] = useState(initial?.color ?? COLOR_OPTIONS[0].value);
-  const [dailyGoal, setDailyGoal] = useState(initial?.dailyGoal ?? 0);
-  const [weeklyGoal, setWeeklyGoal] = useState(initial?.weeklyGoal ?? 10);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const colorInputRef = useRef(null);
 
   const isCustomColor = !COLOR_OPTIONS.some(c => c.value.toLowerCase() === color.toLowerCase());
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const trimmedName = name.trim();
     if (trimmedName.length === 0) {
@@ -50,31 +48,20 @@ export default function SubjectForm(props) {
       return;
     }
     setError('');
-    const safeDaily = Math.min(MAX_DAILY_GOAL, Math.max(0, Number(dailyGoal) || 0));
-    const safeWeekly = Math.min(MAX_WEEKLY_GOAL, Math.max(0, Number(weeklyGoal) || 0));
-
-    if (isEdit) {
-      onSave({
-        name: trimmedName,
-        color,
-        dailyGoal: safeDaily,
-        weeklyGoal: safeWeekly,
-      });
-      return;
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await onSave({ name: trimmedName, color });
+      } else {
+        await onAdd({ id: Date.now(), name: trimmedName, color, dailyGoal: 0, weeklyGoal: 0, totalTimeSpent: 0 });
+        setName('');
+        setColor(COLOR_OPTIONS[0].value);
+      }
+    } catch {
+      setError('Your subject could not be saved. Please try again.');
+    } finally {
+      setSaving(false);
     }
-
-    onAdd({
-      id: Date.now(),
-      name: trimmedName,
-      color: color,
-      dailyGoal: safeDaily,
-      weeklyGoal: safeWeekly,
-      totalTimeSpent: 0,
-    });
-    setName('');
-    setColor(COLOR_OPTIONS[0].value);
-    setDailyGoal(0);
-    setWeeklyGoal(10);
   }
 
   return (
@@ -177,43 +164,10 @@ export default function SubjectForm(props) {
             </div>
           </fieldset>
 
-          <Row className="mb-4 g-3">
-            <Col md={6}>
-              <Form.Group controlId="subject-weekly-goal">
-                <Form.Label>Weekly Goal (Hrs)</Form.Label>
-                <Form.Control
-                  type="number"
-                  min={0}
-                  max={MAX_WEEKLY_GOAL}
-                  step={0.5}
-                  value={weeklyGoal}
-                  onChange={e => setWeeklyGoal(e.target.value)}
-                />
-                <Form.Text muted>
-                  Main target used by the planner and dashboard.
-                </Form.Text>
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group controlId="subject-daily-goal">
-                <Form.Label>Daily Reference (Hrs)</Form.Label>
-                <Form.Control
-                  type="number"
-                  min={0}
-                  max={MAX_DAILY_GOAL}
-                  step={0.5}
-                  value={dailyGoal}
-                  onChange={e => setDailyGoal(e.target.value)}
-                />
-                <Form.Text muted>
-                  Optional note for your own pacing.
-                </Form.Text>
-              </Form.Group>
-            </Col>
-          </Row>
+          <p className="small text-muted mb-4">Weekly goals and schedules live in <Link to="/app/command">Command Center</Link>.</p>
 
-          <Button type="submit" variant="primary" className="w-100">
-            {isEdit ? 'Save changes' : 'Save subject'}
+          <Button type="submit" variant="primary" className="w-100" disabled={saving}>
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Save subject'}
           </Button>
         </Form>
       </Card.Body>

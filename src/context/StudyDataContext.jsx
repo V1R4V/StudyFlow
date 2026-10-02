@@ -238,8 +238,11 @@ export function StudyDataProvider({ children }) {
     if (user) {
       const subj = subjects.find(s => s.id === localId);
       if (subj?.firestoreId) {
-        await fsUpdateSubject(user.uid, subj.firestoreId, updates);
+        const saved = await fsUpdateSubject(user.uid, subj.firestoreId, updates);
+        if (!saved) throw new Error('Subject update failed');
         await refresh();
+      } else {
+        throw new Error('Subject not found');
       }
     } else {
       setSubjects(prev => prev.map(s => s.id === localId ? { ...s, ...updates } : s));

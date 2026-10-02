@@ -1,3 +1,5 @@
+import Icon from './Icon';
+
 export default function StreakBanner(props) {
   if (props.streak <= 0) {
     return (
@@ -11,7 +13,7 @@ export default function StreakBanner(props) {
         }}
         className="mb-0"
       >
-        <span role="img" aria-label="seedling">🌱</span>
+        <Icon name="seedling" />
         <span>One session today starts your streak.</span>
       </p>
     );
@@ -28,9 +30,11 @@ export default function StreakBanner(props) {
       }}
       className="mb-0"
     >
-      <span role="img" aria-label="streak on fire" style={{ fontSize: '1.1rem' }}>🔥</span>
-      <strong style={{ color: 'var(--text-dark)' }}>{props.streak}-day streak</strong>
-      <span>{props.streak === 1 ? 'going. Every streak starts here.' : 'strong. Keep it rolling.'}</span>
+      <Icon name="flame" />
+      <span>
+        <strong style={{ color: 'var(--text-dark)' }}>{props.streak}-day streak</strong>{' '}
+        {props.streak === 1 ? 'going. Every streak starts here.' : 'strong. Keep it rolling.'}
+      </span>
     </p>
   );
 }

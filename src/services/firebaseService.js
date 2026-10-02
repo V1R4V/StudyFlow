@@ -283,8 +283,10 @@ export const updateSubject = async (userId, subjectId, updates) => {
 
     const subjectRef = doc(db, 'studyflow_v1', userId, 'subjects', subjectId);
     await updateDoc(subjectRef, safeUpdates);
+    return true;
   } catch (err) {
     console.error('updateSubject error:', err);
+    return false;
   }
 };
 

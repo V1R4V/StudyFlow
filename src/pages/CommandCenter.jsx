@@ -1,450 +1,236 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Container,
-  Row,
-  Col,
-  Card,
-  Button,
-  Alert,
-} from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Fragment, useMemo, useState } from 'react';
+import { Container, Card, Button, Alert } from 'react-bootstrap';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useStudyData } from '../context/StudyDataContext';
+import GoalEditor from '../components/GoalEditor';
+import Icon from '../components/Icon';
 import { localDateString, shiftDateStr } from '../utils/sessions';
-import {
-  subjectKey,
-  weekStartStr,
-  plannedHoursFor,
-  hasOnceOverride,
-  legacyWeeklyHoursFor,
-  subjectWeekPlanned,
-  loggedHoursForWeek,
-  feasibility,
-  dayLoad,
-} from '../utils/plan';
+import { subjectKey, weekStartStr, plannedHoursFor, hasOnceOverride, subjectWeekPlanned, loggedHoursFor, dayLoad } from '../utils/plan';
+import { formatStudyTime, formatWeekRange, weekProgress } from '../utils/progress';
 
-const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const IconChevronLeft = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M10 3L5 8l5 5" />
-  </svg>
-);
-
-const IconChevronRight = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M6 3l5 5-5 5" />
-  </svg>
-);
-
-const fmtDay = dateStr =>
-  new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  });
-
-const round1 = value => Math.round(value * 10) / 10;
-
-function planEntryMatchesDraft(entry, draft) {
-  return (
-    String(entry.subjectId) === String(draft.subjectId) &&
-    entry.scope === 'once' &&
-    entry.date === draft.date
-  );
-}
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function PlanCell({ value, onDraft, onCommit, ariaLabel }) {
-  const [text, setText] = useState(value ? String(value) : '');
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    if (!editing) setText(value ? String(value) : '');
-  }, [value, editing]);
-
-  function parseHours(raw) {
-    return Math.max(0, Math.min(24, parseFloat(raw) || 0));
-  }
-
-  function commit() {
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const text = draft ?? (value > 0 ? String(value) : '');
+  const parseHours = raw => {
+    const number = Number(raw);
+    return Number.isFinite(number) ? Math.max(0, Math.min(24, number)) : 0;
+  };
+  async function commit() {
+    if (draft === null) return;
     const next = parseHours(text);
-    onCommit(next);
-    setText(next ? String(next) : '');
-    setEditing(false);
+    setSaving(true);
+    try {
+      await onCommit(next);
+      setDraft(null);
+    } finally {
+      setSaving(false);
+    }
   }
-
-  function handleChange(event) {
-    const nextText = event.target.value;
-    setText(nextText);
-    onDraft(parseHours(nextText));
-  }
-
   return (
-    <input
-      type="number"
-      min={0}
-      max={24}
-      step={0.5}
-      inputMode="decimal"
-      className={`sf-plan-cell${value ? ' sf-plan-cell-filled' : ''}`}
-      value={text}
-      placeholder="-"
-      onFocus={() => setEditing(true)}
-      onChange={handleChange}
-      onBlur={commit}
-      onKeyDown={event => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          event.currentTarget.blur();
-        }
-      }}
-      aria-label={ariaLabel}
-    />
+    <input type="number" min={0} max={24} step="any" inputMode="decimal"
+      className={`sf-plan-cell${value > 0 ? ' sf-plan-cell-filled' : ''}`}
+      value={text} disabled={saving} placeholder="–"
+      onChange={event => { setDraft(event.target.value); onDraft(parseHours(event.target.value)); }}
+      onBlur={commit} onKeyDown={event => {
+        if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+      }} aria-label={ariaLabel} />
   );
 }
 
-function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry }) {
-  const todayStr = localDateString();
-  const [anchor, setAnchor] = useState(todayStr);
-  const [draftEntries, setDraftEntries] = useState({});
+function PlannerView({ subjects, sessions, planEntries, upsertPlanEntry, updateSubject, initialAnchor }) {
+  const today = localDateString();
+  const [anchor, setAnchor] = useState(initialAnchor || today);
+  const [drafts, setDrafts] = useState({});
   const [importing, setImporting] = useState(false);
-  const [importNote, setImportNote] = useState('');
+  const [feedback, setFeedback] = useState(null);
+  const [editingKey, setEditingKey] = useState(null);
+  const start = weekStartStr(anchor);
+  const isThisWeek = start === weekStartStr(today);
+  const keyFor = (subject, date) => `${subjectKey(subject)}:${date}`;
+  const effectiveEntries = useMemo(() => [
+    ...planEntries.filter(entry => !Object.values(drafts).some(draft => entry.scope === 'once' && String(entry.subjectId) === draft.subjectId && entry.date === draft.date)),
+    ...Object.values(drafts),
+  ], [planEntries, drafts]);
+  const weekly = useMemo(() => weekProgress({ subjects, sessions, planEntries: effectiveEntries, anchorDate: start, today }),
+    [subjects, sessions, effectiveEntries, start, today]);
+  const loads = dayLoad(effectiveEntries, subjects, start);
+  const overloaded = loads.filter(day => day.overloaded);
+  const previousStart = shiftDateStr(start, -7);
+  const previousHasPlan = subjects.some(subject => subjectWeekPlanned(planEntries, subject, previousStart) > 0);
+  const openSlots = weekly.days.some(day => subjects.some(subject => !hasOnceOverride(effectiveEntries, subjectKey(subject), day.date)
+    && plannedHoursFor(effectiveEntries, subjectKey(subject), day.date) === 0));
 
-  const weekStart = weekStartStr(anchor);
-  const thisWeekStart = weekStartStr(todayStr);
-  const isThisWeek = weekStart === thisWeekStart;
-  const isPastWeek = weekStart < thisWeekStart;
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => shiftDateStr(weekStart, index)),
-    [weekStart]
-  );
-
-  // Import feedback belongs to the week it ran on; clear it when navigating.
-  useEffect(() => {
-    setImportNote('');
-  }, [weekStart]);
-
-  function draftKey(subject, dateStr) {
-    return `once:${subjectKey(subject)}:${dateStr}`;
+  function navigate(next) {
+    setAnchor(next);
+    setFeedback(null);
+    setEditingKey(null);
   }
-
-  function makeDraft(subject, dateStr, hours) {
-    return { subjectId: subjectKey(subject), scope: 'once', date: dateStr, hours };
+  function draft(subject, date, hours) {
+    setDrafts(current => ({ ...current, [keyFor(subject, date)]: { subjectId: subjectKey(subject), scope: 'once', date, hours } }));
   }
-
-  const effectivePlanEntries = useMemo(() => {
-    const drafts = Object.values(draftEntries);
-    return [
-      ...planEntries.filter(entry => !drafts.some(draft => planEntryMatchesDraft(entry, draft))),
-      ...drafts
-        .filter(draft => draft.hours > 0)
-        .map((draft, index) => ({ ...draft, id: `draft-${index}` })),
-    ];
-  }, [planEntries, draftEntries]);
-
-  const loads = useMemo(
-    () => dayLoad(effectivePlanEntries, subjects, weekStart),
-    [effectivePlanEntries, subjects, weekStart]
-  );
-
-  const rows = useMemo(
-    () =>
-      subjects.map(subject => {
-        const planned = subjectWeekPlanned(effectivePlanEntries, subject, weekStart);
-        const logged = loggedHoursForWeek(sessions, subject, weekStart);
-        return { subject, planned, logged, feas: feasibility(subject, planned) };
-      }),
-    [subjects, effectivePlanEntries, sessions, weekStart]
-  );
-
-  const overloadedDays = loads.filter(day => day.overloaded);
-  const shortSubjects = rows.filter(row => row.feas.status === 'short');
-  const goalSubjects = rows.filter(row => row.feas.status !== 'nogoal');
-  const stretchSubjects = rows.filter(row => row.feas.status === 'stretch');
-
-  const weekScheduled = round1(rows.reduce((acc, row) => acc + row.planned, 0));
-  const weekLogged = round1(rows.reduce((acc, row) => acc + row.logged, 0));
-
-  // The subhead doubles as a per-week recap so past weeks read as a review.
-  let subhead = 'Plan the week, then watch logged time stack up against it.';
-  if (isPastWeek) {
-    subhead = weekScheduled > 0
-      ? `Review: you logged ${weekLogged}h against ${weekScheduled}h planned this week.`
-      : `Review: you logged ${weekLogged}h this week.`;
-  } else if (!isThisWeek) {
-    subhead = 'Planning ahead. Import last week to start fast.';
+  async function commit(subject, date, hours) {
+    try {
+      // Explicit clears also protect this cell from a later import.
+      await upsertPlanEntry(subjectKey(subject), { scope: 'once', date, hours, keepZero: hours <= 0 });
+      setDrafts(current => {
+        const key = keyFor(subject, date);
+        if (current[key]?.hours !== hours) return current;
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    } catch {
+      setFeedback({ week: start, error: true, text: 'This scheduled time could not be saved. Try editing the cell again.' });
+    }
   }
-
-  function handleDraft(subject, dateStr, hours) {
-    const key = draftKey(subject, dateStr);
-    const draft = makeDraft(subject, dateStr, hours);
-    setDraftEntries(prev => ({ ...prev, [key]: draft }));
-  }
-
-  async function handleCommit(subject, dateStr, hours) {
-    const key = subjectKey(subject);
-    // Clearing a cell that a legacy recurring entry still fills needs an
-    // explicit 0 stored, otherwise the legacy value would resurface.
-    const legacyHours = legacyWeeklyHoursFor(planEntries, key, dateStr);
-    await upsertPlanEntry(key, {
-      scope: 'once',
-      date: dateStr,
-      hours,
-      keepZero: hours <= 0 && legacyHours > 0,
-    });
-    const id = draftKey(subject, dateStr);
-    setDraftEntries(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }
-
-  // Copies last week's plan into this week's empty cells. Cells the user
-  // already filled (or explicitly cleared) are never overwritten, so the
-  // action is always safe to click.
-  const prevWeekStart = shiftDateStr(weekStart, -7);
-  const prevWeekHasPlan = useMemo(
-    () => subjects.some(s => subjectWeekPlanned(planEntries, s, prevWeekStart) > 0),
-    [subjects, planEntries, prevWeekStart]
-  );
-
   async function importLastWeek() {
     setImporting(true);
+    setFeedback(null);
     let slots = 0;
-    let importedHours = 0;
-    for (const subject of subjects) {
-      const key = subjectKey(subject);
-      for (let i = 0; i < 7; i++) {
-        const fromHours = plannedHoursFor(planEntries, key, shiftDateStr(prevWeekStart, i));
-        const toDate = shiftDateStr(weekStart, i);
-        const alreadySet =
-          hasOnceOverride(planEntries, key, toDate) ||
-          plannedHoursFor(planEntries, key, toDate) > 0;
-        if (fromHours > 0 && !alreadySet) {
-          await upsertPlanEntry(key, { scope: 'once', date: toDate, hours: fromHours });
-          slots += 1;
-          importedHours += fromHours;
+    let hours = 0;
+    try {
+      for (const subject of subjects) {
+        const key = subjectKey(subject);
+        for (let index = 0; index < 7; index++) {
+          const from = plannedHoursFor(planEntries, key, shiftDateStr(previousStart, index));
+          const to = shiftDateStr(start, index);
+          if (from > 0 && !hasOnceOverride(effectiveEntries, key, to) && plannedHoursFor(effectiveEntries, key, to) === 0) {
+            await upsertPlanEntry(key, { scope: 'once', date: to, hours: from });
+            slots += 1;
+            hours += from;
+          }
         }
       }
+      setFeedback({ week: start, text: slots > 0 ? `Imported ${formatStudyTime(hours * 60)} into ${slots} empty slot${slots === 1 ? '' : 's'}.` : 'No empty slots to import. Filled and cleared cells were preserved.' });
+    } catch {
+      setFeedback({ week: start, error: true, text: 'Import stopped before finishing. Saved cells are preserved; try again to fill the remaining slots.' });
+    } finally {
+      setImporting(false);
     }
-    setImporting(false);
-    setImportNote(
-      slots > 0
-        ? `Imported ${round1(importedHours)}h into ${slots} open slot${slots === 1 ? '' : 's'} from last week.`
-        : 'Nothing new to import. Your filled cells were left untouched.'
-    );
   }
 
   return (
     <>
-      <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
-        <div>
-          <h2 className="h4 mb-1">Weekly Planner</h2>
-          <p className="mb-0" style={{ color: 'var(--muted-strong)' }}>
-            {subhead}
-          </p>
-        </div>
-        <div className="d-flex align-items-center gap-2 flex-wrap">
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => setAnchor(shiftDateStr(weekStart, -7))}
-            aria-label="Previous week"
-          >
-            <IconChevronLeft /> <span className="ms-1">Prev</span>
-          </Button>
-          <Button
-            variant={isThisWeek ? 'primary' : 'outline-secondary'}
-            size="sm"
-            onClick={() => setAnchor(todayStr)}
-            disabled={isThisWeek}
-          >
-            This week
-          </Button>
-          <span className="small fw-semibold" style={{ minWidth: 150, textAlign: 'center' }}>
-            {fmtDay(days[0])} - {fmtDay(days[6])}
-          </span>
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => setAnchor(shiftDateStr(weekStart, 7))}
-            aria-label="Next week"
-          >
-            <span className="me-1">Next</span> <IconChevronRight />
-          </Button>
+      <div className="sf-command-week d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <div><strong>{formatWeekRange(start)}</strong><span className="d-block small text-muted">Sunday–Saturday · {isThisWeek ? 'This week' : start < weekStartStr(today) ? 'Past week' : 'Planning ahead'}</span></div>
+        <div className="d-flex align-items-center flex-wrap gap-2">
+          <Button size="sm" variant="outline-secondary" aria-label="Previous week" disabled={importing} onClick={() => navigate(shiftDateStr(start, -7))}>‹ Prev</Button>
+          <Button size="sm" variant={isThisWeek ? 'primary' : 'outline-secondary'} disabled={isThisWeek || importing} onClick={() => navigate(today)}>This week</Button>
+          <Button size="sm" variant="outline-secondary" aria-label="Next week" disabled={importing} onClick={() => navigate(shiftDateStr(start, 7))}>Next ›</Button>
         </div>
       </div>
-
-      <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
-        <Button
-          variant="outline-primary"
-          size="sm"
-          onClick={importLastWeek}
-          disabled={importing || !prevWeekHasPlan}
-        >
-          {importing ? 'Importing…' : 'Import last week'}
-        </Button>
-        <span className="small" style={{ color: 'var(--muted-strong)' }} role="status">
-          {importNote ||
-            (prevWeekHasPlan
-              ? "Edits apply to the week shown. Import copies last week's plan into empty cells."
-              : 'Edits apply to the week shown.')}
-        </span>
-      </div>
-
-      {overloadedDays.length > 0 ? (
-        <Alert variant="warning" className="py-2 sf-plan-insight">
-          {DAY_ABBR[new Date(`${overloadedDays[0].date}T00:00:00`).getDay()]} {fmtDay(overloadedDays[0].date)} is a big day
-          ({overloadedDays[0].hours}h scheduled). Great if that is exam prep, otherwise spread a few hours out to stay fresh.
-        </Alert>
-      ) : shortSubjects.length > 0 ? (
-        <Alert variant="info" className="py-2 sf-plan-insight">
-          Your plan covers {goalSubjects.length - shortSubjects.length} of {goalSubjects.length} weekly goals so far.{' '}
-          {shortSubjects.length === 1 ? '1 subject has' : `${shortSubjects.length} subjects have`} room to grow. Add hours where the week is open.
-        </Alert>
-      ) : stretchSubjects.length > 0 ? (
-        <Alert variant="info" className="py-2 sf-plan-insight">
-          {stretchSubjects.length} subject{stretchSubjects.length > 1 ? 's have' : ' has'} extra time scheduled above goal. That can be useful for tests or projects; keep the week realistic.
-        </Alert>
-      ) : goalSubjects.length > 0 ? (
-        <Alert variant="success" className="py-2 sf-plan-insight">Your plan covers every weekly goal this week.</Alert>
-      ) : null}
-
-      <Card className="sf-card-panel mb-4">
-        <Card.Body>
-          <div className="sf-plan-grid-wrap">
-            <table className="sf-plan-grid">
-              <thead>
-                <tr>
-                  <th className="sf-plan-subject-head">Subject</th>
-                  {days.map((dateStr, index) => (
-                    <th key={dateStr} className={`sf-plan-day-head${dateStr === todayStr ? ' sf-plan-today' : ''}`}>
-                      <div>{DAY_ABBR[index]}</div>
-                      <div className="sf-plan-day-date">{new Date(`${dateStr}T00:00:00`).getDate()}</div>
-                    </th>
-                  ))}
-                  <th className="sf-plan-total-head">Scheduled / Goal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(({ subject, planned, feas }) => (
-                  <tr key={subject.firestoreId || subject.id}>
-                    <td className="sf-plan-subject-cell">
-                      <span className="sf-habit-dot" style={{ background: subject.color }} aria-hidden="true" />
-                      <span className="fw-semibold">{subject.name}</span>
-                    </td>
-                    {days.map(dateStr => {
-                      const dow = new Date(`${dateStr}T00:00:00`).getDay();
-                      const key = subjectKey(subject);
-                      const display = plannedHoursFor(effectivePlanEntries, key, dateStr);
-                      return (
-                        <td key={dateStr} className={dateStr === todayStr ? 'sf-plan-today' : ''}>
-                          <PlanCell
-                            key={dateStr}
-                            value={display}
-                            onDraft={hours => handleDraft(subject, dateStr, hours)}
-                            onCommit={hours => handleCommit(subject, dateStr, hours)}
-                            ariaLabel={`${subject.name} hours on ${DAY_ABBR[dow]}`}
-                          />
-                        </td>
-                      );
-                    })}
-                    <td className="sf-plan-total-cell">
-                      <div className={`small fw-semibold sf-feas-${feas.status}`}>
-                        {round1(planned)}h{subject.weeklyGoal ? ` / ${subject.weeklyGoal}h` : ''}
-                      </div>
-                      {subject.weeklyGoal > 0 && (
-                        <div className="sf-plan-bar" aria-hidden="true">
-                          <div className={`sf-plan-bar-fill sf-feas-bg-${feas.status}`} style={{ width: `${feas.pct}%` }} />
+      <section id="weekly-planner" aria-labelledby="planner-title">
+        <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+          <h2 className="h4 mb-0" id="planner-title">Weekly Planner</h2>
+          <Button variant="outline-primary" size="sm" onClick={importLastWeek}
+            disabled={importing || !previousHasPlan || !openSlots || Object.keys(drafts).length > 0}>
+            {importing ? 'Importing…' : 'Import last week'}
+          </Button>
+        </div>
+        {feedback?.week === start && <Alert variant={feedback.error ? 'danger' : 'info'} className="py-2" role="status">{feedback.text}</Alert>}
+        {overloaded.length > 0 && <Alert variant="warning" className="py-2 sf-plan-insight">
+          {DAYS[new Date(`${overloaded[0].date}T00:00:00`).getDay()]} has {formatStudyTime(overloaded[0].hours * 60)} scheduled. Consider spreading the workload across the week.
+        </Alert>}
+        <Card className="sf-card-panel">
+          <Card.Body>
+            <div className="sf-plan-grid-wrap" tabIndex={0} role="region" aria-label="Weekly schedule; scroll horizontally on small screens">
+              <table className="sf-plan-grid">
+                <caption className="visually-hidden">Scheduled hours and logged study for {formatWeekRange(start)}. Edit hours in each day. Logged time counts toward weekly goals independently.</caption>
+                <thead><tr>
+                  <th scope="col" className="sf-plan-subject-head">Subject</th>
+                  {weekly.days.map((day, index) => <th scope="col" key={day.date} className={`sf-plan-day-head${day.date === today ? ' sf-plan-today' : ''}`}>
+                    <div>{DAYS[index]}</div><div className="sf-plan-day-date">{new Date(`${day.date}T00:00:00`).getDate()}</div>
+                  </th>)}
+                  <th scope="col" className="sf-plan-total-head">Weekly progress</th>
+                </tr></thead>
+                <tbody>
+                  {weekly.rows.map(({ subject, loggedMinutes, plannedMinutes, goalMinutes, goalPct, goalMet, remainingMinutes }) => <Fragment key={subjectKey(subject)}>
+                    <tr>
+                      <th scope="row" className="sf-plan-subject-cell"><div className="d-flex align-items-center gap-2">
+                        <span className="sf-habit-dot" style={{ background: subject.color }} aria-hidden="true" /><span className="fw-semibold">{subject.name}</span>
+                      </div></th>
+                      {weekly.days.map((day, index) => {
+                        const planned = plannedHoursFor(effectiveEntries, subjectKey(subject), day.date);
+                        const logged = day.isFuture ? 0 : loggedHoursFor(sessions, subject, day.date) * 60;
+                        const done = planned > 0 && logged >= planned * 60;
+                        return <td key={day.date} className={day.date === today ? 'sf-plan-today' : ''}>
+                          <PlanCell value={planned} onDraft={hours => draft(subject, day.date, hours)} onCommit={hours => commit(subject, day.date, hours)} ariaLabel={`${subject.name} planned hours on ${DAYS[index]}, ${day.date}`} />
+                          <div className={`sf-plan-logged${done ? ' is-complete' : ''}`}>
+                            {done && <Icon name="check" size={12} />}{logged > 0 ? `${formatStudyTime(logged)} studied` : day.isFuture ? 'Upcoming' : '0m studied'}
+                          </div>
+                        </td>;
+                      })}
+                      <td className="sf-plan-total-cell">
+                        <div className="sf-planner-progress">
+                          <strong className="small">{formatStudyTime(loggedMinutes)} studied{goalMinutes > 0 ? ` / ${formatStudyTime(goalMinutes)} goal` : ''}</strong>
+                          {goalMinutes > 0 ? <>
+                            <div className="sf-plan-bar" role="progressbar" aria-label={`${subject.name} weekly goal progress`}
+                              aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100}
+                              aria-valuetext={`${formatStudyTime(loggedMinutes)} studied of ${formatStudyTime(goalMinutes)} goal`}>
+                              <div className="sf-plan-bar-fill" style={{ width: `${goalPct}%`, background: subject.color }} />
+                            </div>
+                            {goalMet
+                              ? <span className="sf-goal-complete" role="status" aria-label={`${subject.name} weekly goal reached`}><Icon name="check" size={14} /> Goal reached</span>
+                              : <span className="sf-planner-progress-detail text-muted">{goalPct}% · {formatStudyTime(remainingMinutes)} to go</span>}
+                          </> : <span className="sf-planner-progress-detail text-muted">No weekly goal set</span>}
+                          <div className="d-flex justify-content-between align-items-center gap-2">
+                            <span className="sf-planner-progress-detail text-muted">{formatStudyTime(plannedMinutes)} planned</span>
+                            <Button variant="link" size="sm" className="p-0 text-nowrap"
+                              aria-label={`${goalMinutes > 0 ? 'Edit' : 'Set'} ${subject.name} weekly goal`}
+                              aria-expanded={editingKey === subjectKey(subject)}
+                              onClick={() => setEditingKey(current => current === subjectKey(subject) ? null : subjectKey(subject))}>
+                              {goalMinutes > 0 ? 'Edit goal' : 'Set goal'}
+                            </Button>
+                          </div>
                         </div>
-                      )}
-                    </td>
+                      </td>
+                    </tr>
+                    {editingKey === subjectKey(subject) && <tr className="sf-plan-goal-row"><td colSpan={9}>
+                      <GoalEditor subject={subject} onSave={updateSubject} onCancel={() => setEditingKey(null)} />
+                    </td></tr>}
+                  </Fragment>)}
+                  <tr className="sf-plan-load-row">
+                    <th scope="row" className="sf-plan-subject-cell text-muted small">Scheduled total</th>
+                    {loads.map(load => <td key={load.date} className={`small${load.overloaded ? ' sf-feas-heavy' : ''}`}>{formatStudyTime(load.hours * 60)}</td>)}
+                    <td className="sf-plan-total-cell small fw-semibold">{formatStudyTime(weekly.plannedMinutes)}</td>
                   </tr>
-                ))}
-                <tr className="sf-plan-load-row">
-                  <td className="sf-plan-subject-cell text-muted small">Day total</td>
-                  {loads.map(load => (
-                    <td
-                      key={load.date}
-                      className={`text-center small${load.overloaded ? ' sf-feas-heavy' : ''}${load.date === todayStr ? ' sf-plan-today' : ''}`}
-                    >
-                      {load.hours ? `${load.hours}h` : '-'}
-                    </td>
-                  ))}
-                  <td />
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </Card.Body>
-      </Card>
-
-      <Row className="g-3">
-        {rows.map(({ subject, planned, logged, feas }) => (
-          <Col md={6} lg={4} key={subject.firestoreId || subject.id}>
-            <Card className="h-100 sf-card-panel">
-              <Card.Body>
-                <div className="d-flex align-items-center gap-2 mb-2">
-                  <span className="sf-habit-dot" style={{ background: subject.color }} aria-hidden="true" />
-                  <span className="fw-semibold">{subject.name}</span>
-                </div>
-                <div className="sf-plan-bar mb-2" aria-hidden="true">
-                  <div className={`sf-plan-bar-fill sf-feas-bg-${feas.status}`} style={{ width: `${feas.pct}%` }} />
-                </div>
-                <div className={`small fw-semibold sf-feas-${feas.status}`}>{feas.message}</div>
-                <div className="small text-muted mt-1">
-                  Scheduled {round1(planned)}h / logged {round1(logged)}h this week
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+                  <tr>
+                    <th scope="row" className="sf-plan-subject-cell text-muted small">Studied total</th>
+                    {weekly.days.map(day => <td key={day.date} className="small">{formatStudyTime(day.minutes)}</td>)}
+                    <td className="sf-plan-total-cell small fw-semibold">{formatStudyTime(weekly.totalMinutes)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Card.Body>
+        </Card>
+      </section>
     </>
   );
 }
 
 export default function CommandCenter() {
-  // Habit Tracker is archived until v3; Command Center only exposes weekly
-  // planning in the active app.
-  const studyData = useStudyData();
-  const {
-    subjects,
-    sessions,
-    planEntries,
-    upsertPlanEntry,
-  } = studyData;
-
+  const { subjects, sessions, planEntries, upsertPlanEntry, updateSubject } = useStudyData();
+  const [searchParams] = useSearchParams();
+  const requestedWeek = searchParams.get('week');
+  const initialAnchor = /^\d{4}-\d{2}-\d{2}$/.test(requestedWeek || '') ? requestedWeek : null;
   if (subjects.length === 0) {
-    return (
-      <Container fluid className="sf-page">
-        <div className="sf-empty-hero">
-          <h1 className="sf-empty-title">Command Center starts with subjects.</h1>
-          <p className="sf-empty-sub">Create a subject first, then plan weekly hours here.</p>
-          <Button as={Link} to="/app/subjects" variant="primary" size="lg">
-            Create a subject
-          </Button>
-        </div>
-      </Container>
-    );
+    return <Container fluid className="sf-page"><div className="sf-empty-hero">
+      <h1 className="sf-empty-title">Command Center starts with subjects.</h1>
+      <p className="sf-empty-sub">Create a subject, then set goals and plan your week here.</p>
+      <Button as={Link} to="/app/subjects" size="lg">Create a subject</Button>
+    </div></Container>;
   }
-
   return (
     <Container fluid className="sf-page sf-command-page">
       <div className="sf-page-header d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
-        <div>
-          <div className="sf-section-label" style={{ color: 'var(--muted-strong)' }}>
-            COMMAND CENTER
-          </div>
-          <h1 className="mb-1 mt-1">Plan</h1>
-        </div>
+        <div><div className="sf-section-label">COMMAND CENTER</div><h1 className="mb-1 mt-1">Goals & Planning</h1><p className="mb-0 text-muted">Set your targets, plan your time, and follow your progress.</p></div>
+        <Button as={Link} to="/app/subjects" variant="outline-secondary" size="sm">Manage subjects</Button>
       </div>
-
-      <PlannerView
-        subjects={subjects}
-        sessions={sessions}
-        planEntries={planEntries}
-        upsertPlanEntry={upsertPlanEntry}
-      />
+      <PlannerView subjects={subjects} sessions={sessions} planEntries={planEntries} upsertPlanEntry={upsertPlanEntry} updateSubject={updateSubject} initialAnchor={initialAnchor} />
     </Container>
   );
 }

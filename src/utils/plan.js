@@ -2,7 +2,7 @@ import {
   getSessionMinutes,
   sessionMatchesSubject,
   shiftDateStr,
-} from './sessions';
+} from './sessions.js';
 
 // A day planned past this is treated as unrealistic and flagged.
 export const OVERLOAD_HOURS = 16;
@@ -23,6 +23,11 @@ function weekday(dateStr) {
   return new Date(`${dateStr}T00:00:00`).getDay();
 }
 
+function safeHours(value) {
+  const hours = Number(value);
+  return Number.isFinite(hours) ? Math.max(0, hours) : 0;
+}
+
 // The planner used to have a "repeat weekly" mode that stored day-of-week
 // entries applying to every week, which made future weeks look pre-filled.
 // Those legacy entries still resolve for weeks that started before this
@@ -39,7 +44,7 @@ export function legacyWeeklyHoursFor(planEntries, subjectIdKey, dateStr) {
   const weekly = planEntries.find(
     e => e.scope === 'weekly' && String(e.subjectId) === key && e.day === dow
   );
-  return weekly ? weekly.hours || 0 : 0;
+  return weekly ? safeHours(weekly.hours) : 0;
 }
 
 // Resolved planned hours for a subject on a date: a 'once' entry for that exact
@@ -50,7 +55,7 @@ export function plannedHoursFor(planEntries, subjectIdKey, dateStr) {
   const once = planEntries.find(
     e => e.scope === 'once' && String(e.subjectId) === key && e.date === dateStr
   );
-  if (once) return once.hours || 0;
+  if (once) return safeHours(once.hours);
   return legacyWeeklyHoursFor(planEntries, subjectIdKey, dateStr);
 }
 
@@ -131,7 +136,7 @@ export function dayLoad(planEntries, subjects, weekStart) {
     const dateStr = shiftDateStr(weekStart, i);
     let hours = 0;
     for (const s of subjects) hours += plannedHoursFor(planEntries, subjectKey(s), dateStr);
-    out.push({ date: dateStr, hours: round1(hours), overloaded: hours > OVERLOAD_HOURS });
+    out.push({ date: dateStr, hours, overloaded: hours > OVERLOAD_HOURS });
   }
   return out;
 }

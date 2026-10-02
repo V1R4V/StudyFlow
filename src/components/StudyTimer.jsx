@@ -1,4 +1,5 @@
 import { Card, Button, Form, Row, Col, ToggleButton, ToggleButtonGroup } from 'react-bootstrap';
+import Icon from './Icon';
 import { useTimer, formatClock } from '../context/TimerContext';
 
 const MODES = [
@@ -174,14 +175,14 @@ export default function StudyTimer(props) {
         <div className="d-grid gap-2 mt-auto">
           {!t.isRunning ? (
             <Button variant={isBreak ? 'success' : 'primary'} size="lg" onClick={t.start}>
-              <span aria-hidden="true">▶ </span>
+              <Icon name="play" className="me-2" />
               {isBreak
                 ? (isPaused ? 'Resume Break' : 'Start Break')
                 : (isPaused ? 'Resume Session' : 'Start Session')}
             </Button>
           ) : (
             <Button variant="warning" size="lg" onClick={t.pause}>
-              <span aria-hidden="true">⏸ </span>Pause
+              <Icon name="pause" className="me-2" />Pause
             </Button>
           )}
 

@@ -1,46 +1,18 @@
 import { useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Container, Card, Form, Table, Button, Row, Col, Badge, Alert } from 'react-bootstrap';
 import EndSessionModal from '../components/EndSessionModal';
 import KpiCard from '../components/KpiCard';
+import Icon from '../components/Icon';
 import { useStudyData } from '../context/StudyDataContext';
 import { sessionMatchesSubject, localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
-
-function getSessionSeconds(session) {
-  if (typeof session.durationSeconds === 'number') return session.durationSeconds;
-  if (typeof session.duration === 'number') return session.duration * 60;
-  return 0;
-}
-
-function toMillis(ts) {
-  if (!ts) return null;
-  if (typeof ts.toMillis === 'function') return ts.toMillis();
-  if (typeof ts.seconds === 'number') return ts.seconds * 1000;
-  return null;
-}
-
-function formatClock(ms) {
-  return new Date(ms).toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function formatTimeRange(session) {
-  const endMs = toMillis(session.createdAt);
-  if (endMs === null) return null;
-  const durSec = getSessionSeconds(session);
-  const startMs = endMs - durSec * 1000;
-  return `${formatClock(startMs)} – ${formatClock(endMs)}`;
-}
-
-function formatDuration(seconds) {
-  const total = Math.max(0, Math.floor(seconds));
-  if (total < 60) return `${total} sec`;
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  if (s === 0) return `${m} min`;
-  return `${m} min ${s} sec`;
-}
+import {
+  sessionDurationSeconds as getSessionSeconds,
+  formatSessionDuration,
+  formatSessionTimeRange,
+  compareSessionsNewest,
+  sessionActivityStats,
+} from '../utils/sessionHistory';
 
 function formatHours(minutes) {
   return (minutes / 60).toFixed(1);
@@ -145,7 +117,7 @@ function triggerDownload(filename, text) {
 }
 
 function Stars({ rating }) {
-  const n = rating || 0;
+  const n = Math.min(5, Math.max(0, Math.round(Number(rating) || 0)));
   return (
     <span style={{ fontSize: 14, whiteSpace: 'nowrap' }} aria-label={`Focus rating: ${n} of 5`}>
       <span aria-hidden="true" style={{ color: 'var(--warning-text)' }}>{'★'.repeat(n)}</span>
@@ -248,14 +220,25 @@ function groupLabel(key, grouping) {
 export default function Sessions() {
   const { subjects, sessions, updateSession, deleteSession, addSession } = useStudyData();
   const todayStr = localDateString();
-  const [filterSubject, setFilterSubject] = useState('all');
-  const [dateRange, setDateRange] = useState('all');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState(todayStr);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterSubject = searchParams.get('subject') || 'all';
+  const requestedRange = searchParams.get('range');
+  const dateRange = DATE_RANGES.some(range => range.value === requestedRange) ? requestedRange : 'all';
+  const [customStart, setCustomStart] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('start') || '') ? searchParams.get('start') : '');
+  const [customEnd, setCustomEnd] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('end') || '') ? searchParams.get('end') : todayStr);
   const [grouping, setGrouping] = useState('none');
   const [editing, setEditing] = useState(null);
   const [importStatus, setImportStatus] = useState(null); // { type, text }
   const fileInputRef = useRef(null);
+
+  function setFilterParam(key, value) {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (value === 'all') next.delete(key);
+      else next.set(key, value);
+      return next;
+    });
+  }
 
   function handleDelete(id) {
     if (!window.confirm('Delete this session?')) return;
@@ -355,8 +338,7 @@ export default function Sessions() {
           distractions,
           date,
         };
-        // eslint-disable-next-line no-await-in-loop
-        await addSession(subj.id, newSession);
+          await addSession(subj.id, newSession);
         imported += 1;
       }
 
@@ -394,16 +376,17 @@ export default function Sessions() {
     setEditing(null);
   }
 
-  const { start: rangeStart, end: rangeEnd } = useMemo(
-    () => rangeFor(dateRange, todayStr, customStart, customEnd),
-    [dateRange, todayStr, customStart, customEnd]
-  );
+  const { start: rangeStart, end: rangeEnd } = rangeFor(dateRange, todayStr, customStart, customEnd);
 
-  const filtered = useMemo(() => {
-    return sessions
-      .filter(s => filterSubject === 'all' || String(s.subjectId) === filterSubject)
-      .filter(s => s.date >= rangeStart && s.date <= rangeEnd);
-  }, [sessions, filterSubject, rangeStart, rangeEnd]);
+  const selectedSubject = subjects.find(subject =>
+    String(subject.firestoreId ?? subject.id) === filterSubject
+  );
+  const filtered = sessions
+    .filter(session => filterSubject === 'all' || (selectedSubject
+      ? sessionMatchesSubject(session, selectedSubject)
+      : String(session.subjectId) === filterSubject))
+    .filter(session => session.date >= rangeStart && session.date <= rangeEnd)
+    .sort(compareSessionsNewest);
 
   // Summary across the current filter so the user sees the impact of their
   // selection at a glance, no need to add up rows in their head.
@@ -420,44 +403,7 @@ export default function Sessions() {
     return { count, totalMin, avgFocus, avgSessionMin, longestSec, highFocus, activeDays };
   }, [filtered]);
 
-  // Session-cadence snapshot for the KPI row. Deliberately scoped to ALL
-  // sessions (not the filter) and centered on session *rhythm* (count, daily
-  // habit, weekly momentum) so this page complements the Statistics page,
-  // which owns time totals and focus-depth analytics, instead of repeating it.
-  const sessionStats = useMemo(() => {
-    const total = sessions.length;
-    const byDate = new Map();
-    for (const s of sessions) byDate.set(s.date, (byDate.get(s.date) || 0) + 1);
-    const activeDays = byDate.size;
-
-    const todayCount = byDate.get(todayStr) || 0;
-    const todayMin = sessions
-      .filter(s => s.date === todayStr)
-      .reduce((acc, s) => acc + getSessionMinutes(s), 0);
-
-    const { start: wkStart, end: wkEnd } = weekBoundsFor(todayStr);
-    const lastWkStart = shiftDateStr(wkStart, -7);
-    const lastWkEnd = shiftDateStr(wkEnd, -7);
-    let thisWeek = 0;
-    let lastWeek = 0;
-    for (const s of sessions) {
-      if (s.date >= wkStart && s.date <= wkEnd) thisWeek += 1;
-      else if (s.date >= lastWkStart && s.date <= lastWkEnd) lastWeek += 1;
-    }
-
-    const avgPerActiveDay = activeDays > 0 ? total / activeDays : 0;
-
-    let bestDate = null;
-    let bestCount = 0;
-    for (const [date, count] of byDate) {
-      if (count > bestCount) { bestCount = count; bestDate = date; }
-    }
-
-    return {
-      total, activeDays, todayCount, todayMin,
-      thisWeek, lastWeek, avgPerActiveDay, bestDate, bestCount,
-    };
-  }, [sessions, todayStr]);
+  const sessionStats = useMemo(() => sessionActivityStats(sessions, todayStr), [sessions, todayStr]);
 
   // For grouped views: bucket by day/week/month with a per-bucket total.
   const grouped = useMemo(() => {
@@ -497,34 +443,23 @@ export default function Sessions() {
   function renderRow(s) {
     const subj = subjects.find(sub => sessionMatchesSubject(s, sub));
     const color = subj?.color || s.subjectColor || '#6b7280';
+    const timeRange = formatSessionTimeRange(s);
     return (
       <tr key={s.id}>
         <td>
-          <div>{formatFriendlyDate(s.date)}</div>
-          {formatTimeRange(s) && (
-            <div className="text-muted small">{formatTimeRange(s)}</div>
+          <div className="sf-session-date">{formatFriendlyDate(s.date)}</div>
+          {timeRange && (
+            <div className="sf-session-time text-muted small">{timeRange}</div>
           )}
         </td>
         <td>
           <span className="sf-subject-pill" style={{ '--pill': color }}>
             <span className="sf-subject-pill-dot" />
-            {s.subjectName}
+            <span className="sf-session-subject-name">{subj?.name || s.subjectName}</span>
           </span>
         </td>
         <td>
-          <div className="sf-dur-value">{formatDuration(getSessionSeconds(s))}</div>
-          {summary.longestSec > 0 && (
-            <div
-              className="sf-dur-track"
-              aria-hidden="true"
-              title={`${formatDuration(getSessionSeconds(s))} of longest ${formatDuration(summary.longestSec)}`}
-            >
-              <div
-                className="sf-dur-fill"
-                style={{ width: `${Math.max(6, Math.round((getSessionSeconds(s) / summary.longestSec) * 100))}%` }}
-              />
-            </div>
-          )}
+          <div className="sf-dur-value">{formatSessionDuration(getSessionSeconds(s))}</div>
         </td>
         <td><Stars rating={s.focusRating} /></td>
         <td className="text-center">
@@ -534,39 +469,62 @@ export default function Sessions() {
             <span className="text-muted">–</span>
           )}
         </td>
-        <td style={{ maxWidth: 280 }}>
+        <td className="sf-session-notes">
           {s.notes ? (
-            <span title={s.notes}>
+            <span className="sf-session-note-preview" title={s.notes}>
               {s.notes.length > 50 ? s.notes.slice(0, 50) + '…' : s.notes}
             </span>
           ) : (
-            <span className="text-muted">·</span>
+            <span className="text-muted">—</span>
           )}
         </td>
         <td className="text-end">
-          <Button
-            size="sm"
-            variant="outline-secondary"
-            className="me-2"
-            onClick={() => setEditing(s)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="outline-danger"
-            onClick={() => handleDelete(s.id)}
-            aria-label={`Delete ${s.subjectName} session from ${s.date}`}
-          >
-            <span aria-hidden="true">×</span>
-          </Button>
+          <div className="sf-session-actions">
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              className="sf-action-button"
+              aria-label={`Edit ${s.subjectName} session from ${s.date}`}
+              onClick={() => setEditing(s)}
+            >
+              <Icon name="edit" size={16} /> Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline-danger"
+              className="sf-action-button"
+              onClick={() => handleDelete(s.id)}
+              aria-label={`Delete ${s.subjectName} session from ${s.date}`}
+              title="Delete session"
+            >
+              <Icon name="trash" size={16} />
+            </Button>
+          </div>
         </td>
       </tr>
     );
   }
 
+  function renderTable(items, label) {
+    return (
+      <div className="table-responsive sf-session-table-wrap" tabIndex={0} role="region" aria-label={`${label}; scroll horizontally on small screens`}>
+        <Table hover className="sf-session-table mb-0 align-middle">
+          <caption className="visually-hidden">{label}: dates, subjects, durations, focus, distractions, notes, and session actions.</caption>
+          <colgroup>
+            {['date', 'subject', 'duration', 'focus', 'distractions', 'notes', 'actions'].map(column => <col key={column} className={`sf-session-col-${column}`} />)}
+          </colgroup>
+          <thead><tr>
+            <th scope="col">Date</th><th scope="col">Subject</th><th scope="col">Duration</th><th scope="col">Focus</th>
+            <th scope="col" className="text-center">Distractions</th><th scope="col">Notes</th><th scope="col" className="text-end">Actions</th>
+          </tr></thead>
+          <tbody>{items.map(renderRow)}</tbody>
+        </Table>
+      </div>
+    );
+  }
+
   return (
-    <Container fluid className="sf-page">
+    <Container fluid className="sf-page sf-sessions-page">
       <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
         <div>
           <h1 className="mb-1">Sessions</h1>
@@ -578,18 +536,20 @@ export default function Sessions() {
           <Button
             variant="outline-secondary"
             size="sm"
+            className="sf-action-button"
             onClick={handleExport}
             disabled={sessions.length === 0}
             title="Download the current filter as CSV (or all sessions if no filter is active)"
           >
-            ⬇ Export CSV
+            <Icon name="download" size={16} /> Export CSV
           </Button>
           <Button
             variant="outline-secondary"
             size="sm"
+            className="sf-action-button"
             onClick={() => fileInputRef.current?.click()}
           >
-            ⬆ Import CSV
+            <Icon name="upload" size={16} /> Import CSV
           </Button>
           <input
             ref={fileInputRef}
@@ -621,7 +581,7 @@ export default function Sessions() {
                 <Form.Select
                   size="sm"
                   value={filterSubject}
-                  onChange={e => setFilterSubject(e.target.value)}
+                  onChange={e => setFilterParam('subject', e.target.value)}
                 >
                   <option value="all">All subjects</option>
                   {subjects.map(s => (
@@ -636,7 +596,7 @@ export default function Sessions() {
                 <Form.Select
                   size="sm"
                   value={dateRange}
-                  onChange={e => setDateRange(e.target.value)}
+                  onChange={e => setFilterParam('range', e.target.value)}
                 >
                   {DATE_RANGES.map(r => (
                     <option key={r.value} value={r.value}>{r.label}</option>
@@ -663,8 +623,12 @@ export default function Sessions() {
                 size="sm"
                 variant="outline-secondary"
                 onClick={() => {
-                  setFilterSubject('all');
-                  setDateRange('all');
+                  setSearchParams(previous => {
+                    const next = new URLSearchParams(previous);
+                    next.delete('subject');
+                    next.delete('range');
+                    return next;
+                  });
                   setGrouping('none');
                   setCustomStart('');
                   setCustomEnd(todayStr);
@@ -716,11 +680,13 @@ export default function Sessions() {
         </Card.Body>
       </Card>
 
+      <div className="small text-muted mb-2">Overall session activity · counts across your full history</div>
       <Row className="g-3 mb-3">
         <Col md={3} sm={6}>
           <KpiCard
             label="Sessions Today"
             value={sessionStats.todayCount}
+            unit={sessionStats.todayCount === 1 ? 'session' : 'sessions'}
             sub={
               sessionStats.todayCount > 0
                 ? `${formatMinsShort(sessionStats.todayMin)} focused today`
@@ -730,9 +696,10 @@ export default function Sessions() {
         </Col>
         <Col md={3} sm={6}>
           <KpiCard
-            label="This Week"
+            label="Sessions This Week"
             value={sessionStats.thisWeek}
-            sub={`vs ${sessionStats.lastWeek} last week`}
+            unit={sessionStats.thisWeek === 1 ? 'session' : 'sessions'}
+            sub={`vs ${sessionStats.lastWeek} by ${new Date(`${todayStr}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })} last week`}
             delta={
               sessionStats.thisWeek !== sessionStats.lastWeek
                 ? {
@@ -747,8 +714,9 @@ export default function Sessions() {
         </Col>
         <Col md={3} sm={6}>
           <KpiCard
-            label="Daily Average"
+            label="Sessions / Active Day"
             value={sessionStats.total > 0 ? sessionStats.avgPerActiveDay.toFixed(1) : '–'}
+            unit="sessions"
             sub={
               sessionStats.total > 0
                 ? `over ${sessionStats.activeDays} active ${sessionStats.activeDays === 1 ? 'day' : 'days'}`
@@ -760,6 +728,7 @@ export default function Sessions() {
           <KpiCard
             label="Best Day"
             value={sessionStats.bestCount > 0 ? sessionStats.bestCount : '–'}
+            unit={sessionStats.bestCount === 1 ? 'session' : 'sessions'}
             sub={
               sessionStats.bestDate
                 ? new Date(`${sessionStats.bestDate}T00:00:00`).toLocaleDateString(undefined, {
@@ -794,20 +763,7 @@ export default function Sessions() {
               : 'No sessions match these filters.'}
           </Card.Body>
         ) : grouping === 'none' ? (
-          <Table hover responsive className="mb-0 align-middle">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Subject</th>
-                <th>Duration</th>
-                <th>Focus</th>
-                <th className="text-center">Distractions</th>
-                <th>Notes</th>
-                <th className="text-end">Actions</th>
-              </tr>
-            </thead>
-            <tbody>{filtered.map(renderRow)}</tbody>
-          </Table>
+          renderTable(filtered, 'Session history')
         ) : (
           <div>
             {grouped.groups.map(g => (
@@ -841,9 +797,7 @@ export default function Sessions() {
                     />
                   </div>
                 </div>
-                <Table hover responsive className="mb-0 align-middle">
-                  <tbody>{g.sessions.map(renderRow)}</tbody>
-                </Table>
+                {renderTable(g.sessions, g.label)}
               </div>
             ))}
           </div>

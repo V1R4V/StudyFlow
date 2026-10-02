@@ -1,134 +1,47 @@
 import { useState } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import SubjectForm from '../components/SubjectForm';
 import SubjectCard from '../components/SubjectCard';
-import WeeklyOverviewCard from '../components/WeeklyOverviewCard';
 import { useStudyData } from '../context/StudyDataContext';
-import { sessionMatchesSubject, getSessionMinutes } from '../utils/sessions';
-
-const IconPlus = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M8 3v10M3 8h10" />
-  </svg>
-);
 
 export default function SubjectManager() {
-  const { subjects, sessions, addSubject, updateSubject, deleteSubject } = useStudyData();
+  const { subjects, addSubject, updateSubject, deleteSubject } = useStudyData();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [now] = useState(() => Date.now());
+  const editingSubject = subjects.find(subject => subject.id === editingId) || null;
 
-  const weekAgo = now - 7 * 86400000;
-  const recentSessions = sessions.filter(s => new Date(s.date).getTime() >= weekAgo);
-  const weeklyMinutesBySubject = {};
-  subjects.forEach(subject => {
-    const mins = recentSessions
-      .filter(sess => sessionMatchesSubject(sess, subject))
-      .reduce((acc, sess) => acc + getSessionMinutes(sess), 0);
-    weeklyMinutesBySubject[subject.id] = mins;
-  });
-
-  function handleAdd(newSubject) {
-    addSubject(newSubject);
+  async function handleAdd(subject) {
+    await addSubject(subject);
     setShowForm(false);
   }
-
-  function handleDelete(id) {
-    deleteSubject(id);
-  }
-
-  function handleEditOpen(subject) {
-    setEditingId(subject.id);
-    setShowForm(false);
-  }
-
-  function handleEditSave(updates) {
-    if (editingId !== null) updateSubject(editingId, updates);
+  async function handleSave(updates) {
+    if (editingId !== null) await updateSubject(editingId, updates);
     setEditingId(null);
   }
-
-  const editingSubject = subjects.find(s => s.id === editingId) || null;
-
   return (
     <Container fluid className="sf-page">
-      <div className="d-flex flex-wrap justify-content-between align-items-start mb-4 gap-2">
+      <div className="d-flex flex-wrap justify-content-between align-items-start mb-4 gap-3">
         <div>
           <h1 className="mb-1">Subjects</h1>
-          <p className="text-muted mb-0">
-            What you're tracking. Set goals. Watch progress compound.
-          </p>
+          <p className="text-muted mb-0">Manage your subject names and colors. <Link to="/app/command">Set goals and plan your week in Command Center.</Link></p>
         </div>
-        {!showForm && !editingSubject && (
-          <Button
-            variant="primary"
-            onClick={() => { setShowForm(true); setEditingId(null); }}
-            className="d-flex align-items-center gap-2"
-          >
-            <IconPlus />
-            New subject
-          </Button>
-        )}
+        {!showForm && !editingSubject && <Button onClick={() => setShowForm(true)}>+ New subject</Button>}
       </div>
-
-      {/* Collapsible create-subject card, unfolds inline */}
-      <div className={`sf-collapsible${showForm ? ' sf-collapsible-open' : ''}`}>
-        {showForm && (
-          <div className="mb-4">
-            <SubjectForm
-              onAdd={handleAdd}
-              onCancel={() => setShowForm(false)}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Edit-subject card, same component, edit mode */}
-      <div className={`sf-collapsible${editingSubject ? ' sf-collapsible-open' : ''}`}>
-        {editingSubject && (
-          <div className="mb-4">
-            <SubjectForm
-              initial={editingSubject}
-              onSave={handleEditSave}
-              onCancel={() => setEditingId(null)}
-            />
-          </div>
-        )}
-      </div>
-
+      {showForm && <div className="mb-4"><SubjectForm onAdd={handleAdd} onCancel={() => setShowForm(false)} /></div>}
+      {editingSubject && <div className="mb-4"><SubjectForm key={editingSubject.id} initial={editingSubject} onSave={handleSave} onCancel={() => setEditingId(null)} /></div>}
       {subjects.length === 0 ? (
         <div className="sf-empty-card">
           <h2 className="sf-empty-title-sm">No subjects yet.</h2>
-          <p className="text-muted mb-3">
-            Add your first subject to start tracking real study time.
-          </p>
-          {!showForm && (
-            <Button variant="primary" onClick={() => setShowForm(true)}>
-              <IconPlus /> Create your first subject
-            </Button>
-          )}
+          <p className="text-muted mb-3">Add your first subject to start tracking study time.</p>
+          {!showForm && <Button onClick={() => setShowForm(true)}>Create your first subject</Button>}
         </div>
       ) : (
-        <>
-          <Row className="g-3">
-            {subjects.map(subject => (
-              <Col key={subject.id} md={6} lg={4}>
-                <SubjectCard
-                  subject={subject}
-                  weeklyMinutes={weeklyMinutesBySubject[subject.id] || 0}
-                  onDelete={handleDelete}
-                  onEdit={handleEditOpen}
-                />
-              </Col>
-            ))}
-          </Row>
-
-          <div className="mt-4">
-            <WeeklyOverviewCard
-              subjects={subjects}
-              weeklyMinutesBySubject={weeklyMinutesBySubject}
-            />
-          </div>
-        </>
+        <Row className="g-3">
+          {subjects.map(subject => <Col key={subject.firestoreId || subject.id} md={6} lg={4}>
+            <SubjectCard subject={subject} onEdit={subject => { setEditingId(subject.id); setShowForm(false); }} onDelete={deleteSubject} />
+          </Col>)}
+        </Row>
       )}
     </Container>
   );

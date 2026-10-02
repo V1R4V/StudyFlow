@@ -12,8 +12,8 @@ export function sessionMatchesSubject(session, subject) {
 }
 
 export function getSessionMinutes(session) {
-  if (typeof session.durationSeconds === 'number') return session.durationSeconds / 60;
-  if (typeof session.duration === 'number') return session.duration;
+  if (Number.isFinite(session?.durationSeconds)) return Math.max(0, session.durationSeconds) / 60;
+  if (Number.isFinite(session?.duration)) return Math.max(0, session.duration);
   return 0;
 }
 

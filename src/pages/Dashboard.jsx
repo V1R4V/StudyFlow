@@ -8,429 +8,131 @@ import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
 import TodayPlanCard from '../components/TodayPlanCard';
 import WeeklySubjectsCard from '../components/WeeklySubjectsCard';
+import Icon from '../components/Icon';
 import { useStudyData } from '../context/StudyDataContext';
 import { useAuthContext } from '../context/AuthContext';
 import { localDateString, shiftDateStr, getSessionMinutes } from '../utils/sessions';
 import { planForDate, loggedHoursFor } from '../utils/plan';
+import { formatStudyTime, formatWeekRange, progressPercent, weekProgress } from '../utils/progress';
 
-const round1 = n => Math.round(n * 10) / 10;
-
-// Time-of-day greeting so the dashboard opens with something human instead of
-// a static headline. Name comes from auth state already in memory.
 function timeGreeting(name) {
-  const hr = new Date().getHours();
-  let base;
-  if (hr < 5) base = 'Late night focus';
-  else if (hr < 12) base = 'Good morning';
-  else if (hr < 17) base = 'Good afternoon';
-  else if (hr < 21) base = 'Good evening';
-  else base = 'Night session';
-  return name ? `${base}, ${name}.` : `${base}.`;
+  const hour = new Date().getHours();
+  const greeting = hour < 5 ? 'Late night focus' : hour < 12 ? 'Good morning'
+    : hour < 17 ? 'Good afternoon' : hour < 21 ? 'Good evening' : 'Night session';
+  return name ? `${greeting}, ${name}.` : `${greeting}.`;
 }
 
-// iOS-style native emoji for the KPI tiles. Wrapped in a flex-centered span so
-// they sit dead-center in the 44px gradient chip regardless of glyph metrics.
-const EmojiIcon = ({ symbol, label }) => (
-  <span
-    role="img"
-    aria-label={label}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '100%',
-      height: '100%',
-      fontSize: '1.35rem',
-      lineHeight: 1,
-    }}
-  >
-    {symbol}
-  </span>
-);
-
-const IconClock = () => <EmojiIcon symbol="⏱️" label="focus time" />;
-const IconFlame = () => <EmojiIcon symbol="🔥" label="streak" />;
-const IconCheck = () => <EmojiIcon symbol="✅" label="schedule" />;
-const IconTarget = () => <EmojiIcon symbol="🎯" label="weekly goal" />;
-
-const IconChevronLeft = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M10 3L5 8l5 5" />
-  </svg>
-);
-
-const IconChevronRight = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M6 3l5 5-5 5" />
-  </svg>
-);
-
-const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-
-// Streak ending at anchorDate. Used so "Daily Streak" reflects the day the
-// user is currently viewing, not just real-time today.
-function streakAsOf(sessions, anchorDate, isAnchorToday) {
-  if (sessions.length === 0) return 0;
-  const datesSet = new Set(sessions.map(s => s.date));
+function streakAsOf(sessions, anchorDate, isToday) {
+  const dates = new Set(sessions.filter(session => getSessionMinutes(session) > 0).map(session => session.date));
   let cursor = anchorDate;
-  // If viewing today and today has no session yet, allow the streak to
-  // continue from yesterday, they haven't "broken" it until midnight.
-  if (!datesSet.has(cursor) && isAnchorToday) {
-    cursor = shiftDateStr(cursor, -1);
-  } else if (!datesSet.has(cursor)) {
-    return 0;
-  }
+  if (!dates.has(cursor) && isToday) cursor = shiftDateStr(cursor, -1);
   let streak = 0;
-  while (datesSet.has(cursor)) {
+  while (dates.has(cursor)) {
     streak += 1;
     cursor = shiftDateStr(cursor, -1);
   }
   return streak;
 }
 
-function formatPrettyDate(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function relativeLabel(dateStr, todayStr) {
-  if (dateStr === todayStr) return 'Today';
-  if (dateStr === shiftDateStr(todayStr, -1)) return 'Yesterday';
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString(undefined, { weekday: 'long' });
-}
-
 export default function Dashboard() {
   const { subjects, sessions, planEntries } = useStudyData();
   const { user } = useAuthContext();
-  const firstName = user?.displayName?.split(' ')[0] || '';
-  const todayStr = localDateString();
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const today = localDateString();
+  const [selectedDate, setSelectedDate] = useState(today);
+  const isToday = selectedDate === today;
+  const previousDay = shiftDateStr(selectedDate, -1);
+  const nextDay = shiftDateStr(selectedDate, 1);
+  const dayMinutes = sessions.filter(session => session.date === selectedDate)
+    .reduce((sum, session) => sum + getSessionMinutes(session), 0);
+  const priorMinutes = sessions.filter(session => session.date === previousDay)
+    .reduce((sum, session) => sum + getSessionMinutes(session), 0);
+  const streak = streakAsOf(sessions, selectedDate, isToday);
+  const weekly = useMemo(() => weekProgress({ subjects, sessions, planEntries, anchorDate: selectedDate, today }),
+    [subjects, sessions, planEntries, selectedDate, today]);
+  const scheduled = planForDate(subjects, planEntries, selectedDate).map(({ subject, plannedHours }) => ({
+    plannedMinutes: plannedHours * 60,
+    loggedMinutes: loggedHoursFor(sessions, subject, selectedDate) * 60,
+  }));
+  const plannedMinutes = scheduled.reduce((sum, row) => sum + row.plannedMinutes, 0);
+  const scheduleCredit = scheduled.reduce((sum, row) => sum + Math.min(row.loggedMinutes, row.plannedMinutes), 0);
+  const schedulePct = progressPercent(scheduleCredit, plannedMinutes);
+  const scheduleLeft = Math.max(0, plannedMinutes - scheduleCredit);
+  const focusDifference = dayMinutes - priorMinutes;
+  const focusSubtitle = priorMinutes > 0
+    ? `${focusDifference >= 0 ? '+' : '−'}${formatStudyTime(Math.abs(focusDifference))} vs ${isToday ? 'yesterday' : 'prior day'}`
+    : dayMinutes > 0 ? 'Every saved session counts' : isToday ? 'Start a session to get going' : 'No sessions on this day';
+  const prettyDate = new Date(`${selectedDate}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
 
-  const isToday = selectedDate === todayStr;
-  const prevDate = shiftDateStr(selectedDate, -1);
-  const nextDate = shiftDateStr(selectedDate, 1);
-  const canGoNext = nextDate <= todayStr;
-
-  // Focus on the selected day, vs the day before it.
-  const todaysSessions = useMemo(
-    () => sessions.filter(s => s.date === selectedDate),
-    [sessions, selectedDate]
-  );
-  const todaysMinutes = todaysSessions.reduce((acc, s) => acc + getSessionMinutes(s), 0);
-  const todaysHours = (todaysMinutes / 60).toFixed(1);
-
-  const yesterdaysMinutes = useMemo(
-    () =>
-      sessions
-        .filter(s => s.date === prevDate)
-        .reduce((acc, s) => acc + getSessionMinutes(s), 0),
-    [sessions, prevDate]
-  );
-
-  let focusChangeText = isToday ? 'Fresh slate, you set the pace' : 'No data prior day';
-  let focusChangeColor = 'var(--muted-strong)';
-  if (yesterdaysMinutes > 0) {
-    const diff = Math.round(((todaysMinutes - yesterdaysMinutes) / yesterdaysMinutes) * 100);
-    focusChangeText = `${diff >= 0 ? '+' : ''}${diff}% ${isToday ? 'vs yesterday' : 'vs prior day'}`;
-    focusChangeColor = diff >= 0 ? 'var(--success-text)' : 'var(--danger-text)';
-  } else if (todaysMinutes === 0) {
-    focusChangeText = isToday ? 'One session gets you on the board' : 'No sessions this day';
-  }
-
-  const streak = useMemo(
-    () => streakAsOf(sessions, selectedDate, isToday),
-    [sessions, selectedDate, isToday]
-  );
-
-  // Rolling 7 days ending on the selected day, chart and weekly volume use
-  // the same window so they read consistently.
-  const weeklyData = useMemo(() => {
-    const result = [];
-    const anchor = new Date(`${selectedDate}T00:00:00`).getTime();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(anchor - i * 86400000);
-      const dateStr = localDateString(d);
-      const mins = sessions
-        .filter(s => s.date === dateStr)
-        .reduce((acc, s) => acc + getSessionMinutes(s), 0);
-      result.push({ date: dateStr, label: DAY_LABELS[d.getDay()], minutes: mins });
-    }
-    return result;
-  }, [sessions, selectedDate]);
-
-  // Sunday-anchored week: aggregation resets every Sunday at 00:00.
-  // weekStart = most recent Sunday on or before selectedDate.
-  const selectedDayObj = new Date(`${selectedDate}T00:00:00`);
-  const sundayOffset = selectedDayObj.getDay(); // 0 (Sun) … 6 (Sat)
-  const weekStartStr = shiftDateStr(selectedDate, -sundayOffset);
-  const thisWeekMinutes = sessions
-    .filter(s => s.date >= weekStartStr && s.date <= selectedDate)
-    .reduce((acc, s) => acc + getSessionMinutes(s), 0);
-  const thisWeekHours = thisWeekMinutes / 60;
-  const totalWeeklyGoalHours = subjects.reduce(
-    (acc, s) => acc + (Number(s.weeklyGoal) || 0),
-    0
-  );
-  const weeklyPct = totalWeeklyGoalHours > 0
-    ? Math.min(100, Math.round((thisWeekHours / totalWeeklyGoalHours) * 100))
-    : 0;
-
-  // Pacing math, all from sessions already in memory. daysElapsed counts the
-  // selected day, so Sunday = 1/7 of the week expected, Saturday = 7/7.
-  const daysElapsed = sundayOffset + 1;
-  const expectedPct = Math.round((daysElapsed / 7) * 100);
-  const paceTargetHours = (totalWeeklyGoalHours * daysElapsed) / 7;
-  const projectedHours = round1((thisWeekHours / daysElapsed) * 7);
-
-  // Same rolling 7-day window, shifted one week back, for a week-over-week
-  // momentum readout on the trend card.
-  const prevWeekStart = shiftDateStr(selectedDate, -13);
-  const prevWeekEnd = shiftDateStr(selectedDate, -7);
-  const prevWeekMinutes = useMemo(
-    () =>
-      sessions
-        .filter(s => s.date >= prevWeekStart && s.date <= prevWeekEnd)
-        .reduce((acc, s) => acc + getSessionMinutes(s), 0),
-    [sessions, prevWeekStart, prevWeekEnd]
-  );
-
-  const scheduledPlan = useMemo(() => {
-    const items = planForDate(subjects, planEntries, selectedDate).map(({ subject, plannedHours }) => {
-      const logged = loggedHoursFor(sessions, subject, selectedDate);
-      return { subject, plannedHours, logged };
-    });
-    const plannedHours = items.reduce((acc, item) => acc + item.plannedHours, 0);
-    const cappedLoggedHours = items.reduce((acc, item) => acc + Math.min(item.logged, item.plannedHours), 0);
-    const rawLoggedHours = items.reduce((acc, item) => acc + item.logged, 0);
-    const pct = plannedHours > 0 ? Math.round((cappedLoggedHours / plannedHours) * 100) : 0;
-    return { items, plannedHours, rawLoggedHours, pct };
-  }, [subjects, planEntries, sessions, selectedDate]);
-
-  // Empty-state CTA: no subjects yet → push the user to Subjects to create one.
   if (subjects.length === 0) {
     return (
       <Container fluid className="sf-page">
         <div className="sf-empty-hero">
           <h1 className="sf-empty-title">Set up your first subject.</h1>
-          <p className="sf-empty-sub">
-            Track real focus time, set goals, build the streak.
-          </p>
-          <Button as={Link} to="/app/subjects" variant="primary" size="lg">
-            Create a subject
-          </Button>
+          <p className="sf-empty-sub">Track real focus time, set goals, build the streak.</p>
+          <Button as={Link} to="/app/subjects" variant="primary" size="lg">Create a subject</Button>
         </div>
       </Container>
     );
   }
 
-  const focusTitle = isToday ? "Today's Focus" : 'Focus';
-  const scheduleTitle = isToday ? "Today's Schedule" : 'Scheduled';
-
-  // Streak subtitle: green when there's an active streak, muted otherwise.
-  const streakSubtitle = isToday
-    ? streak > 0 ? 'Active days in a row' : 'Study today to start'
-    : streak > 0
-    ? `Streak as of ${relativeLabel(selectedDate, todayStr)}`
-    : 'No streak on this day';
-  const streakSubtitleColor = streak > 0
-    ? 'var(--success-text)'
-    : 'var(--muted-strong)';
-
-  const scheduledPct = Math.min(100, scheduledPlan.pct);
-  let scheduleValue = `${scheduledPlan.rawLoggedHours.toFixed(1)}/${scheduledPlan.plannedHours.toFixed(1)}`;
-  let scheduleSubtitle = scheduledPlan.items.length === 0
-    ? 'No subjects scheduled'
-    : `${scheduledPct}% of scheduled study`;
-  let scheduleSubtitleColor = scheduledPlan.items.length === 0
-    ? 'var(--muted-strong)'
-    : 'var(--primary)';
-
-  if (scheduledPlan.items.length > 0 && scheduledPlan.rawLoggedHours >= scheduledPlan.plannedHours) {
-    const extra = scheduledPlan.rawLoggedHours - scheduledPlan.plannedHours;
-    scheduleSubtitle = extra > 0.05 ? `${extra.toFixed(1)}h above schedule` : 'Schedule complete';
-    scheduleSubtitleColor = extra > 0.05 ? 'var(--info-text)' : 'var(--success-text)';
-  }
-
-  if (scheduledPlan.items.length === 0) {
-    scheduleValue = '-';
-  }
-
-  // Pace-aware subtitle: compares progress to where the week "should" be by
-  // this weekday, so 41% on a Wednesday reads as on track, not as failure.
-  let weeklySubtitle = 'Set goals on Subjects to unlock pacing';
-  let weeklySubtitleColor = 'var(--muted-strong)';
-  if (totalWeeklyGoalHours > 0) {
-    const bonus = round1(thisWeekHours - totalWeeklyGoalHours);
-    const catchUp = round1(Math.max(0.1, paceTargetHours - thisWeekHours));
-    if (bonus > 0.05) {
-      weeklySubtitle = `Goal hit, plus ${bonus}h of bonus focus`;
-      weeklySubtitleColor = 'var(--info-text)';
-    } else if (weeklyPct >= 100) {
-      weeklySubtitle = 'Weekly goal complete';
-      weeklySubtitleColor = 'var(--success-text)';
-    } else if (weeklyPct >= expectedPct) {
-      weeklySubtitle = `Ahead of pace at ${weeklyPct}%`;
-      weeklySubtitleColor = 'var(--success-text)';
-    } else if (weeklyPct >= expectedPct - 12) {
-      weeklySubtitle = `On pace, ${weeklyPct}% done`;
-      weeklySubtitleColor = 'var(--primary)';
-    } else {
-      weeklySubtitle = `${catchUp}h today puts you back on pace`;
-      weeklySubtitleColor = 'var(--warning-text)';
-    }
-  }
-
-  // Friendly explanation surfaced via the info button on the Weekly Goal tile.
-  const weekEndStr = shiftDateStr(weekStartStr, 6);
-  const fmtRange = d => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  });
-  const projectionLine = totalWeeklyGoalHours > 0 && thisWeekHours > 0 && thisWeekHours < totalWeeklyGoalHours
-    ? ` At your current pace you are on track for about ${projectedHours}h by Saturday.`
-    : '';
-  const weeklyInfoText = totalWeeklyGoalHours > 0
-    ? `Counts focus time from Sunday through Saturday. Current week: ${fmtRange(weekStartStr)} - ${fmtRange(weekEndStr)}. Resets every Sunday at midnight.${projectionLine}`
-    : `Counts focus time from Sunday through Saturday and resets every Sunday at midnight. Set weekly goals on the Subjects page to see a target here.`;
-
   return (
     <Container fluid className="sf-page sf-dashboard-page">
-      {/* Greeting + day navigator */}
       <div className="sf-page-header d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
         <div>
-          <div
-            className="sf-section-label"
-            style={{ color: 'var(--muted-strong)' }}
-          >
-            {formatPrettyDate(selectedDate).toUpperCase()}
-          </div>
-          <h1 className="mb-2 mt-1">
-            {isToday ? timeGreeting(firstName) : relativeLabel(selectedDate, todayStr)}
-          </h1>
+          <div className="sf-section-label">{prettyDate}</div>
+          <h1 className="mb-2 mt-1">{isToday ? timeGreeting(user?.displayName?.split(' ')[0]) : prettyDate}</h1>
           <StreakBanner streak={streak} />
         </div>
-
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => setSelectedDate(prevDate)}
-            aria-label="Previous day"
-          >
-            <IconChevronLeft /> <span className="ms-1">Prev</span>
-          </Button>
-          <Button
-            variant={isToday ? 'primary' : 'outline-secondary'}
-            size="sm"
-            onClick={() => setSelectedDate(todayStr)}
-            disabled={isToday}
-          >
-            Today
-          </Button>
-          <Form.Control
-            type="date"
-            size="sm"
-            value={selectedDate}
-            max={todayStr}
-            onChange={e => {
-              const val = e.target.value;
-              if (val && val <= todayStr) setSelectedDate(val);
-            }}
-            style={{ width: 160 }}
-            aria-label="Pick a day"
-          />
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => canGoNext && setSelectedDate(nextDate)}
-            disabled={!canGoNext}
-            aria-label="Next day"
-          >
-            <span className="me-1">Next</span> <IconChevronRight />
-          </Button>
+          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedDate(previousDay)} aria-label="Previous day">‹</Button>
+          <Button variant={isToday ? 'primary' : 'outline-secondary'} size="sm" onClick={() => setSelectedDate(today)} disabled={isToday}>Today</Button>
+          <Form.Control type="date" size="sm" value={selectedDate} max={today}
+            onChange={event => { if (event.target.value && event.target.value <= today) setSelectedDate(event.target.value); }}
+            style={{ width: 160 }} aria-label="Pick a day" />
+          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedDate(nextDay)} disabled={nextDay > today} aria-label="Next day">›</Button>
         </div>
       </div>
 
       <Row className="g-3 mb-4">
         <Col md={6} lg={3}>
-          <StatsCard
-            title={focusTitle}
-            value={todaysHours}
-            unit="hrs"
-            icon={<IconClock />}
-            tone="blue"
-            subtitle={focusChangeText}
-            subtitleColor={focusChangeColor}
-          />
+          <StatsCard title={isToday ? "Today's Focus" : 'Daily Focus'} value={formatStudyTime(dayMinutes)}
+            icon={<Icon name="clock" size={24} />} tone="blue" subtitle={focusSubtitle}
+            subtitleColor={focusDifference >= 0 && dayMinutes > 0 ? 'var(--success-text)' : 'var(--muted-strong)'} />
         </Col>
         <Col md={6} lg={3}>
-          <StatsCard
-            title="Daily Streak"
-            value={streak}
-            unit={streak === 1 ? 'day' : 'days'}
-            icon={<IconFlame />}
-            tone="amber"
-            subtitle={streakSubtitle}
-            subtitleColor={streakSubtitleColor}
-          />
+          <StatsCard title="Daily Streak" value={streak} unit={streak === 1 ? 'day' : 'days'}
+            icon={<Icon name="flame" size={24} />} tone="amber"
+            subtitle={streak > 0 ? 'Active days in a row' : isToday ? 'Study today to start' : 'No streak on this day'} />
         </Col>
         <Col md={6} lg={3}>
-          <StatsCard
-            title={scheduleTitle}
-            value={scheduleValue}
-            unit={scheduledPlan.items.length > 0 ? 'hrs' : ''}
-            icon={<IconCheck />}
-            tone="green"
-            progress={scheduledPlan.items.length > 0 ? scheduledPct : undefined}
-            subtitle={scheduleSubtitle}
-            subtitleColor={scheduleSubtitleColor}
-          />
+          <StatsCard title={isToday ? "Today's Schedule" : 'Daily Schedule'}
+            value={plannedMinutes > 0 ? `${schedulePct}%` : 'Open'}
+            icon={<Icon name="calendar" size={24} />} tone="green"
+            progress={plannedMinutes > 0 ? schedulePct : undefined}
+            subtitle={plannedMinutes > 0 ? scheduleLeft > 0 ? `${formatStudyTime(scheduleLeft)} left of ${formatStudyTime(plannedMinutes)}` : 'All scheduled subjects complete'
+              : dayMinutes > 0 ? 'Your study still counts toward goals' : 'Study anytime or plan your day'} />
         </Col>
         <Col md={6} lg={3}>
-          <StatsCard
-            title={isToday ? 'Weekly Goal' : 'Weekly Progress'}
-            value={thisWeekHours.toFixed(1)}
-            unit={totalWeeklyGoalHours > 0 ? `/ ${totalWeeklyGoalHours}h` : 'hrs'}
-            icon={<IconTarget />}
-            tone="violet"
-            progress={totalWeeklyGoalHours > 0 ? weeklyPct : undefined}
-            subtitle={weeklySubtitle}
-            subtitleColor={weeklySubtitleColor}
-            info={weeklyInfoText}
-            infoTitle="How this is counted"
-          />
+          <StatsCard title="Weekly Goal Progress" value={weekly.goalMinutes > 0 ? `${weekly.goalPct}%` : formatStudyTime(weekly.totalMinutes)}
+            icon={<Icon name="target" size={24} />} tone="violet"
+            progress={weekly.goalMinutes > 0 ? weekly.goalPct : undefined}
+            subtitle={weekly.goalMinutes > 0 ? `${weekly.goalsMet} of ${weekly.goalCount} subject goals reached` : 'Set a weekly goal to track progress'}
+            info={`Sunday–Saturday: ${formatWeekRange(weekly.start)}. Saved sessions count automatically, even without a schedule. Each subject contributes up to its own goal; extra time remains in your study total.`}
+            infoTitle="How this is counted" />
         </Col>
       </Row>
 
       <Row className="g-3 mb-4">
-        <Col lg={3} md={6}>
-          <WeeklyTrendCard dailyMinutes={weeklyData} prevTotalMinutes={prevWeekMinutes} />
-        </Col>
-        <Col lg={6} md={12}>
-          <StudyTimer subjects={subjects} />
-        </Col>
-        <Col lg={3} md={6}>
-          <TodayPlanCard />
-        </Col>
+        <Col xl={3} md={6} className="order-2 order-xl-1"><WeeklyTrendCard weekly={weekly} selectedDate={selectedDate} onSelectDate={setSelectedDate} /></Col>
+        <Col xl={6} md={12} className="order-1 order-xl-2"><StudyTimer subjects={subjects} /></Col>
+        <Col xl={3} md={6} className="order-3"><TodayPlanCard selectedDate={selectedDate} /></Col>
       </Row>
-
       <Row className="g-3 mb-4">
-        <Col>
-          <WeeklySubjectsCard />
-        </Col>
+        <Col><WeeklySubjectsCard weekly={weekly} /></Col>
       </Row>
-
-      <Row>
-        <Col>
-          <RecentSessionsList sessions={sessions} subjects={subjects} />
-        </Col>
-      </Row>
+      <RecentSessionsList sessions={sessions} subjects={subjects} selectedDate={selectedDate} />
     </Container>
   );
 }

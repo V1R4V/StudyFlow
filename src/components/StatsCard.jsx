@@ -72,7 +72,7 @@ export default function StatsCard(props) {
         {props.subtitle && (
           <div
             style={{
-              fontSize: '0.775rem',
+              fontSize: '0.875rem',
               fontWeight: 500,
               color: props.subtitleColor || 'var(--muted-strong)',
               marginTop: '0.25rem',
@@ -89,6 +89,7 @@ export default function StatsCard(props) {
             aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}
+            aria-label={props.title}
           >
             <span
               className={`sf-kpi-progress-fill${tone ? ` sf-fi-${tone}` : ''}`}
