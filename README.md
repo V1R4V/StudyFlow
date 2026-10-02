@@ -8,7 +8,7 @@ StudyFlow brings subjects, weekly goals, scheduling, a study timer, session hist
 
 ![StudyFlow dashboard with a study timer, weekly trend, daily schedule, and goal progress](assets/screenshots/dashboard.png)
 
-*All screenshots use fictional study data captured from the app in an isolated browser profile.*
+*All screenshots use my study data captured from the app. Users have to populate and build data with time and tracking*
 
 ## The idea behind StudyFlow
 
