@@ -33,7 +33,8 @@ export function RemindersProvider({ children }) {
   const [completedStore, setCompletedStore] = useState(() => emptyCompleted(null));
   const [guestAll, setGuestAll] = useState(readGuestReminders);
   const [prevUser, setPrevUser] = useState(user);
-  const [undo, setUndo] = useState(null);
+  // One toast at a time: { id, message, title, actionLabel, action }.
+  const [notice, setNotice] = useState(null);
   const [now, setNow] = useState(Date.now);
 
   // Overdue/today boundaries move with the clock, so consumers re-derive
@@ -160,7 +161,7 @@ export function RemindersProvider({ children }) {
     }
 
     await persist(key, { ...previous, ...updates });
-    setUndo({ id: Date.now(), message, title: current.title, revert: () => persist(key, previous) });
+    setNotice({ id: Date.now(), message, title: current.title, actionLabel: 'Undo', action: () => persist(key, previous) });
   }
 
   async function removeReminder(key) {
@@ -174,7 +175,7 @@ export function RemindersProvider({ children }) {
       patchCompleted(prev => ({ items: prev.items.filter(r => r.key !== key) }));
       await fsDeleteReminder(user.uid, key);
     }
-    setUndo({ id: Date.now(), message: 'Deleted', title: current.title, revert: () => persist(key, previous) });
+    setNotice({ id: Date.now(), message: 'Deleted', title: current.title, actionLabel: 'Undo', action: () => persist(key, previous) });
   }
 
   function snooze(key, untilMs) {
@@ -204,7 +205,7 @@ export function RemindersProvider({ children }) {
       completedLoading: completedState.loading,
       hasMoreCompleted: completedState.hasMore,
       addReminder, updateReminder, toggleDone, removeReminder, snooze, loadCompleted,
-      undo, clearUndo: () => setUndo(null),
+      notice, notify: next => setNotice({ id: Date.now(), ...next }), clearNotice: () => setNotice(null),
     }}>
       {children}
     </Context.Provider>

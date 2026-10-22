@@ -1,26 +1,54 @@
 import { useState } from 'react';
-import { isOverdue, dayLabel, formatTime } from '../utils/reminders';
-import { localDateString } from '../utils/sessions';
-import { IconCheck, IconNote, IconList, IconRepeat } from './ReminderIcons';
+import { Dropdown } from 'react-bootstrap';
+import { isOverdue, dayLabel, formatTime, nextMonday } from '../utils/reminders';
+import { localDateString, shiftDateStr } from '../utils/sessions';
+import { IconCheck, IconNote, IconList, IconRepeat, IconCalendar } from './ReminderIcons';
 
 const PRIORITY_MARK = { low: '!', medium: '!!', high: '!!!' };
 const COMPLETE_DELAY_MS = 320;
 
-function whenLabel(reminder, showDate, today) {
+// Returns [datePart, timePart]; either may be empty. Kept separate so a
+// narrow row wraps between them, never inside "9:00 PM".
+function whenParts(reminder, showDate, today) {
   if (reminder.done && reminder.completedAt) {
-    return `Done ${dayLabel(localDateString(reminder.completedAt), today)}`;
+    return [`Done ${dayLabel(localDateString(reminder.completedAt), today)}`, ''];
   }
-  if (!reminder.dueDate) return '';
+  if (!reminder.dueDate) return ['', ''];
   const time = formatTime(reminder.dueTime);
-  if (!showDate) return time;
-  return time ? `${dayLabel(reminder.dueDate, today)}, ${time}` : dayLabel(reminder.dueDate, today);
+  return showDate ? [`${dayLabel(reminder.dueDate, today)}${time ? ',' : ''}`, time] : ['', time];
 }
 
-export default function ReminderRow({ reminder, subject, now, today, showDate = false, selected = false, compact = false, onToggle, onSelect }) {
+// Hover action: move a reminder without opening it.
+function RescheduleMenu({ reminder, today, onReschedule }) {
+  const options = [
+    { label: 'Today', date: today },
+    { label: 'Tomorrow', date: shiftDateStr(today, 1) },
+    { label: 'Next week', date: nextMonday(today) },
+    { label: 'No date', date: null },
+  ];
+  return (
+    <Dropdown align="end" className="sf-rem-row-action">
+      <Dropdown.Toggle as="button" type="button" className="sf-rem-icon-action" aria-label={`Reschedule "${reminder.title}"`} title="Reschedule">
+        <IconCalendar size={15} />
+      </Dropdown.Toggle>
+      <Dropdown.Menu className="sf-rem-menu">
+        {options.map(option => (
+          <Dropdown.Item key={option.label} as="button" type="button" className="sf-rem-option"
+            onClick={() => onReschedule(reminder.key, option.date)}>
+            <span className="sf-rem-option-label">{option.label}</span>
+            {option.date && <span className="sf-rem-option-hint">{new Date(`${option.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })}</span>}
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown>
+  );
+}
+
+export default function ReminderRow({ reminder, subject, now, today, showDate = false, selected = false, compact = false, onToggle, onSelect, onReschedule }) {
   const [completing, setCompleting] = useState(false);
   const overdue = isOverdue(reminder, now);
   const checklistDone = reminder.checklist.filter(item => item.done).length;
-  const when = whenLabel(reminder, showDate, today);
+  const [whenDate, whenTime] = whenParts(reminder, showDate, today);
   const checked = reminder.done || completing;
 
   // Let the check animation play before the row leaves the list.
@@ -80,7 +108,16 @@ export default function ReminderRow({ reminder, subject, now, today, showDate = 
         )}
       </button>
 
-      {when && <span className={`sf-rem-when${overdue ? ' is-overdue' : ''}`}>{when}</span>}
+      <span className="sf-rem-row-end">
+        {onReschedule && !reminder.done && <RescheduleMenu reminder={reminder} today={today} onReschedule={onReschedule} />}
+        {(whenDate || whenTime) && (
+          <span className={`sf-rem-when${overdue ? ' is-overdue' : ''}`}>
+            {whenDate && <span className="text-nowrap">{whenDate}</span>}
+            {whenDate && whenTime && ' '}
+            {whenTime && <span className="text-nowrap">{whenTime}</span>}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

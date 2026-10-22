@@ -1,17 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Form, Button } from 'react-bootstrap';
-import { PRIORITIES, REPEATS, subjectRefId } from '../utils/reminders';
-import { localDateString, shiftDateStr } from '../utils/sessions';
-import { IconCheck, IconClose, IconTrash, IconCalendar, IconClock, IconRepeat, IconList, IconNote } from './ReminderIcons';
+import { Button } from 'react-bootstrap';
+import ReminderPills from './ReminderPills';
+import { IconCheck, IconClose, IconTrash, IconList, IconNote } from './ReminderIcons';
 
-const REPEAT_LABELS = { none: 'Never', daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week', monthly: 'Every month' };
-const PRIORITY_LABELS = { none: 'None', low: 'Low', medium: 'Medium', high: 'High' };
 const NOTE_SAVE_DELAY_MS = 700;
-
-function nextMonday(today) {
-  const day = new Date(`${today}T00:00:00`).getDay();
-  return shiftDateStr(today, ((8 - day) % 7) || 7);
-}
 
 function newItemId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -19,7 +11,6 @@ function newItemId() {
 
 // Mount with key={reminder.key} so local text state resets per reminder.
 export default function ReminderEditor({ reminder, subjects, onUpdate, onToggle, onDelete, onClose }) {
-  const today = localDateString();
   const [title, setTitle] = useState(reminder.title);
   const [note, setNote] = useState(reminder.note);
   const [newItem, setNewItem] = useState('');
@@ -37,12 +28,6 @@ export default function ReminderEditor({ reminder, subjects, onUpdate, onToggle,
     else if (trimmed !== reminder.title) onUpdate({ title: trimmed });
   }
 
-  function setDate(dueDate) {
-    onUpdate(dueDate
-      ? { dueDate, snoozedUntil: null }
-      : { dueDate: null, dueTime: null, repeat: 'none', snoozedUntil: null });
-  }
-
   function updateItem(id, changes) {
     onUpdate({ checklist: reminder.checklist.map(item => (item.id === id ? { ...item, ...changes } : item)) });
   }
@@ -55,11 +40,6 @@ export default function ReminderEditor({ reminder, subjects, onUpdate, onToggle,
     setNewItem('');
   }
 
-  const quickDates = [
-    { label: 'Today', value: today },
-    { label: 'Tomorrow', value: shiftDateStr(today, 1) },
-    { label: 'Next week', value: nextMonday(today) },
-  ];
   const doneCount = reminder.checklist.filter(item => item.done).length;
 
   return (
@@ -90,65 +70,9 @@ export default function ReminderEditor({ reminder, subjects, onUpdate, onToggle,
         </button>
       </div>
 
-      <section className="sf-rem-field" aria-labelledby="rem-when-label">
-        <div className="sf-rem-field-label" id="rem-when-label"><IconCalendar size={14} /> When</div>
-        <div className="sf-rem-chips">
-          {quickDates.map(option => (
-            <button key={option.label} type="button"
-              className={`sf-rem-chip${reminder.dueDate === option.value ? ' is-active' : ''}`}
-              aria-pressed={reminder.dueDate === option.value}
-              onClick={() => setDate(option.value)}>
-              {option.label}
-            </button>
-          ))}
-          <button type="button" className={`sf-rem-chip${!reminder.dueDate ? ' is-active' : ''}`}
-            aria-pressed={!reminder.dueDate} onClick={() => setDate(null)}>
-            No date
-          </button>
-        </div>
-        <div className="sf-rem-inline">
-          <Form.Control type="date" size="sm" value={reminder.dueDate || ''} aria-label="Due date"
-            onChange={event => setDate(event.target.value || null)} />
-          <div className="sf-rem-time">
-            <IconClock size={14} />
-            <Form.Control type="time" size="sm" value={reminder.dueTime || ''} aria-label="Due time"
-              disabled={!reminder.dueDate}
-              onChange={event => onUpdate({ dueTime: event.target.value || null, snoozedUntil: null })} />
-          </div>
-        </div>
-      </section>
-
-      <div className="sf-rem-grid">
-        <section className="sf-rem-field">
-          <label className="sf-rem-field-label" htmlFor="rem-repeat"><IconRepeat size={14} /> Repeat</label>
-          <Form.Select id="rem-repeat" size="sm" value={reminder.repeat} disabled={!reminder.dueDate}
-            onChange={event => onUpdate({ repeat: event.target.value })}>
-            {REPEATS.map(value => <option key={value} value={value}>{REPEAT_LABELS[value]}</option>)}
-          </Form.Select>
-        </section>
-        <section className="sf-rem-field">
-          <label className="sf-rem-field-label" htmlFor="rem-subject">Subject</label>
-          <Form.Select id="rem-subject" size="sm" value={reminder.subjectId || ''}
-            onChange={event => onUpdate({ subjectId: event.target.value || null })}>
-            <option value="">No subject</option>
-            {subjects.map(subject => (
-              <option key={subjectRefId(subject)} value={subjectRefId(subject)}>{subject.name}</option>
-            ))}
-          </Form.Select>
-        </section>
-      </div>
-
-      <section className="sf-rem-field" aria-labelledby="rem-priority-label">
-        <div className="sf-rem-field-label" id="rem-priority-label">Priority</div>
-        <div className="btn-group w-100" role="radiogroup" aria-labelledby="rem-priority-label">
-          {PRIORITIES.map(value => (
-            <button key={value} type="button" role="radio" aria-checked={reminder.priority === value}
-              className={`btn btn-sm ${reminder.priority === value ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => onUpdate({ priority: value })}>
-              {PRIORITY_LABELS[value]}
-            </button>
-          ))}
-        </div>
+      <section className="sf-rem-field" aria-label="Details">
+        <ReminderPills value={reminder} subjects={subjects}
+          onChange={changes => onUpdate(changes.dueDate !== undefined || changes.dueTime !== undefined ? { ...changes, snoozedUntil: null } : changes)} />
       </section>
 
       <section className="sf-rem-field" aria-labelledby="rem-checklist-label">

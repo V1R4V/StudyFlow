@@ -41,7 +41,7 @@ function tomorrowMorning() {
 }
 
 export default function ReminderAlerts() {
-  const { reminders, toggleDone, snooze, undo, clearUndo } = useReminders();
+  const { reminders, toggleDone, snooze, notice, clearNotice } = useReminders();
   const navigate = useNavigate();
   const [tick, setTick] = useState(Date.now);
   const [dismissed, setDismissed] = useState(() => readIds(DISMISSED_KEY));
@@ -130,14 +130,16 @@ export default function ReminderAlerts() {
         </Toast>
       ))}
 
-      {undo && (
-        <Toast key={undo.id} onClose={clearUndo} autohide delay={5000} className="sf-rem-toast sf-rem-undo">
+      {notice && (
+        <Toast key={notice.id} onClose={clearNotice} autohide delay={5000} className="sf-rem-toast sf-rem-notice">
           <Toast.Body className="d-flex align-items-center gap-3">
             <span className="flex-grow-1 min-w-0">
-              <strong className="d-block">{undo.message}</strong>
-              <span className="small text-muted text-truncate d-block">{undo.title}</span>
+              <strong className="d-block">{notice.message}</strong>
+              <span className="small text-muted text-truncate d-block">{notice.title}</span>
             </span>
-            <Button size="sm" variant="outline-primary" onClick={() => { undo.revert(); clearUndo(); }}>Undo</Button>
+            {notice.actionLabel && (
+              <Button size="sm" variant="outline-primary" onClick={() => { notice.action(); clearNotice(); }}>{notice.actionLabel}</Button>
+            )}
           </Toast.Body>
         </Toast>
       )}

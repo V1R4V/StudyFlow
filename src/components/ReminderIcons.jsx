@@ -26,3 +26,5 @@ export const IconCalendar = props => (
   <Svg {...props}><rect x="3.5" y="4.5" width="13" height="12" rx="2" /><path d="M3.5 8.5h13M7 3v3M13 3v3" /></Svg>
 );
 export const IconClock = props => <Svg {...props}><circle cx="10" cy="10" r="6.5" /><path d="M10 6.5V10l2.2 2.2" /></Svg>;
+export const IconFilter = props => <Svg {...props}><path d="M3.5 5h13M6 10h8M8.5 15h3" /></Svg>;
+export const IconArrowRight = props => <Svg {...props}><path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5" /></Svg>;

@@ -6,6 +6,12 @@ import { localDateString, shiftDateStr } from './sessions.js';
 export const PRIORITIES = ['none', 'low', 'medium', 'high'];
 export const REPEATS = ['none', 'daily', 'weekdays', 'weekly', 'monthly'];
 const PRIORITY_RANK = { none: 0, low: 1, medium: 2, high: 3 };
+export const PRIORITY_OPTIONS = [
+  { value: 'high', label: 'High', mark: '!!!' },
+  { value: 'medium', label: 'Medium', mark: '!!' },
+  { value: 'low', label: 'Low', mark: '!' },
+  { value: 'none', label: 'No priority', mark: '' },
+];
 
 // All-day reminders still need a moment to alert at.
 export const ALL_DAY_ALERT_TIME = '09:00';
@@ -155,4 +161,10 @@ export function subjectForReminder(subjects, reminder) {
 
 export function subjectRefId(subject) {
   return subject ? String(subject.firestoreId ?? subject.id) : null;
+}
+
+// The Monday after today ("next week").
+export function nextMonday(today = localDateString()) {
+  const day = new Date(`${today}T00:00:00`).getDay();
+  return shiftDateStr(today, ((8 - day) % 7) || 7);
 }

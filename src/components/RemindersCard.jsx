@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Card, Button } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import ReminderRow from './ReminderRow';
-import ReminderQuickAdd from './ReminderQuickAdd';
+import ReminderComposer from './ReminderComposer';
 import { IconBell } from './ReminderIcons';
 import { useReminders } from '../context/RemindersContext';
 import { useStudyData } from '../context/StudyDataContext';
@@ -11,7 +12,8 @@ import { localDateString } from '../utils/sessions';
 const MAX_ROWS = 6;
 
 export default function RemindersCard({ selectedDate }) {
-  const { reminders, now, addReminder, toggleDone } = useReminders();
+  const { reminders, now, addReminder, toggleDone, notify } = useReminders();
+  const [composerOpen, setComposerOpen] = useState(false);
   const { subjects } = useStudyData();
   const navigate = useNavigate();
   const today = localDateString(now);
@@ -37,7 +39,23 @@ export default function RemindersCard({ selectedDate }) {
 
         {isToday && (
           <div className="mt-3">
-            <ReminderQuickAdd onAdd={title => addReminder({ title, dueDate: today })} placeholder="Add for today" />
+            <ReminderComposer
+              compact
+              open={composerOpen}
+              onOpenChange={setComposerOpen}
+              subjects={subjects}
+              defaults={{ dueDate: today }}
+              onAdd={async fields => {
+                const key = await addReminder(fields);
+                if (key) {
+                  notify({
+                    message: `Added to ${fields.dueDate ? dayLabel(fields.dueDate, today) : 'Anytime'}`,
+                    title: fields.title, actionLabel: 'Open',
+                    action: () => navigate(`/app/reminders?r=${encodeURIComponent(key)}`),
+                  });
+                }
+              }}
+            />
           </div>
         )}
 
