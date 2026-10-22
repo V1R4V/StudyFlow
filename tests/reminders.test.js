@@ -113,10 +113,10 @@ test('matchesSearch looks at title, note, and checklist', () => {
 });
 
 test('formatTime renders 12-hour clock', () => {
-  assert.equal(formatTime('00:05'), '12:05 AM');
-  assert.equal(formatTime('09:00'), '9:00 AM');
-  assert.equal(formatTime('12:30'), '12:30 PM');
-  assert.equal(formatTime('23:45'), '11:45 PM');
+  assert.equal(formatTime('00:05', 'en-US'), '12:05 AM');
+  assert.equal(formatTime('09:00', 'en-US'), '9:00 AM');
+  assert.equal(formatTime('12:30', 'en-US'), '12:30 PM');
+  assert.equal(formatTime('23:45', 'en-US'), '11:45 PM');
   assert.equal(formatTime(null), '');
 });
 
@@ -125,4 +125,32 @@ test('nextAlertAt prefers a future snooze over the due time', () => {
   assert.equal(nextAlertAt(item), at('2026-10-22', '09:00'));
   assert.equal(nextAlertAt({ ...item, snoozedUntil: at('2026-10-22', '10:00') }), at('2026-10-22', '10:00'));
   assert.equal(nextAlertAt(r()), null);
+});
+
+test('wall-clock times survive a daylight-saving change in any zone', () => {
+  // US clocks fall back on Sun Nov 1 2026; other zones are unaffected.
+  assert.equal(advanceRepeat('2026-10-31', 'daily', '2026-10-31'), '2026-11-01');
+  assert.equal(advanceRepeat('2026-11-01', 'daily', '2026-11-01'), '2026-11-02');
+  const sunday = { dueDate: '2026-11-01', dueTime: '09:00' };
+  assert.equal(new Date(dueAtMs(sunday)).getHours(), 9);
+  assert.equal(new Date(dueAtMs(sunday)).getDate(), 1);
+});
+
+test('formatTime can follow the viewer’s locale', () => {
+  assert.equal(formatTime('15:00', 'en-US'), '3:00 PM');
+  assert.equal(formatTime('15:00', 'en-GB'), '15:00');
+});
+
+test('groupForView all: overdue, each day, then undated', () => {
+  const list = [
+    r({ id: 'nodate' }),
+    r({ id: 'fri', dueDate: '2026-10-23' }),
+    r({ id: 'late', dueDate: '2026-10-20' }),
+    r({ id: 'today', dueDate: '2026-10-22' }),
+    r({ id: 'done', dueDate: '2026-10-22', done: true }),
+  ];
+  const groups = groupForView('all', list, '2026-10-22');
+  assert.deepEqual(groups.map(g => g.key), ['overdue', '2026-10-22', '2026-10-23', 'nodate']);
+  assert.deepEqual(groups.map(g => g.items.map(i => i.id)), [['late'], ['today'], ['fri'], ['nodate']]);
+  assert.equal(groups[3].label, 'No date');
 });

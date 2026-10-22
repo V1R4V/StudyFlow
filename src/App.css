@@ -4594,8 +4594,8 @@
     font-size: 0.8rem;
   }
 
-  /* Keep only Today's count (it carries the overdue signal) on phones. */
-  .sf-rem-view:not(:first-child) .sf-rem-count {
+  /* Keep only the red overdue badge on phones. */
+  .sf-rem-view .sf-rem-count:not(.is-alert) {
     display: none;
   }
 
@@ -4604,4 +4604,59 @@
     white-space: normal;
     text-align: right;
   }
+}
+
+/* Sub-note: first line of a reminder's note, under its title. */
+.sf-rem-subnote {
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 0.83rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sf-rem-icon-action.is-danger:hover {
+  background: var(--danger-tint);
+  color: var(--danger-text);
+}
+
+.sf-rem-custom {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  padding: 0.25rem 0.35rem 0.35rem;
+}
+
+.sf-rem-custom label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sf-rem-custom input {
+  width: 100%;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--surface-quiet);
+  color: var(--text-dark);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.sf-rem-custom input:focus {
+  border-color: var(--primary);
+}
+
+.sf-rem-suggest-empty {
+  padding: 0.55rem 0.7rem;
+  color: var(--muted-strong);
+  font-size: 0.82rem;
 }

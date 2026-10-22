@@ -42,6 +42,7 @@ function calendarDate(today, month, day) {
 }
 
 function to24h(hour, minute, meridiem) {
+  if (Number(hour) < 1 || Number(hour) > 12) return null;
   let h = Number(hour) % 12;
   if (meridiem.toLowerCase() === 'pm') h += 12;
   return h <= 23 && Number(minute) <= 59 ? `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}` : null;
@@ -82,9 +83,10 @@ function rules(today, { looseWeekdays }) {
     { kind: 'date', re: new RegExp(looseWeekdays ? `\\b${SHORT_DAYS}\\b` : `\\b(?:on|by|due|next|this)\\s+${SHORT_DAYS}\\b`, 'gi'),
       read: m => ({ dueDate: onOrAfter(today, weekdayIndex(m[1])) }) },
 
-    { kind: 'time', re: /(?:\bat\s+)?\b(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/gi,
+    // The lookbehind stops "3.30pm" from being read as "30pm".
+    { kind: 'time', re: /(?:\bat\s+)?(?<![\d.:])(\d{1,2})(?:[:.]([0-5]\d))?\s*(am|pm)\b/gi,
       read: m => ({ dueTime: to24h(m[1], m[2] || 0, m[3]) }) },
-    { kind: 'time', re: /(?:\bat\s+)?\b([01]?\d|2[0-3]):([0-5]\d)\b/g,
+    { kind: 'time', re: /(?:\bat\s+)?(?<![\d.:])([01]?\d|2[0-3]):([0-5]\d)\b/g,
       read: m => ({ dueTime: `${m[1].padStart(2, '0')}:${m[2]}` }) },
     { kind: 'time', re: /(?:\bat\s+)?\b(?:noon|midday)\b/gi, read: () => ({ dueTime: '12:00' }) },
     // "at 7" without am/pm: small numbers mean the evening.
@@ -108,7 +110,13 @@ function rules(today, { looseWeekdays }) {
   ];
 }
 
-const normalize = value => String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+// Case-, accent-, space- and punctuation-insensitive, and Unicode-aware, so
+// "#mathematiques" finds "Mathématiques" and non-Latin names still match.
+const normalize = value => String(value)
+  .toLowerCase()
+  .normalize('NFKD')
+  .replace(/\p{M}/gu, '')
+  .replace(/[^\p{L}\p{N}]/gu, '');
 
 // Exact match first, then a prefix shared by exactly one subject.
 export function matchSubject(subjects, query) {

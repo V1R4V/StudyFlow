@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Dropdown } from 'react-bootstrap';
 import { dayLabel, formatTime, subjectRefId, subjectForReminder, nextMonday, PRIORITY_OPTIONS } from '../utils/reminders';
 import { parseDatePhrase } from '../utils/reminderParse';
@@ -16,10 +16,19 @@ const TIME_PRESETS = ['09:00', '12:00', '15:00', '18:00', '21:00'];
 
 const weekdayShort = date => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' });
 
-function openPicker(input) {
-  if (!input) return;
-  if (typeof input.showPicker === 'function') input.showPicker();
-  else input.focus();
+// A native date/time field with a Set button. Nothing is applied until the
+// value is complete, so typing "0" "3" into a time never saves 03:03 early.
+function CustomField({ label, type, initial, onSet }) {
+  const [draft, setDraft] = useState(initial || '');
+  return (
+    <form className="sf-rem-custom" onSubmit={event => { event.preventDefault(); if (draft) onSet(draft); }}>
+      <label>
+        <span>{label}</span>
+        <input type={type} value={draft} onChange={event => setDraft(event.target.value)} aria-label={label} />
+      </label>
+      <button type="submit" className="btn btn-sm btn-primary" disabled={!draft}>Set</button>
+    </form>
+  );
 }
 
 // A property pill: ghost when unset, filled with an × to clear when set.
@@ -54,9 +63,8 @@ function Option({ selected, onPick, children, hint }) {
   );
 }
 
-function DateMenu({ value, onChange, close }) {
+export function DateMenu({ value, onChange, close }) {
   const [text, setText] = useState('');
-  const inputRef = useRef(null);
   const today = localDateString();
   const suggestion = parseDatePhrase(text);
   const pick = changes => { onChange(changes); close(); };
@@ -86,17 +94,14 @@ function DateMenu({ value, onChange, close }) {
           ))}
           <Option selected={!value.dueDate} onPick={() => pick({ dueDate: null, dueTime: null, repeat: 'none' })}>No date</Option>
           <div className="sf-rem-menu-divider" />
-          <Option selected={false} onPick={() => openPicker(inputRef.current)}>Pick from calendar…</Option>
-          <input ref={inputRef} type="date" className="sf-rem-hidden-input" tabIndex={-1} aria-hidden="true"
-            value={value.dueDate || ''} onChange={event => event.target.value && pick({ dueDate: event.target.value })} />
+          <CustomField label="Custom date" type="date" initial={value.dueDate} onSet={dueDate => pick({ dueDate })} />
         </>
       )}
     </>
   );
 }
 
-function TimeMenu({ value, onChange, close }) {
-  const inputRef = useRef(null);
+export function TimeMenu({ value, onChange, close }) {
   const pick = changes => { onChange(changes); close(); };
   return (
     <>
@@ -105,9 +110,7 @@ function TimeMenu({ value, onChange, close }) {
         <Option key={time} selected={value.dueTime === time} onPick={() => pick({ dueTime: time })}>{formatTime(time)}</Option>
       ))}
       <div className="sf-rem-menu-divider" />
-      <Option selected={false} onPick={() => openPicker(inputRef.current)}>Other time…</Option>
-      <input ref={inputRef} type="time" className="sf-rem-hidden-input" tabIndex={-1} aria-hidden="true"
-        value={value.dueTime || ''} onChange={event => event.target.value && pick({ dueTime: event.target.value })} />
+      <CustomField label="Custom time" type="time" initial={value.dueTime} onSet={dueTime => pick({ dueTime })} />
     </>
   );
 }

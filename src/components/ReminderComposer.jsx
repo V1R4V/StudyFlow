@@ -188,6 +188,11 @@ export default function ReminderComposer({ open, onOpenChange, onAdd, subjects, 
             ))}
           </div>
         )}
+        {hash?.query && suggestions.length === 0 && (
+          <div className="sf-rem-suggest sf-rem-suggest-empty" role="status">
+            No subject matches “#{hash.query}”, so it stays in the title.
+          </div>
+        )}
       </div>
 
       {!compact && (

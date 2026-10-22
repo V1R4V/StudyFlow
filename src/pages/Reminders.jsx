@@ -7,20 +7,21 @@ import ReminderEditor from '../components/ReminderEditor';
 import { IconBell, IconSearch, IconPlus, IconFilter, IconClose, IconCheck, IconArrowRight } from '../components/ReminderIcons';
 import { useReminders } from '../context/RemindersContext';
 import { useStudyData } from '../context/StudyDataContext';
-import { groupForView, matchesSearch, subjectForReminder, subjectRefId, dayLabel, PRIORITY_OPTIONS } from '../utils/reminders';
+import { groupForView, matchesSearch, subjectForReminder, subjectRefId, dayLabel, formatTime, PRIORITY_OPTIONS } from '../utils/reminders';
 import { localDateString } from '../utils/sessions';
 
 const VIEWS = [
+  { key: 'all', label: 'All' },
   { key: 'today', label: 'Today' },
   { key: 'scheduled', label: 'Scheduled' },
-  { key: 'anytime', label: 'Anytime' },
   { key: 'completed', label: 'Completed' },
 ];
+const DEFAULT_VIEW = 'all';
 
 const EMPTY = {
+  all: ['Nothing to remember yet', 'Add one above. Dates are optional; undated reminders collect under “No date”.'],
   today: ['Nothing due today', 'Enjoy the clear runway, or plan ahead in Scheduled.'],
   scheduled: ['Nothing scheduled', 'Give a reminder a date and it lands here, grouped by day.'],
-  anytime: ['No undated reminders', 'Notes and someday ideas live here: anything without a date.'],
   completed: ['Nothing completed yet', 'Checked-off reminders collect here.'],
 };
 
@@ -122,7 +123,7 @@ export default function Reminders() {
   const docked = useMediaQuery('(min-width: 1200px)');
   const phone = useMediaQuery('(max-width: 767px)');
 
-  const view = VIEWS.some(v => v.key === params.get('view')) ? params.get('view') : 'today';
+  const view = VIEWS.some(v => v.key === params.get('view')) ? params.get('view') : DEFAULT_VIEW;
   const selectedKey = params.get('r');
   const today = localDateString(now);
 
@@ -173,9 +174,9 @@ export default function Reminders() {
   const overdue = reminders.filter(r => r.dueDate && r.dueDate < today);
   const dueToday = reminders.filter(r => r.dueDate === today).length;
   const counts = {
+    all: reminders.length,
     today: overdue.length + dueToday,
     scheduled: reminders.filter(r => r.dueDate).length,
-    anytime: reminders.filter(r => !r.dueDate).length,
   };
   const summary = reminders.length === 0
     ? 'All clear. Capture anything you need to remember.'
@@ -194,26 +195,23 @@ export default function Reminders() {
     const key = await addReminder(fields);
     if (!key) return;
     notify({
-      message: `Added to ${fields.dueDate ? dayLabel(fields.dueDate, today) : 'Anytime'}`,
+      message: `Added to ${fields.dueDate ? dayLabel(fields.dueDate, today) : 'No date'}`,
       title: fields.title,
       actionLabel: 'Open',
       action: () => setParam('r', key),
     });
   }
 
-  async function handleReschedule(key, dueDate) {
+  // Date/time changes from a row's hover menus, with undo.
+  async function handleSchedule(key, changes) {
     const current = reminders.find(r => r.key === key);
     if (!current) return;
     const previous = { dueDate: current.dueDate, dueTime: current.dueTime, repeat: current.repeat, snoozedUntil: current.snoozedUntil };
-    await updateReminder(key, dueDate
-      ? { dueDate, snoozedUntil: null }
-      : { dueDate: null, dueTime: null, repeat: 'none', snoozedUntil: null });
-    notify({
-      message: `Moved to ${dueDate ? dayLabel(dueDate, today) : 'Anytime'}`,
-      title: current.title,
-      actionLabel: 'Undo',
-      action: () => updateReminder(key, previous),
-    });
+    await updateReminder(key, { ...changes, snoozedUntil: null });
+    const message = 'dueDate' in changes
+      ? `Moved to ${changes.dueDate ? dayLabel(changes.dueDate, today) : 'No date'}`
+      : `Time set to ${changes.dueTime ? formatTime(changes.dueTime) : 'all day'}`;
+    notify({ message, title: current.title, actionLabel: 'Undo', action: () => updateReminder(key, previous) });
   }
 
   async function moveOverdueToToday() {
@@ -256,12 +254,8 @@ export default function Reminders() {
 
   const filtering = Boolean(search || filters.subjectId || filters.priority);
   const [emptyTitle, emptyBody] = filtering ? ['No matches', 'Try a different search or filter.'] : EMPTY[view];
-  const exampleSubject = subjects[0] ? ` #${subjects[0].name.replace(/\s+/g, '')}` : '';
-  const examples = [
-    `Quiz review tomorrow 3pm${exampleSubject} !!`,
-    'Submit internship form fri 9am',
-    'Call home every sunday 7pm',
-  ];
+  const exampleSubject = subjects[0] ? ` #${subjects[0].name.replace(/[^\p{L}\p{N}]/gu, '')}` : '';
+  const example = `Review notes tomorrow 3pm${exampleSubject} !!`;
 
   return (
     <Container fluid className="sf-page sf-reminders-page">
@@ -294,7 +288,7 @@ export default function Reminders() {
           {VIEWS.map(v => (
             <button key={v.key} type="button" role="tab" aria-selected={view === v.key}
               className={`btn btn-sm sf-rem-view ${view === v.key ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => setParam('view', v.key === 'today' ? null : v.key)}>
+              onClick={() => setParam('view', v.key === DEFAULT_VIEW ? null : v.key)}>
               {v.label}
               {counts[v.key] > 0 && (
                 <span className={`sf-rem-count${v.key === 'today' && overdue.length > 0 ? ' is-alert' : ''}`}>{counts[v.key]}</span>
@@ -325,7 +319,7 @@ export default function Reminders() {
               onOpenChange={setComposerOpen}
               onAdd={handleAdd}
               subjects={subjects}
-              defaults={{ dueDate: view === 'anytime' ? null : today, subjectId: filters.subjectId, priority: filters.priority || 'none' }}
+              defaults={{ dueDate: view === 'today' || view === 'scheduled' ? today : null, subjectId: filters.subjectId, priority: filters.priority || 'none' }}
               shortcut="N"
               seed={seed}
             />
@@ -340,12 +334,10 @@ export default function Reminders() {
               <p className="sf-rem-empty-body">{emptyBody}</p>
               {reminders.length === 0 && !filtering && view !== 'completed' && (
                 <div className="sf-rem-examples">
-                  <span className="sf-rem-examples-label">Type naturally — try one:</span>
-                  {examples.map(example => (
-                    <button key={example} type="button" className="sf-rem-example" onClick={() => startFromExample(example)}>
-                      {example} <IconArrowRight size={13} />
-                    </button>
-                  ))}
+                  <span className="sf-rem-examples-label">Type it naturally, like:</span>
+                  <button type="button" className="sf-rem-example" onClick={() => startFromExample(example)}>
+                    {example} <IconArrowRight size={13} />
+                  </button>
                 </div>
               )}
             </div>
@@ -369,7 +361,8 @@ export default function Reminders() {
                   selected={reminder.key === selectedKey}
                   onToggle={toggleDone}
                   onSelect={key => setParam('r', key === selectedKey ? null : key)}
-                  onReschedule={handleReschedule}
+                  onSchedule={handleSchedule}
+                  onDelete={handleDelete}
                 />
               ))}
             </section>

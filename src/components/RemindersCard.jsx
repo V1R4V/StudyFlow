@@ -49,7 +49,7 @@ export default function RemindersCard({ selectedDate }) {
                 const key = await addReminder(fields);
                 if (key) {
                   notify({
-                    message: `Added to ${fields.dueDate ? dayLabel(fields.dueDate, today) : 'Anytime'}`,
+                    message: `Added to ${fields.dueDate ? dayLabel(fields.dueDate, today) : 'No date'}`,
                     title: fields.title, actionLabel: 'Open',
                     action: () => navigate(`/app/reminders?r=${encodeURIComponent(key)}`),
                   });

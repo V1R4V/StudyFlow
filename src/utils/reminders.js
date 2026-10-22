@@ -81,10 +81,14 @@ export function dayLabel(dateStr, today = localDateString()) {
   });
 }
 
-export function formatTime(hhmm) {
+// Shown in the viewer's own clock style: "3:00 PM" in the US, "15:00" in
+// the UK, "3:00 pm" in India. `locale` is only passed by tests.
+export function formatTime(hhmm, locale) {
   if (!hhmm) return '';
   const [h, m] = hhmm.split(':').map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  return new Date(2000, 0, 1, h, m)
+    .toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
+    .replace(/\u202f/g, ' ');
 }
 
 // Returns [{ key, label, items }] sections for a view. Empty sections are
@@ -98,11 +102,10 @@ export function groupForView(view, reminders, today = localDateString()) {
   }
 
   const active = list.filter(r => !r.done);
+  const undated = active.filter(r => !r.dueDate).sort(compareReminders);
+  const undatedGroup = undated.length ? [{ key: 'nodate', label: 'No date', items: undated }] : [];
 
-  if (view === 'anytime') {
-    const items = active.filter(r => !r.dueDate).sort(compareReminders);
-    return items.length ? [{ key: 'anytime', label: 'No date', items }] : [];
-  }
+  if (view === 'anytime') return undatedGroup;
 
   const dated = active.filter(r => r.dueDate).sort(compareReminders);
   const overdue = dated.filter(r => r.dueDate < today);
@@ -117,7 +120,8 @@ export function groupForView(view, reminders, today = localDateString()) {
     if (last?.key === reminder.dueDate) last.items.push(reminder);
     else groups.push({ key: reminder.dueDate, label: dayLabel(reminder.dueDate, today), items: [reminder] });
   });
-  return groups;
+  // "all": everything open, dated days first, undated last.
+  return view === 'all' ? [...groups, ...undatedGroup] : groups;
 }
 
 export function badgeCount(reminders, now = Date.now()) {

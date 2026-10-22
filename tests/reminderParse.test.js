@@ -107,3 +107,37 @@ test('skipKinds leaves those words in the title', () => {
   assert.equal(r.title, 'Plan trip tomorrow');
   assert.deepEqual(r.fields, { priority: 'medium' });
 });
+
+test('#subject works with any user’s subject names', () => {
+  const theirs = [
+    { id: 1, firestoreId: 'ds', name: 'Data Structures' },
+    { id: 2, firestoreId: 'dsc', name: 'Data Science' },
+    { id: 3, firestoreId: 'math', name: 'Mathématiques' },
+    { id: 4, firestoreId: 'hindi', name: 'हिंदी' },
+    { id: 5, firestoreId: 'react', name: 'React|OOPS|AppliedAI (skill building)' },
+    { id: 6, firestoreId: 'algo', name: 'algo_2' },
+  ];
+  const p = text => parseQuickAdd(text, { now, subjects: theirs });
+  assert.equal(p('Trees #datastructures').fields.subjectId, 'ds');
+  assert.equal(p('Trees #datastruct').fields.subjectId, 'ds');
+  assert.equal(p('Trees #DataStructures').fields.subjectId, 'ds');
+  assert.equal(p('Ambiguous #data').fields.subjectId, undefined);
+  assert.equal(p('Ambiguous #data').title, 'Ambiguous #data');
+  assert.equal(p('Proofs #mathematiques').fields.subjectId, 'math');
+  assert.equal(p('Proofs #mathé').fields.subjectId, 'math');
+  assert.equal(p('Essay #हिंदी').fields.subjectId, 'hindi');
+  assert.equal(p('Hooks #react').fields.subjectId, 'react');
+  assert.equal(p('DP #algo2').fields.subjectId, 'algo');
+  assert.equal(p('Fix issue #42').title, 'Fix issue #42');
+  assert.equal(parseQuickAdd('Trees #dsa', { now, subjects: [] }).title, 'Trees #dsa');
+});
+
+test('more ways of writing a time', () => {
+  assert.equal(parse('Call 3 pm').fields.dueTime, '15:00');
+  assert.equal(parse('Call 3PM').fields.dueTime, '15:00');
+  assert.equal(parse('Call 3.30pm').fields.dueTime, '15:30');
+  assert.equal(parse('Call 12am tomorrow').fields.dueTime, '00:00');
+  assert.equal(parse('Call 12pm').fields.dueTime, '12:00');
+  assert.equal(parse('Call 23:15').fields.dueTime, '23:15');
+  assert.equal(parse('Room 4 at 25').fields.dueTime, undefined);
+});
