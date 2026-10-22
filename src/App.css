@@ -3284,3 +3284,675 @@
   outline: 2px solid var(--primary);
   outline-offset: -2px;
 }
+
+/* --------------------------------------------------------------------------
+   Reminders (page, dashboard card, alerts)
+   -------------------------------------------------------------------------- */
+
+.sf-nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sf-rem-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--muted-strong);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sf-rem-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.sf-rem-search input {
+  width: 220px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+}
+
+.sf-rem-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sf-rem-views {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.sf-rem-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  padding-inline: 0.95rem;
+}
+
+.sf-rem-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-rem-count.is-alert {
+  background: var(--danger);
+  color: #fff;
+}
+
+.sf-rem-subjects,
+.sf-rem-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.sf-rem-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.sf-rem-chip:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  color: var(--text-dark);
+}
+
+.sf-rem-chip.is-active {
+  background: var(--primary-tint-strong);
+  border-color: var(--card-border-strong);
+  color: var(--primary);
+}
+
+.sf-rem-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.sf-rem-layout {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+.sf-rem-layout.is-docked {
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+.sf-rem-list-card .card-body {
+  min-height: 440px;
+  padding: 1rem 1.1rem !important;
+}
+
+.sf-rem-detail-card {
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
+.sf-rem-detail-card .card-body {
+  padding: 1.25rem !important;
+}
+
+/* Quick add */
+
+.sf-rem-quickadd {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px dashed var(--control-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-quiet);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.sf-rem-quickadd:focus-within {
+  border-style: solid;
+  border-color: var(--primary);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.sf-rem-quickadd-icon {
+  display: inline-flex;
+  color: var(--primary);
+}
+
+.sf-rem-quickadd input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.95rem;
+}
+
+.sf-rem-quickadd input::placeholder {
+  color: var(--muted-strong);
+}
+
+.sf-rem-quickadd-hint {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  color: var(--muted-strong);
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.sf-rem-quickadd:focus-within .sf-rem-quickadd-hint {
+  opacity: 1;
+}
+
+/* Groups + rows */
+
+.sf-rem-group + .sf-rem-group {
+  margin-top: 1rem;
+}
+
+.sf-rem-group-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0.35rem 0.6rem 0.3rem;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sf-rem-group-label span {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.sf-rem-group-label.is-overdue {
+  color: var(--danger-text);
+}
+
+.sf-rem-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, opacity 0.3s ease;
+}
+
+.sf-rem-row:hover {
+  background: var(--row-hover);
+}
+
+.sf-rem-row.is-selected {
+  background: var(--primary-tint-strong);
+  box-shadow: inset 0 0 0 1px var(--card-border-strong);
+}
+
+.sf-rem-row.is-completing {
+  opacity: 0.45;
+}
+
+.sf-rem-row.is-completing .sf-rem-title,
+.sf-rem-row.is-done .sf-rem-title {
+  color: var(--muted-strong);
+  text-decoration: line-through;
+}
+
+.sf-rem-row.is-compact {
+  padding: 0.45rem 0.25rem;
+}
+
+.sf-rem-check {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1.6px solid color-mix(in srgb, var(--muted-strong) 55%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.sf-rem-check:hover {
+  border-color: var(--primary);
+  color: color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+.sf-rem-check-low { border-color: var(--info); }
+.sf-rem-check-medium { border-color: var(--warning); }
+.sf-rem-check-high { border-color: var(--danger); }
+
+.sf-rem-check[aria-checked="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.sf-rem-check-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.sf-rem-check:focus-visible,
+.sf-rem-main:focus-visible,
+.sf-rem-chip:focus-visible,
+.sf-rem-toast-title:focus-visible,
+.sf-rem-item-remove:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.sf-rem-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sf-rem-title {
+  color: var(--text-dark);
+  font-size: 0.95rem;
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+
+.is-compact .sf-rem-title {
+  font-size: 0.9rem;
+}
+
+.sf-rem-prio {
+  margin-right: 0.35rem;
+  font-weight: 800;
+}
+
+.sf-rem-prio-low { color: var(--info-text); }
+.sf-rem-prio-medium { color: var(--warning-text); }
+.sf-rem-prio-high { color: var(--danger-text); }
+
+.sf-rem-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+}
+
+.sf-rem-meta-item,
+.sf-rem-subject {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.sf-rem-when {
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sf-rem-when.is-overdue {
+  color: var(--danger-text);
+}
+
+/* Empty states */
+
+.sf-rem-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.sf-rem-empty-compact {
+  padding: 1.5rem 0.5rem;
+}
+
+.sf-rem-detail-empty {
+  padding-top: 6rem;
+  padding-bottom: 6rem;
+}
+
+.sf-rem-empty-icon {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0.75rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--tile-border);
+  border-radius: var(--radius-lg);
+  background: var(--tile-bg);
+  color: var(--primary);
+}
+
+/* Editor */
+
+.sf-rem-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.sf-rem-editor-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.sf-rem-editor-head .sf-rem-check {
+  margin-top: 0.4rem;
+}
+
+.sf-rem-editor-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0.1rem 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.35;
+  field-sizing: content;
+  transition: box-shadow 0.16s ease;
+}
+
+.sf-rem-editor-title:focus {
+  box-shadow: 0 2px 0 var(--primary);
+}
+
+.sf-rem-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.sf-rem-field-count {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.sf-rem-chips {
+  margin-bottom: 0.5rem;
+}
+
+.sf-rem-inline,
+.sf-rem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.sf-rem-time {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted-strong);
+}
+
+.sf-rem-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0 0 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-rem-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.25rem 0.25rem;
+  border-radius: var(--radius-sm);
+}
+
+.sf-rem-checklist li:hover {
+  background: var(--row-hover);
+}
+
+.sf-rem-checklist li input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+}
+
+.sf-rem-checklist li.is-done input {
+  color: var(--muted-strong);
+  text-decoration: line-through;
+}
+
+.sf-rem-item-remove {
+  display: inline-flex;
+  padding: 0.15rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.16s ease, color 0.16s ease;
+}
+
+.sf-rem-checklist li:hover .sf-rem-item-remove,
+.sf-rem-checklist li:focus-within .sf-rem-item-remove {
+  opacity: 1;
+}
+
+.sf-rem-item-remove:hover {
+  color: var(--danger-text);
+}
+
+.sf-rem-checklist-add input {
+  width: 100%;
+  padding: 0.35rem 0.25rem 0.35rem 1.85rem;
+  border: 0;
+  border-bottom: 1px dashed var(--control-border);
+  outline: none;
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+  transition: border-color 0.16s ease;
+}
+
+.sf-rem-checklist-add input:focus {
+  border-bottom-color: var(--primary);
+}
+
+.sf-rem-note {
+  width: 100%;
+  min-height: 140px;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  resize: vertical;
+  background: var(--surface-quiet);
+  color: var(--text-dark);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sf-rem-note:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.sf-rem-editor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.sf-rem-offcanvas {
+  background: var(--bg-white);
+  color: var(--text-dark);
+}
+
+.sf-rem-offcanvas.offcanvas-end {
+  width: min(440px, 100vw);
+}
+
+.sf-rem-offcanvas.is-sheet {
+  height: auto;
+  max-height: 88vh;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+/* Alerts + undo toasts */
+
+.sf-rem-toasts {
+  z-index: 1090;
+}
+
+.sf-rem-toast {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  color: var(--text-dark);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+.sf-rem-toast .toast-header {
+  border-bottom-color: var(--line-soft);
+  background: transparent;
+  color: var(--muted-strong);
+}
+
+[data-theme="dark"] .sf-rem-toast .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.sf-rem-toast-icon {
+  display: inline-flex;
+  margin-right: 0.4rem;
+  color: var(--primary);
+}
+
+.sf-rem-toast-title {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sf-rem-toast-title:hover {
+  color: var(--primary);
+}
+
+.sf-rem-toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sf-rem-check[aria-checked="true"] {
+    animation: sf-rem-pop 0.28s ease;
+  }
+}
+
+@keyframes sf-rem-pop {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-rem-row,
+  .sf-rem-check,
+  .sf-rem-chip,
+  .sf-rem-quickadd {
+    transition: none;
+  }
+}
+
+@media (max-width: 575px) {
+  .sf-rem-search,
+  .sf-rem-search input {
+    width: 100%;
+  }
+
+  .sf-rem-grid {
+    grid-template-columns: 1fr;
+  }
+}

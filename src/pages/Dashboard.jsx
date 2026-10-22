@@ -8,6 +8,7 @@ import WeeklyTrendCard from '../components/WeeklyTrendCard';
 import RecentSessionsList from '../components/RecentSessionsList';
 import TodayPlanCard from '../components/TodayPlanCard';
 import WeeklySubjectsCard from '../components/WeeklySubjectsCard';
+import RemindersCard from '../components/RemindersCard';
 import Icon from '../components/Icon';
 import { useStudyData } from '../context/StudyDataContext';
 import { useAuthContext } from '../context/AuthContext';
@@ -130,7 +131,8 @@ export default function Dashboard() {
         <Col xl={3} md={6} className="order-3"><TodayPlanCard selectedDate={selectedDate} /></Col>
       </Row>
       <Row className="g-3 mb-4">
-        <Col><WeeklySubjectsCard weekly={weekly} /></Col>
+        <Col xl={8}><WeeklySubjectsCard weekly={weekly} /></Col>
+        <Col xl={4}><RemindersCard selectedDate={selectedDate} /></Col>
       </Row>
       <RecentSessionsList sessions={sessions} subjects={subjects} selectedDate={selectedDate} />
     </Container>

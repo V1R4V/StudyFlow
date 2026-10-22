@@ -6,6 +6,7 @@ import { TimerProvider } from './context/TimerContext';
 import { AuthProvider, useAuthContext } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { StudyDataProvider } from './context/StudyDataContext';
+import { RemindersProvider } from './context/RemindersContext';
 import Layout from './components/Layout';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -13,6 +14,7 @@ const CommandCenter = lazy(() => import('./pages/CommandCenter'));
 const Sessions = lazy(() => import('./pages/Sessions'));
 const SubjectManager = lazy(() => import('./pages/SubjectManager'));
 const Statistics = lazy(() => import('./pages/Statistics'));
+const Reminders = lazy(() => import('./pages/Reminders'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const Login = lazy(() => import('./pages/Login'));
 const Landing = lazy(() => import('./pages/Landing'));
@@ -103,6 +105,7 @@ function AppRoutes() {
           <Route path="subjects" element={<SubjectManager />} />
           <Route path="sessions" element={<Sessions />} />
           <Route path="statistics" element={<Statistics />} />
+          <Route path="reminders" element={<Reminders />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -115,15 +118,17 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <StudyDataProvider>
-          <TimerProvider>
-            <BrowserRouter>
-              <SkipLinkHandler />
-              <RouteAnalytics />
-              <AuthGate>
-                <AppRoutes />
-              </AuthGate>
-            </BrowserRouter>
-          </TimerProvider>
+          <RemindersProvider>
+            <TimerProvider>
+              <BrowserRouter>
+                <SkipLinkHandler />
+                <RouteAnalytics />
+                <AuthGate>
+                  <AppRoutes />
+                </AuthGate>
+              </BrowserRouter>
+            </TimerProvider>
+          </RemindersProvider>
         </StudyDataProvider>
       </AuthProvider>
     </ThemeProvider>

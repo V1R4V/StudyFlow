@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import EndSessionModal from './EndSessionModal';
+import ReminderAlerts from './ReminderAlerts';
 import { useTimer } from '../context/TimerContext';
 
 export default function Layout() {
@@ -12,6 +13,7 @@ export default function Layout() {
       <main id="main-content" className="sf-main" tabIndex={-1}>
         <Outlet />
       </main>
+      <ReminderAlerts />
       {pendingSession && (
         <EndSessionModal
           show={true}

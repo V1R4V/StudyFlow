@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useReminders } from '../context/RemindersContext';
+import { badgeCount } from '../utils/reminders';
 
 const IconDashboard = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -34,6 +36,13 @@ const IconStatistics = () => (
     <path d="M8 17V7" />
     <path d="M13 17V13" />
     <path d="M18 17V4" />
+  </svg>
+);
+
+const IconReminders = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 8a5 5 0 0 1 10 0c0 4.5 2 6 2 6H3s2-1.5 2-6" />
+    <path d="M8.5 17a1.75 1.75 0 0 0 3 0" />
   </svg>
 );
 
@@ -91,8 +100,9 @@ const NAV_ITEMS = {
   subjects:   { key: 'subjects',   to: '/app/subjects',   label: 'Subjects',       icon: <IconSubjects /> },
   sessions:   { key: 'sessions',   to: '/app/sessions',   label: 'Sessions',       icon: <IconSessions /> },
   statistics: { key: 'statistics', to: '/app/statistics', label: 'Statistics',     icon: <IconStatistics /> },
+  reminders:  { key: 'reminders',  to: '/app/reminders',  label: 'Reminders',      icon: <IconReminders /> },
 };
-const DEFAULT_ORDER = ['dashboard', 'command', 'subjects', 'sessions', 'statistics'];
+const DEFAULT_ORDER = ['dashboard', 'command', 'subjects', 'sessions', 'statistics', 'reminders'];
 const NAV_ORDER_KEY = 'sf-nav-order';
 
 function readNavOrder() {
@@ -111,6 +121,8 @@ function readNavOrder() {
 export default function Sidebar() {
   const { user, signOut } = useAuthContext();
   const { theme, toggleTheme } = useTheme();
+  const { reminders, now } = useReminders();
+  const dueCount = badgeCount(reminders, now);
   const navigate = useNavigate();
 
   async function handleSignOut() {
@@ -201,6 +213,9 @@ export default function Sidebar() {
                 </span>
                 <span className="sf-navlink-icon" aria-hidden="true">{item.icon}</span>
                 <span>{item.label}</span>
+                {key === 'reminders' && dueCount > 0 && (
+                  <span className="sf-nav-badge" aria-label={`${dueCount} due`}>{dueCount}</span>
+                )}
               </NavLink>
             </div>
           );

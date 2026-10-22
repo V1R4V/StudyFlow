@@ -14,6 +14,7 @@ import {
   setDoc,
   getDoc,
   writeBatch,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -563,6 +564,7 @@ export function clearLocalDataOnLogout() {
   localStorage.removeItem(BREAKS_KEY);
   localStorage.removeItem(HABITS_KEY);
   localStorage.removeItem(HABIT_LOGS_KEY);
+  localStorage.removeItem(REMINDERS_KEY);
   window.dispatchEvent(new Event('studyflow:data-changed'));
 }
 
@@ -979,3 +981,150 @@ export const deleteHabitLog = async (userId, logId) => {
     logFirebaseError('deleteHabitLog', err);
   }
 };
+
+// ============================================================================
+// Reminders
+// studyflow_v1/{userId}/reminders/{reminderId}
+// Active reminders (done == false) are streamed live; completed ones are only
+// read in pages, so history can grow without slowing every page load.
+// Times are stored as Timestamps and handed to the app as epoch ms.
+// ============================================================================
+
+const REMINDERS_KEY = 'studyflow-reminders';
+const REMINDER_PRIORITIES = new Set(['none', 'low', 'medium', 'high']);
+const REMINDER_REPEATS = new Set(['none', 'daily', 'weekdays', 'weekly', 'monthly']);
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const REMINDER_LIMITS = { TITLE_MAX: 200, NOTE_MAX: 5000, CHECKLIST_MAX: 50, ITEM_MAX: 200 };
+
+function toMillis(value) {
+  if (value == null) return null;
+  if (typeof value === 'number') return value;
+  return typeof value.toMillis === 'function' ? value.toMillis() : null;
+}
+
+function normalizeChecklist(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, REMINDER_LIMITS.CHECKLIST_MAX)
+    .map(item => ({
+      id: String(item?.id ?? ''),
+      text: trimString(item?.text, REMINDER_LIMITS.ITEM_MAX),
+      done: Boolean(item?.done),
+    }))
+    .filter(item => item.id && item.text);
+}
+
+// Returns the app-shaped reminder (ms timestamps), or null if invalid.
+export function normalizeReminder(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const title = trimString(raw.title, REMINDER_LIMITS.TITLE_MAX);
+  if (!title) return null;
+  const dueDate = typeof raw.dueDate === 'string' && DATE_RE.test(raw.dueDate) ? raw.dueDate : null;
+  const dueTime = dueDate && TIME_RE.test(raw.dueTime || '') ? raw.dueTime : null;
+  const repeat = dueDate && REMINDER_REPEATS.has(raw.repeat) ? raw.repeat : 'none';
+  const done = Boolean(raw.done);
+  const note = typeof raw.note === 'string' ? raw.note.slice(0, REMINDER_LIMITS.NOTE_MAX) : '';
+  return {
+    id: raw.id ?? Date.now(),
+    title,
+    note,
+    dueDate,
+    dueTime,
+    subjectId: raw.subjectId ? String(raw.subjectId) : null,
+    priority: REMINDER_PRIORITIES.has(raw.priority) ? raw.priority : 'none',
+    repeat,
+    checklist: normalizeChecklist(raw.checklist),
+    done,
+    completedAt: done ? toMillis(raw.completedAt) ?? Date.now() : null,
+    snoozedUntil: Number.isFinite(raw.snoozedUntil) ? raw.snoozedUntil : null,
+    createdAt: toMillis(raw.createdAt) ?? Date.now(),
+  };
+}
+
+function reminderToFirestore(safe) {
+  return {
+    ...safe,
+    completedAt: safe.completedAt ? Timestamp.fromMillis(safe.completedAt) : null,
+    createdAt: Timestamp.fromMillis(safe.createdAt),
+    updatedAt: Timestamp.now(),
+  };
+}
+
+function reminderFromDoc(d) {
+  const safe = normalizeReminder(d.data());
+  return safe ? { ...safe, firestoreId: d.id } : null;
+}
+
+function remindersRef(userId) {
+  return collection(db, 'studyflow_v1', userId, 'reminders');
+}
+
+// Lets the caller know the doc id before the write lands, so the UI can
+// select a reminder the instant it's created.
+export function createReminderId(userId) {
+  return doc(remindersRef(userId)).id;
+}
+
+export function subscribeActiveReminders(userId, onData, onError) {
+  const q = query(remindersRef(userId), where('done', '==', false));
+  return onSnapshot(
+    q,
+    snapshot => onData(snapshot.docs.map(reminderFromDoc).filter(Boolean)),
+    err => {
+      handleReadError('subscribeActiveReminders', err);
+      onError?.(err);
+    }
+  );
+}
+
+export const getCompletedReminders = async (userId, cursor = null, pageSize = 25) => {
+  try {
+    const constraints = [where('done', '==', true), orderBy('completedAt', 'desc'), limit(pageSize)];
+    if (cursor) constraints.push(startAfter(cursor));
+    const snapshot = await getDocs(query(remindersRef(userId), ...constraints));
+    return {
+      items: snapshot.docs.map(reminderFromDoc).filter(Boolean),
+      cursor: snapshot.docs[snapshot.docs.length - 1] || null,
+      hasMore: snapshot.docs.length === pageSize,
+    };
+  } catch (err) {
+    handleReadError('getCompletedReminders', err);
+    return { items: [], cursor: null, hasMore: false };
+  }
+};
+
+// Writes the whole normalized reminder. Reminders are small, and a full write
+// keeps the rules check simple: every save is validated as a complete doc.
+export const saveReminder = async (userId, firestoreId, reminder) => {
+  try {
+    const safe = normalizeReminder(reminder);
+    if (!safe) return false;
+    await setDoc(doc(remindersRef(userId), firestoreId), reminderToFirestore(safe));
+    return true;
+  } catch (err) {
+    logFirebaseError('saveReminder', err);
+    return false;
+  }
+};
+
+export const deleteReminder = async (userId, firestoreId) => {
+  try {
+    await deleteDoc(doc(remindersRef(userId), firestoreId));
+    return true;
+  } catch (err) {
+    logFirebaseError('deleteReminder', err);
+    return false;
+  }
+};
+
+export function readGuestReminders() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(REMINDERS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.map(normalizeReminder).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeGuestReminders(reminders) {
+  localStorage.setItem(REMINDERS_KEY, JSON.stringify(reminders));
+}
