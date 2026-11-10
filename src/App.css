@@ -1013,7 +1013,7 @@
   width: 100%;
   padding: 0.55rem 1rem;
   background: var(--primary);
-  color: var(--on-primary, #fff) !important;
+  color: #fff !important;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
@@ -1023,7 +1023,7 @@
 
 .sf-signin-btn:hover {
   background: var(--primary-dark);
-  color: var(--on-primary, #fff) !important;
+  color: #fff !important;
 }
 
 /* --------------------------------------------------------------------------

@@ -227,7 +227,7 @@ export default function CommandCenter() {
   return (
     <Container fluid className="sf-page sf-command-page">
       <div className="sf-page-header d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
-        <div><h1 className="mb-1 mt-1">Goals & Planning</h1><p className="mb-0 text-muted">Set your targets, plan your time, and follow your progress.</p></div>
+        <div><div className="sf-section-label">COMMAND CENTER</div><h1 className="mb-1 mt-1">Goals & Planning</h1><p className="mb-0 text-muted">Set your targets, plan your time, and follow your progress.</p></div>
         <Button as={Link} to="/app/subjects" variant="outline-secondary" size="sm">Manage subjects</Button>
       </div>
       <PlannerView subjects={subjects} sessions={sessions} planEntries={planEntries} upsertPlanEntry={upsertPlanEntry} updateSubject={updateSubject} initialAnchor={initialAnchor} />

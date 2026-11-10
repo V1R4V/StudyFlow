@@ -1,5 +1,4 @@
-import { OverlayTrigger, Popover } from 'react-bootstrap';
-import { Card } from '@mantine/core';
+import { Card, OverlayTrigger, Popover } from 'react-bootstrap';
 
 const IconInfo = () => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -52,8 +51,8 @@ export default function StatsCard(props) {
   const pct = hasProgress ? Math.min(100, Math.max(0, props.progress)) : 0;
 
   return (
-    <Card withBorder radius="lg" padding="lg" className="h-100 sf-card-kpi sf-metric-card">
-      <div className="sf-metric-content">
+    <Card className="h-100 sf-card-kpi">
+      <Card.Body>
         <div className="d-flex justify-content-between align-items-start mb-3">
           {titleNode}
           <div className={iconClass} style={iconStyle} aria-hidden="true">
@@ -98,7 +97,7 @@ export default function StatsCard(props) {
             />
           </div>
         )}
-      </div>
+      </Card.Body>
     </Card>
   );
 }

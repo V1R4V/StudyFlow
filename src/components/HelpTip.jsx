@@ -1,5 +1,4 @@
 import { useId } from 'react';
-import Icon from './Icon';
 import { OverlayTrigger, Popover } from 'react-bootstrap';
 
 // Small "?" affordance that reveals an explanatory popover on hover/focus/tap.
@@ -29,7 +28,7 @@ export default function HelpTip({ title, children, placement = 'auto' }) {
         aria-label={title ? `Help: ${title}` : 'More information'}
         onClick={e => e.preventDefault()}
       >
-        <Icon name="help" size={15} />
+        ?
       </button>
     </OverlayTrigger>
   );

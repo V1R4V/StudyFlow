@@ -1,28 +1,27 @@
 import { Card, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { subjectKey } from '../utils/plan';
-import Icon from './Icon';
 
 export default function SubjectCard({ subject, onEdit, onDelete }) {
   function handleDelete() {
     if (window.confirm(`Delete "${subject.name}"?`)) onDelete(subject.id);
   }
   return (
-    <Card className="h-100 sf-card-panel sf-subject-card">
+    <Card className="h-100 sf-card-panel">
       <Card.Body>
-        <div className="sf-subject-card-heading">
-          <div className="sf-subject-identity">
-            <div className="sf-subject-symbol" style={{ '--subject-color': subject.color }}><Icon name="book" size={22} /></div>
+        <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+          <div className="d-flex align-items-center gap-3 min-w-0">
+            <div className="sf-subject-icon sf-subject-icon-lg" style={{ background: subject.color }}>{subject.name?.[0]?.toUpperCase() || '?'}</div>
             <h2 className="h5 mb-0 sf-subject-name">{subject.name}</h2>
           </div>
-          <div className="sf-subject-card-actions">
-            <Button size="sm" variant="outline-secondary" aria-label={`Edit ${subject.name}`} title="Edit subject" onClick={() => onEdit(subject)}><Icon name="edit" size={16} /></Button>
-            <Button size="sm" variant="outline-danger" aria-label={`Delete ${subject.name}`} title="Delete subject" onClick={handleDelete}><Icon name="trash" size={16} /></Button>
+          <div className="d-flex gap-2">
+            <Button size="sm" variant="outline-secondary" aria-label={`Edit ${subject.name}`} onClick={() => onEdit(subject)}>Edit</Button>
+            <Button size="sm" variant="outline-danger" aria-label={`Delete ${subject.name}`} onClick={handleDelete}>Delete</Button>
           </div>
         </div>
-        <div className="sf-subject-card-links small">
-          <Link to={`/app/sessions?${new URLSearchParams({ subject: subjectKey(subject) })}`}>View sessions <Icon name="arrowRight" size={15} /></Link>
-          <Link to="/app/command#weekly-planner">Goals & schedule <Icon name="calendar" size={15} /></Link>
+        <div className="d-flex justify-content-between flex-wrap gap-2 small">
+          <Link to={`/app/sessions?${new URLSearchParams({ subject: subjectKey(subject) })}`}>View sessions</Link>
+          <Link to="/app/command#weekly-planner">Goals & schedule →</Link>
         </div>
       </Card.Body>
     </Card>

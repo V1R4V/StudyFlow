@@ -1,4 +1,3 @@
-import Icon from '../components/Icon';
 import { useState } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
@@ -27,12 +26,12 @@ export default function SubjectManager() {
           <h1 className="mb-1">Subjects</h1>
           <p className="text-muted mb-0">Manage your subject names and colors. <Link to="/app/command">Set goals and plan your week in Command Center.</Link></p>
         </div>
-        {!showForm && !editingSubject && <Button onClick={() => setShowForm(true)} className="sf-action-button"><Icon name="plus" size={17} /> New subject</Button>}
+        {!showForm && !editingSubject && <Button onClick={() => setShowForm(true)}>+ New subject</Button>}
       </div>
       {showForm && <div className="mb-4"><SubjectForm onAdd={handleAdd} onCancel={() => setShowForm(false)} /></div>}
       {editingSubject && <div className="mb-4"><SubjectForm key={editingSubject.id} initial={editingSubject} onSave={handleSave} onCancel={() => setEditingId(null)} /></div>}
       {subjects.length === 0 ? (
-        <div className="sf-empty-card"><span className="sf-empty-symbol"><Icon name="book" size={28} /></span>
+        <div className="sf-empty-card">
           <h2 className="sf-empty-title-sm">No subjects yet.</h2>
           <p className="text-muted mb-3">Add your first subject to start tracking study time.</p>
           {!showForm && <Button onClick={() => setShowForm(true)}>Create your first subject</Button>}
