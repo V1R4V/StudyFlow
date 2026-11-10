@@ -38,13 +38,13 @@ function splitHM(totalSeconds) {
 
 function formatTrackedHint(totalSeconds) {
   const total = Math.max(0, Math.floor(totalSeconds));
-  if (total < 60) return `${total}s`;
+  if (total < 60) return 'Less than 1 minute';
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return s > 0 ? `${h}h ${m}m ${s}s` : `${h}h ${m}m`;
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+
+const minuteInput = value => localDateTimeInput(value).slice(0, 16);
 
 export default function EndSessionModal(props) {
   const trackedSeconds = trackedSecondsFromProps(props);
@@ -52,8 +52,8 @@ export default function EndSessionModal(props) {
 
   const [rating, setRating] = useState(() => clampRating(props.initialRating ?? 4));
   const [notes, setNotes] = useState(props.initialNotes || '');
-  const [startInput, setStartInput] = useState(() => localDateTimeInput(props.initialStartedAt));
-  const [endInput, setEndInput] = useState(() => localDateTimeInput(props.initialEndedAt));
+  const [startInput, setStartInput] = useState(() => minuteInput(props.initialStartedAt));
+  const [endInput, setEndInput] = useState(() => minuteInput(props.initialEndedAt));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [date, setDate] = useState(props.initialDate || todayISO());
@@ -73,9 +73,9 @@ export default function EndSessionModal(props) {
 
   const hasTiming = Boolean(startInput || endInput || props.requireTiming || props.initialStartedAt || props.initialEndedAt);
   // Preserve exact instants (including repeated DST hours) until edited.
-  const startedAt = startInput === localDateTimeInput(props.initialStartedAt)
+  const startedAt = startInput === minuteInput(props.initialStartedAt)
     ? props.initialStartedAt : new Date(startInput).getTime();
-  const endedAt = endInput === localDateTimeInput(props.initialEndedAt)
+  const endedAt = endInput === minuteInput(props.initialEndedAt)
     ? props.initialEndedAt : new Date(endInput).getTime();
   const effectiveSeconds = isOverridden ? hours * 3600 + minutes * 60 : trackedSeconds;
   const timingError = hasTiming ? timingValidationError(startedAt, endedAt, effectiveSeconds) : '';
@@ -128,12 +128,12 @@ export default function EndSessionModal(props) {
             </p>
             <Form.Group controlId="session-started-at" className="mb-2">
               <Form.Label>Started</Form.Label>
-              <Form.Control type="datetime-local" step="1" value={startInput}
+              <Form.Control type="datetime-local" step="60" value={startInput}
                 required={hasTiming} onChange={e => setStartInput(e.target.value)} />
             </Form.Group>
             <Form.Group controlId="session-ended-at">
               <Form.Label>Ended</Form.Label>
-              <Form.Control type="datetime-local" step="1" value={endInput}
+              <Form.Control type="datetime-local" step="60" value={endInput}
                 required={hasTiming} onChange={e => setEndInput(e.target.value)} />
             </Form.Group>
             {!props.initialStartedAt && <Form.Text className="text-muted">
@@ -147,7 +147,7 @@ export default function EndSessionModal(props) {
           </fieldset>
           <Form.Group className="mb-4">
             <div className="d-flex justify-content-between align-items-end mb-1">
-              <Form.Label className="mb-0">Real time spent</Form.Label>
+              <Form.Label className="mb-0">Focused time</Form.Label>
               {isOverridden && (
                 <button
                   type="button"
