@@ -20,6 +20,8 @@ const icons = {
 };
 
 export default function Icon({ name, size = 18, className = '' }) {
+  const emoji = { clock: '⏱️', flame: '🔥', calendar: '📅', target: '🎯', seedling: '🌱', book: '📚', statistics: '📊', dashboard: '🏠', command: '🧭', bell: '🔔', sun: '☀️', moon: '🌙', star: '⭐', settings: '⚙️', globe: '🌐' }[name];
+  if (emoji) return <span className={`sf-icon sf-emoji ${className}`} style={{ fontSize: size }} aria-hidden="true">{emoji}</span>;
   const Glyph = icons[name];
   if (!Glyph) return null;
   return <Glyph size={size} weight={['flame', 'calendar', 'clock', 'target', 'book', 'statistics', 'dashboard'].includes(name) ? 'fill' : 'bold'} className={`sf-icon ${className}`} aria-hidden="true" focusable="false" />;
