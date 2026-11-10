@@ -1,3 +1,4 @@
+import { sessionTimingFields } from '../utils/sessionTiming';
 import {
   collection,
   addDoc,
@@ -143,6 +144,7 @@ function normalizeSession(raw) {
     notes,
     distractions,
     date,
+    ...sessionTimingFields(raw),
   };
 }
 
@@ -176,7 +178,7 @@ function normalizeSubjectUpdates(updates) {
 
 function normalizeSessionUpdates(updates) {
   if (!updates || typeof updates !== 'object') return null;
-  const safe = {};
+  const safe = sessionTimingFields(updates);
 
   if (Object.prototype.hasOwnProperty.call(updates, 'focusRating')) {
     safe.focusRating = clampNumber(updates.focusRating, 1, 5, 4);
@@ -189,7 +191,7 @@ function normalizeSessionUpdates(updates) {
     safe.distractions = Math.max(0, Math.floor(Number(updates.distractions) || 0));
   }
   if (Object.prototype.hasOwnProperty.call(updates, 'date')) {
-    safe.date = normalizeDate(updates.date);
+    safe.date = safe.startedAt ? safe.date : normalizeDate(updates.date);
   }
   // Allow editing the recorded duration so users can correct inflated
   // tracked time. Both keys must stay in sync: `duration` is the minutes
@@ -446,12 +448,13 @@ export const getAllSessions = async (userId) => {
 export const updateSession = async (userId, subjectId, sessionId, updates) => {
   try {
     const safeUpdates = normalizeSessionUpdates(updates);
-    if (!safeUpdates) return;
+    if (!safeUpdates) throw new Error('No valid session changes.');
 
     const sessionRef = doc(db, 'studyflow_v1', userId, 'sessions', sessionId);
     await updateDoc(sessionRef, safeUpdates);
   } catch (err) {
     console.error('updateSession error:', err);
+    throw err;
   }
 };
 

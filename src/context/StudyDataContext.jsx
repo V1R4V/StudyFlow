@@ -267,8 +267,11 @@ export function StudyDataProvider({ children }) {
     if (user) {
       const subj = subjects.find(s => s.id === subjectLocalId);
       if (subj?.firestoreId) {
-        await fsAddSession(user.uid, subj.firestoreId, sessionData);
+        const saved = await fsAddSession(user.uid, subj.firestoreId, sessionData);
+        if (!saved) throw new Error('Session could not be saved. Please try again.');
         await refresh();
+      } else {
+        throw new Error('Subject not found. Your session has not been saved.');
       }
     } else {
       setSessions(prev => [sessionData, ...prev]);
@@ -281,6 +284,8 @@ export function StudyDataProvider({ children }) {
       if (sess?.firestoreId) {
         await fsUpdateSession(user.uid, sess.subjectId, sess.firestoreId, updates);
         await refresh();
+      } else {
+        throw new Error('Session not found. Your changes have not been saved.');
       }
     } else {
       setSessions(prev => prev.map(s => s.id === sessionLocalId ? { ...s, ...updates } : s));

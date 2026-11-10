@@ -1,3 +1,4 @@
+import { recordedSessionTiming } from './sessionTiming.js';
 import { getSessionMinutes, localDateString, shiftDateStr } from './sessions.js';
 import { weekStartStr } from './plan.js';
 
@@ -27,6 +28,14 @@ export function timestampMillis(timestamp) {
 }
 
 export function formatSessionTimeRange(session, locale) {
+  const timing = recordedSessionTiming(session);
+  if (timing) {
+    const overnight = localDateString(timing.startedAt) !== localDateString(timing.endedAt);
+    const formatter = new Intl.DateTimeFormat(locale, {
+      ...(overnight ? { month: 'short', day: 'numeric' } : {}), hour: 'numeric', minute: '2-digit',
+    });
+    return formatter.formatRange(new Date(timing.startedAt), new Date(timing.endedAt));
+  }
   const end = timestampMillis(session.createdAt);
   // A changed date or an imported session has no trustworthy clock range.
   if (end === null || (session.date && localDateString(end) !== session.date)) return null;
@@ -35,7 +44,7 @@ export function formatSessionTimeRange(session, locale) {
 }
 
 export function compareSessionsNewest(a, b) {
-  const orderTime = session => timestampMillis(session.createdAt)
+  const orderTime = session => recordedSessionTiming(session)?.startedAt ?? timestampMillis(session.createdAt)
     ?? (Number.isFinite(Number(session.id)) ? Number(session.id) : 0);
   return String(b.date || '').localeCompare(String(a.date || ''))
     || orderTime(b) - orderTime(a);

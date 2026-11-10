@@ -67,11 +67,13 @@ export function TimerProvider({ children }) {
   const [subjectId, setSubjectId] = useState(storedTimer?.subjectId ?? '');
   const [startEpochMs, setStartEpochMs] = useState(storedTimer?.startEpochMs ?? null);
   const [error, setError] = useState('');
-  const [pendingSession, setPendingSession] = useState(null);
+  const [pendingSession, setPendingSession] = useState(storedTimer?.pendingSession ?? null);
+  // The actual start never moves when the elapsed-time baseline is reset on resume.
+  const [sessionStartedAt, setSessionStartedAt] = useState(storedTimer?.sessionStartedAt ?? null);
   const [liveMessage, setLiveMessage] = useState('');
   // Distraction count for the in-flight session, increments via the "I got
   // distracted" button on the timer, resets after save/discard/reset.
-  const [distractions, setDistractions] = useState(0);
+  const [distractions, setDistractions] = useState(storedTimer?.distractions ?? 0);
   const autoEndedRef = useRef(false);
   const elapsedAtAutoEndRef = useRef(0);
 
@@ -121,12 +123,12 @@ export function TimerProvider({ children }) {
       mode, customH, customM, customS,
       breakH, breakM, breakS,
       targetSeconds, secondsElapsed, isRunning,
-      subjectId, startEpochMs,
+      subjectId, startEpochMs, sessionStartedAt, pendingSession, distractions,
     };
     try {
       localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(payload));
     } catch { /* noop */ }
-  }, [mode, customH, customM, customS, breakH, breakM, breakS, targetSeconds, secondsElapsed, isRunning, subjectId, startEpochMs]);
+  }, [mode, customH, customM, customS, breakH, breakM, breakS, targetSeconds, secondsElapsed, isRunning, subjectId, startEpochMs, sessionStartedAt, pendingSession, distractions]);
 
   useEffect(() => {
     if (autoEndedRef.current && !isRunning && secondsElapsed === elapsedAtAutoEndRef.current) {
@@ -136,7 +138,7 @@ export function TimerProvider({ children }) {
         saveBreak(elapsedAtAutoEndRef.current);
       } else {
         setLiveMessage('Session complete.');
-        promptSave(elapsedAtAutoEndRef.current);
+        promptSave(elapsedAtAutoEndRef.current, startEpochMs + elapsedAtAutoEndRef.current * 1000);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -172,6 +174,7 @@ export function TimerProvider({ children }) {
     setIsRunning(false);
     setSecondsElapsed(0);
     setStartEpochMs(null);
+    setSessionStartedAt(null);
     setError('');
     autoEndedRef.current = false;
     if (nextMode === 'pomodoro') setTargetSeconds(POMODORO_SECONDS);
@@ -191,7 +194,9 @@ export function TimerProvider({ children }) {
       }
     }
     setError('');
-    setStartEpochMs(Date.now() - secondsElapsed * 1000);
+    const now = Date.now();
+    if (secondsElapsed === 0 && !sessionStartedAt) setSessionStartedAt(now);
+    setStartEpochMs(now - secondsElapsed * 1000);
     setIsRunning(true);
   }
 
@@ -207,6 +212,7 @@ export function TimerProvider({ children }) {
     setIsRunning(false);
     setSecondsElapsed(0);
     setStartEpochMs(null);
+    setSessionStartedAt(null);
     setLiveMessage('');
     setDistractions(0);
     autoEndedRef.current = false;
@@ -217,7 +223,7 @@ export function TimerProvider({ children }) {
     setLiveMessage('Distraction logged.');
   }
 
-  function promptSave(elapsedSeconds) {
+  function promptSave(elapsedSeconds, endedAt = Date.now()) {
     const minutes = Math.ceil(elapsedSeconds / 60);
     if (minutes <= 0) {
       setError('Start the timer first.');
@@ -235,6 +241,7 @@ export function TimerProvider({ children }) {
       subjectName: subject.name,
       subjectColor: subject.color,
       distractions,
+      ...(sessionStartedAt ? { startedAt: sessionStartedAt, endedAt } : {}),
     });
     setIsRunning(false);
   }
@@ -248,7 +255,11 @@ export function TimerProvider({ children }) {
       saveBreak(elapsed);
       return;
     }
-    promptSave(secondsElapsed);
+    const elapsed = isRunning && startEpochMs
+      ? Math.max(0, Math.floor((Date.now() - startEpochMs) / 1000)) : secondsElapsed;
+    const capped = targetSeconds > 0 ? Math.min(elapsed, targetSeconds) : elapsed;
+    promptSave(capped, isRunning && targetSeconds > 0 && elapsed >= targetSeconds
+      ? startEpochMs + targetSeconds * 1000 : Date.now());
   }
 
   // Breaks are logged to their own store and never roll into focus/session
@@ -258,6 +269,7 @@ export function TimerProvider({ children }) {
     setIsRunning(false);
     setSecondsElapsed(0);
     setStartEpochMs(null);
+    setSessionStartedAt(null);
     autoEndedRef.current = false;
     if (seconds < 5) {
       setLiveMessage('Break too short to log.');
@@ -272,7 +284,7 @@ export function TimerProvider({ children }) {
     setLiveMessage('Break logged.');
   }
 
-  function saveSession(details) {
+  async function saveSession(details) {
     if (!pendingSession) return;
     const trackedSeconds = clampNumber(
       pendingSession.seconds,
@@ -312,15 +324,19 @@ export function TimerProvider({ children }) {
       focusRating: safeRating,
       notes: safeNotes,
       distractions: safeDistractions,
-      date: localDateString(),
+      startedAt: details.startedAt,
+      endedAt: details.endedAt,
+      date: localDateString(details.startedAt),
     };
 
     // Single write path. The StudyDataContext routes this to Firestore (when
     // signed in) or localStorage (when guest) and refreshes state for all pages.
-    addSession(pendingSession.subjectId, newSession);
+    await addSession(pendingSession.subjectId, newSession);
 
     setPendingSession(null);
     setSecondsElapsed(0);
+    setStartEpochMs(null);
+    setSessionStartedAt(null);
     setDistractions(0);
   }
 
@@ -328,6 +344,7 @@ export function TimerProvider({ children }) {
     setPendingSession(null);
     setSecondsElapsed(0);
     setStartEpochMs(null);
+    setSessionStartedAt(null);
     setDistractions(0);
   }
 

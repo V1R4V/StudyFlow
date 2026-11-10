@@ -1,3 +1,5 @@
+import StudyTimingCard from '../components/StudyTimingCard';
+import { studyTimingSummary } from '../utils/sessionTiming';
 import { useMemo, useRef, useState } from 'react';
 import { Container, Row, Col, Card, Form, Button, ButtonGroup } from 'react-bootstrap';
 import HelpTip from '../components/HelpTip';
@@ -922,193 +924,33 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
 // without a usable timestamp (legacy guest data) are skipped. A small note
 // surfaces this so the chart never silently undercounts.
 function HourOfDayChart({ sessions }) {
-  const wrapRef = useRef(null);
-  const [hover, setHover] = useState(null);
-
-  const { buckets, peakHour, skipped } = useMemo(() => {
-    const raw = new Array(24).fill(0);
-    let skippedCount = 0;
-    sessions.forEach(s => {
-      let endMs = null;
-      if (s.createdAt && typeof s.createdAt.toMillis === 'function') {
-        endMs = s.createdAt.toMillis();
-      } else if (s.createdAt && typeof s.createdAt.seconds === 'number') {
-        endMs = s.createdAt.seconds * 1000;
-      } else if (typeof s.id === 'number') {
-        // Guest mode uses Date.now() as id and writes it right after the
-        // session ended, so it's a reasonable proxy for end time.
-        endMs = s.id;
-      }
-      if (!endMs) { skippedCount += 1; return; }
-      const mins = getSessionMinutes(s);
-      if (mins <= 0) return;
-      // Spread minutes across the hours the session actually overlapped.
-      const startMs = endMs - mins * 60 * 1000;
-      let cursor = startMs;
-      while (cursor < endMs) {
-        const d = new Date(cursor);
-        const hr = d.getHours();
-        // ms until next hour boundary
-        const nextBoundary = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hr + 1, 0, 0, 0).getTime();
-        const chunkEnd = Math.min(endMs, nextBoundary);
-        const chunkMin = (chunkEnd - cursor) / (60 * 1000);
-        raw[hr] += chunkMin;
-        cursor = chunkEnd;
-      }
-    });
-    let peak = 0;
-    for (let i = 1; i < 24; i++) if (raw[i] > raw[peak]) peak = i;
-    return { buckets: raw, peakHour: raw[peak] > 0 ? peak : null, skipped: skippedCount };
-  }, [sessions]);
-
-  const chartWidth = 720;
-  const chartHeight = 130;
-  const leftAxis = 0;
-  const gap = 4;
-  const barWidth = (chartWidth - gap * 23) / 24;
-  const max = Math.max(...buckets, 30);
-
-  if (sessions.length === 0) {
-    return <div className="text-muted text-center py-4">No sessions in range.</div>;
-  }
-  if (peakHour === null) {
-    return (
-      <div className="text-muted text-center py-4">
-        No timestamped sessions in this range yet. Start one with the timer to populate this chart.
-      </div>
-    );
-  }
-
-  function tickLabel(h) {
-    if (h === 0) return '12a';
-    if (h === 12) return '12p';
-    if (h % 6 !== 0) return '';
-    return h < 12 ? `${h}a` : `${h - 12}p`;
-  }
-
-  function showTooltip(hr, value) {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const rect = wrap.getBoundingClientRect();
-    const xRatio = (hr * (barWidth + gap) + barWidth / 2 + leftAxis) / chartWidth;
-    const yRatio = 1 - (max > 0 ? value / max : 0);
-    setHover({
-      hr,
-      value,
-      left: xRatio * rect.width,
-      top: yRatio * (chartHeight / (chartHeight + 24)) * rect.height,
-    });
-  }
-
-  function fmtHourLabel(hr) {
-    if (hr === 0) return 'Midnight – 1 AM';
-    if (hr === 12) return 'Noon – 1 PM';
-    const startSuffix = hr < 12 ? 'AM' : 'PM';
-    const endHr = hr + 1;
-    const endSuffix = endHr < 12 || endHr === 24 ? 'AM' : 'PM';
-    const start = ((hr + 11) % 12) + 1;
-    const end = ((endHr + 11) % 12) + 1;
-    return `${start} ${startSuffix} – ${end} ${endSuffix}`;
-  }
-
+  const [selectedHour, setSelectedHour] = useState(null);
+  const { hourlyStarts, missing, recorded } = useMemo(() => studyTimingSummary(sessions), [sessions]);
+  const max = Math.max(...hourlyStarts, 0);
+  const peak = max ? hourlyStarts.indexOf(max) : null;
+  const selected = selectedHour ?? peak;
+  const hourName = hour => new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).format(new Date(2026, 0, 1, hour));
+  const interval = hour => `${hourName(hour)} – ${hourName((hour + 1) % 24)}`;
+  if (!recorded.length) return <div className="text-muted text-center py-4">{sessions.length ? 'No recorded start times in this range yet.' : 'No sessions in range.'}</div>;
   return (
-    <div ref={wrapRef} className="sf-chart-wrap">
-      <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight + 24}`}
-        width="100%"
-        role="img"
-        aria-label="Distribution of focus minutes by hour of day"
-        onMouseLeave={() => setHover(null)}
-      >
-        {[0.25, 0.5, 0.75, 1].map(p => (
-          <line
-            key={p}
-            x1={0}
-            x2={chartWidth}
-            y1={chartHeight - chartHeight * p}
-            y2={chartHeight - chartHeight * p}
-            stroke="var(--border-color)"
-            strokeWidth={0.5}
-            strokeDasharray="2 4"
-          />
-        ))}
-        {buckets.map((v, hr) => {
-          const h = max > 0 ? (v / max) * chartHeight : 0;
-          const x = leftAxis + hr * (barWidth + gap);
-          const y = chartHeight - h;
-          const isPeak = hr === peakHour;
-          return (
-            <g key={hr}>
-              <rect
-                x={x - gap / 2}
-                y={0}
-                width={barWidth + gap}
-                height={chartHeight}
-                fill="transparent"
-                onMouseEnter={() => showTooltip(hr, v)}
-                onMouseMove={() => showTooltip(hr, v)}
-                onTouchStart={() => showTooltip(hr, v)}
-                onTouchMove={() => showTooltip(hr, v)}
-                style={{ cursor: 'pointer', touchAction: 'manipulation' }}
-              />
-              <rect
-                className="sf-hour-bar"
-                x={x}
-                y={y}
-                width={barWidth}
-                height={Math.max(h, 2)}
-                rx={2}
-                fill="var(--primary)"
-                opacity={v > 0 ? (isPeak ? 0.95 : 0.7) : 0.12}
-                pointerEvents="none"
-              />
-              {isPeak && v > 0 && (
-                <rect
-                  x={x - 1}
-                  y={Math.max(y - 1, 0)}
-                  width={barWidth + 2}
-                  height={Math.max(h, 2) + 2}
-                  rx={2}
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth={1.25}
-                  pointerEvents="none"
-                />
-              )}
-              {tickLabel(hr) && (
-                <text
-                  x={x + barWidth / 2}
-                  y={chartHeight + 16}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontWeight="600"
-                  fill="var(--text-light)"
-                  pointerEvents="none"
-                >
-                  {tickLabel(hr)}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      {hover && (
-        <div
-          className="sf-chart-tooltip sf-chart-tooltip-arrow"
-          style={{ left: hover.left, top: hover.top }}
-        >
-          <span className="sf-chart-tooltip-date">{fmtHourLabel(hover.hr)}</span>
-          <span className="sf-chart-tooltip-value">
-            {hover.value > 0 ? formatDurationMinutes(hover.value) : 'No focus time'}
-          </span>
+    <div className="sf-hour-insight">
+      <div className="sf-hour-summary">
+        <div><span className="sf-hour-summary-label">{selectedHour === null ? 'Most common start' : 'Selected hour'}</span><strong>{interval(selected)}</strong><span>{hourlyStarts[selected]} {hourlyStarts[selected] === 1 ? 'session' : 'sessions'} started</span></div>
+        <div><span className="sf-hour-summary-label">Recorded starts</span><strong>{recorded.length}</strong><span>in this date range</span></div>
+      </div>
+      <div className="sf-hour-graph" role="group" aria-label="Session starts by hour. Select an hour to see its count.">
+        <div className="sf-hour-axis" aria-hidden="true"><span>{max}</span><span>{Math.round(max / 2)}</span><span>0</span></div>
+        <div className="sf-hour-plot">
+          <div className="sf-hour-grid" aria-hidden="true"><i/><i/><i/></div>
+          <div className="sf-hour-bars">{hourlyStarts.map((count, hour) => (
+            <button type="button" key={hour} className={`sf-hour-column${selected === hour ? ' is-selected' : ''}`} onClick={() => setSelectedHour(hour)} aria-pressed={selected === hour} aria-label={`${interval(hour)}: ${count} ${count === 1 ? 'session' : 'sessions'} started`}>
+              <span className="sf-hour-column-value">{count || ''}</span><span className="sf-hour-column-bar" style={{ height: `${max ? count / max * 100 : 0}%` }} />
+            </button>
+          ))}</div>
+          <div className="sf-hour-labels" aria-hidden="true"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
         </div>
-      )}
-      {skipped > 0 && (
-        <div className="text-muted small mt-2">
-          {skipped} {skipped === 1 ? 'session is' : 'sessions are'} missing a timestamp and{' '}
-          {skipped === 1 ? "isn't" : "aren't"} counted here.
-        </div>
-      )}
+      </div>
+      <p className="text-muted small mb-0">Session starts by local time. Select a bar for its count.{missing > 0 && ` ${missing} ${missing === 1 ? 'session has' : 'sessions have'} no recorded start time and ${missing === 1 ? 'is' : 'are'} excluded.`}</p>
     </div>
   );
 }
@@ -2165,7 +2007,7 @@ export default function Statistics() {
                   : activityView === 'dow' && peak
                   ? `Strongest: ${peak.label}`
                   : activityView === 'hour'
-                  ? 'When you focus best'
+                  ? 'Session starts by hour'
                   : rangeLabel}
               </span>
             </Card.Header>
@@ -2187,6 +2029,8 @@ export default function Statistics() {
               )}
             </Card.Body>
           </Card>
+
+          <StudyTimingCard sessions={rangedSessions} subjects={subjects} />
 
           {/* Focus quality, full width now that day-of-week lives in the
               combined activity card. */}

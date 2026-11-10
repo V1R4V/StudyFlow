@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { localDateString } from '../utils/sessions';
+import { localDateTimeInput, timingValidationError } from '../utils/sessionTiming';
 
 const MAX_NOTES = 500;
 const MAX_HOURS = 24;
@@ -51,6 +52,10 @@ export default function EndSessionModal(props) {
 
   const [rating, setRating] = useState(() => clampRating(props.initialRating ?? 4));
   const [notes, setNotes] = useState(props.initialNotes || '');
+  const [startInput, setStartInput] = useState(() => localDateTimeInput(props.initialStartedAt));
+  const [endInput, setEndInput] = useState(() => localDateTimeInput(props.initialEndedAt));
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [date, setDate] = useState(props.initialDate || todayISO());
   const [hours, setHours] = useState(trackedHM.hours);
   const [minutes, setMinutes] = useState(trackedHM.minutes);
@@ -66,32 +71,80 @@ export default function EndSessionModal(props) {
     setMinutes(trackedHM.minutes);
   }
 
-  function handleSubmit(e) {
+  const hasTiming = Boolean(startInput || endInput || props.requireTiming || props.initialStartedAt || props.initialEndedAt);
+  // Preserve exact instants (including repeated DST hours) until edited.
+  const startedAt = startInput === localDateTimeInput(props.initialStartedAt)
+    ? props.initialStartedAt : new Date(startInput).getTime();
+  const endedAt = endInput === localDateTimeInput(props.initialEndedAt)
+    ? props.initialEndedAt : new Date(endInput).getTime();
+  const effectiveSeconds = isOverridden ? hours * 3600 + minutes * 60 : trackedSeconds;
+  const timingError = hasTiming ? timingValidationError(startedAt, endedAt, effectiveSeconds) : '';
+  const durationError = effectiveSeconds <= 0 || effectiveSeconds > 86400
+    ? 'Real time spent must be between 1 second and 24 hours.' : '';
+
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (saving || timingError || durationError) return;
     const payload = {
       focusRating: rating,
       notes: notes.trim(),
       distractions,
     };
-    if (props.showDateField) payload.date = date;
+    if (hasTiming) {
+      payload.startedAt = startedAt;
+      payload.endedAt = endedAt;
+      payload.date = localDateString(startedAt);
+    } else if (props.showDateField) payload.date = date;
     if (isOverridden) {
       const overrideSeconds = Math.max(1, hours * 3600 + minutes * 60);
       payload.durationSeconds = overrideSeconds;
       payload.duration = Math.max(1, Math.ceil(overrideSeconds / 60));
     }
-    props.onSave(payload);
+    setSaving(true);
+    setSaveError('');
+    try {
+      await props.onSave(payload);
+    } catch {
+      setSaveError('Could not save your session. Your changes are still here. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const trackedHint = formatTrackedHint(trackedSeconds);
-  const bothZero = hours === 0 && minutes === 0;
 
   return (
-    <Modal show={props.show} onHide={props.onDiscard} centered>
-      <Form onSubmit={handleSubmit}>
-        <Modal.Header closeButton>
+    <Modal show={props.show} onHide={saving ? undefined : props.onDiscard} centered scrollable backdrop={saving ? 'static' : true} keyboard={!saving}>
+      <Form onSubmit={handleSubmit} className="d-flex flex-column" style={{ minHeight: 0 }}>
+        <Modal.Header closeButton={!saving}>
           <Modal.Title>{props.title || 'Session Complete'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {saveError && <Alert variant="danger" role="alert">{saveError}</Alert>}
+          <fieldset className="mb-4" disabled={saving}>
+            <legend className="form-label">Session start &amp; end</legend>
+            <p className="small text-muted mb-2">
+              Review or correct when you studied. Times shown in {Intl.DateTimeFormat().resolvedOptions().timeZone}.
+            </p>
+            <Form.Group controlId="session-started-at" className="mb-2">
+              <Form.Label>Started</Form.Label>
+              <Form.Control type="datetime-local" step="1" value={startInput}
+                required={hasTiming} onChange={e => setStartInput(e.target.value)} />
+            </Form.Group>
+            <Form.Group controlId="session-ended-at">
+              <Form.Label>Ended</Form.Label>
+              <Form.Control type="datetime-local" step="1" value={endInput}
+                required={hasTiming} onChange={e => setEndInput(e.target.value)} />
+            </Form.Group>
+            {!props.initialStartedAt && <Form.Text className="text-muted">
+              Start and end were not recorded for this session. Enter them if you know them.
+            </Form.Text>}
+            {timingError && <div className="small text-danger mt-2" role="alert">{timingError}</div>}
+            {hasTiming && !timingError && <Form.Text className="text-muted">
+              Session window: {formatTrackedHint((endedAt - startedAt) / 1000)} including pauses.
+              Credited to the start date. Focused time below is tracked separately.
+            </Form.Text>}
+          </fieldset>
           <Form.Group className="mb-4">
             <div className="d-flex justify-content-between align-items-end mb-1">
               <Form.Label className="mb-0">Real time spent</Form.Label>
@@ -133,7 +186,7 @@ export default function EndSessionModal(props) {
             </Form.Text>
           </Form.Group>
 
-          {props.showDateField && (
+          {props.showDateField && !hasTiming && (
             <Form.Group controlId="session-date" className="mb-4">
               <Form.Label>Date</Form.Label>
               <Form.Control
@@ -148,6 +201,7 @@ export default function EndSessionModal(props) {
             </Form.Group>
           )}
 
+          {durationError && <div className="small text-danger mb-3" role="alert">{durationError}</div>}
           <fieldset className="mb-4">
             <Form.Label as="legend" className="form-label">Focus Rating</Form.Label>
             <div role="radiogroup" aria-label="Focus rating from 1 to 5" className="d-flex gap-2">
@@ -218,11 +272,11 @@ export default function EndSessionModal(props) {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button type="button" variant="outline-secondary" onClick={props.onDiscard}>
+          <Button type="button" variant="outline-secondary" onClick={props.onDiscard} disabled={saving}>
             {props.discardLabel || 'Discard'}
           </Button>
-          <Button type="submit" variant="primary" disabled={bothZero}>
-            {props.saveLabel || 'Save Session'}
+          <Button type="submit" variant="primary" disabled={saving || Boolean(timingError || durationError)}>
+            {saving ? 'Saving…' : props.saveLabel || 'Save Session'}
           </Button>
         </Modal.Footer>
       </Form>

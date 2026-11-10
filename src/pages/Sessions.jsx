@@ -1,3 +1,4 @@
+import { recordedSessionTiming, sessionTimingFields, timingValidationError } from '../utils/sessionTiming';
 import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Card, Form, Table, Button, Row, Col, Badge, Alert } from 'react-bootstrap';
@@ -37,6 +38,8 @@ const CSV_COLUMNS = [
   'focus_rating',
   'notes',
   'distractions',
+  'started_at',
+  'ended_at',
 ];
 
 function escapeCsv(value) {
@@ -63,6 +66,8 @@ function sessionsToCsv(rows) {
         s.focusRating ?? '',
         s.notes || '',
         s.distractions ?? '',
+        recordedSessionTiming(s) ? new Date(s.startedAt).toISOString() : '',
+        recordedSessionTiming(s) ? new Date(s.endedAt).toISOString() : '',
       ];
       return cells.map(escapeCsv).join(',');
     })
@@ -274,6 +279,8 @@ export default function Sessions() {
         focus: header.indexOf('focus_rating'),
         notes: header.indexOf('notes'),
         distractions: header.indexOf('distractions'),
+        startedAt: header.indexOf('started_at'),
+        endedAt: header.indexOf('ended_at'),
       };
       if (colIdx.date < 0 || colIdx.subject < 0) {
         setImportStatus({
@@ -326,6 +333,16 @@ export default function Sessions() {
           ? Math.max(0, Math.floor(Number(cells[colIdx.distractions])))
           : 0;
 
+        const startText = colIdx.startedAt >= 0 ? cells[colIdx.startedAt]?.trim() : '';
+        const endText = colIdx.endedAt >= 0 ? cells[colIdx.endedAt]?.trim() : '';
+        const timing = startText || endText ? {
+          startedAt: Date.parse(startText), endedAt: Date.parse(endText),
+        } : {};
+        if ((startText || endText) && timingValidationError(timing.startedAt, timing.endedAt, seconds)) {
+          skipped += 1;
+          skippedReasons.add('invalid session start or end');
+          continue;
+        }
         const newSession = {
           id: Date.now() + i,
           subjectId: String(subj.firestoreId ?? subj.id),
@@ -337,6 +354,7 @@ export default function Sessions() {
           notes,
           distractions,
           date,
+          ...sessionTimingFields(timing),
         };
           await addSession(subj.id, newSession);
         imported += 1;
@@ -361,18 +379,19 @@ export default function Sessions() {
     }
   }
 
-  function handleEditSave(details) {
+  async function handleEditSave(details) {
     const updates = {
       focusRating: details.focusRating,
       notes: details.notes,
       date: details.date,
+      ...sessionTimingFields(details),
       distractions: typeof details.distractions === 'number' ? details.distractions : 0,
     };
     if (typeof details.durationSeconds === 'number') {
       updates.durationSeconds = details.durationSeconds;
       updates.duration = details.duration;
     }
-    updateSession(editing.id, updates);
+    await updateSession(editing.id, updates);
     setEditing(null);
   }
 
@@ -448,8 +467,9 @@ export default function Sessions() {
       <tr key={s.id}>
         <td>
           <div className="sf-session-date">{formatFriendlyDate(s.date)}</div>
+          {!timeRange && <div className="text-muted small">Times not recorded</div>}
           {timeRange && (
-            <div className="sf-session-time text-muted small">{timeRange}</div>
+            <div className="sf-session-time text-muted small">{timeRange}{!recordedSessionTiming(s) && ' (estimated)'}</div>
           )}
         </td>
         <td>
@@ -529,7 +549,7 @@ export default function Sessions() {
         <div>
           <h1 className="mb-1">Sessions</h1>
           <p className="text-muted mb-0">
-            Full session history. Edit ratings or notes anytime.
+            Full session history. Review and correct times, ratings, or notes anytime.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -812,6 +832,8 @@ export default function Sessions() {
           initialRating={editing.focusRating}
           initialNotes={editing.notes}
           initialDate={editing.date}
+          initialStartedAt={editing.startedAt}
+          initialEndedAt={editing.endedAt}
           initialDistractions={editing.distractions || 0}
           showDateField={true}
           saveLabel="Save changes"

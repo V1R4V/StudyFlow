@@ -70,6 +70,8 @@ service cloud.firestore {
         'subjectColor',
         'duration',
         'durationSeconds',
+        'startedAt',
+        'endedAt',
         'focusRating',
         'notes',
         'distractions',
@@ -87,6 +89,12 @@ service cloud.firestore {
       && isOptionalString(data, 'notes', 500)
       && isOptionalNumberInRange(data, 'distractions', 0, 1000)
       && isOptionalDate(data, 'date')
+      && ((!('startedAt' in data) && !('endedAt' in data))
+        || (data.startedAt is number && data.endedAt is number
+          && data.startedAt > 0 && data.endedAt > data.startedAt
+          && data.endedAt <= request.time.toMillis() + 60000
+          && (!('durationSeconds' in data)
+            || data.durationSeconds * 1000 <= data.endedAt - data.startedAt + 1000)))
       && isOptionalTimestamp(data, 'createdAt')
       && data.userId == userId;
     }

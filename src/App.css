@@ -4660,3 +4660,43 @@
   color: var(--muted-strong);
   font-size: 0.82rem;
 }
+
+
+/* Session timing: scroll the dense hourly grid locally on small screens. */
+.sf-timing-summary { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
+.sf-timing-grid { width: 100%; border-collapse: separate; border-spacing: 3px 6px; }
+.sf-timing-grid th { font-size: .7rem; color: var(--text-light); font-weight: 500; white-space: nowrap; }
+.sf-timing-grid thead th:not(:first-child) { text-align: center; }
+.sf-timing-grid th:first-child { min-width: 145px; max-width: 200px; white-space: normal; padding-right: 8px; }
+.sf-timing-grid td { padding: 0; }
+.sf-timing-grid td:last-child { padding-left: 10px; }
+.sf-timing-subject { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.sf-timing-subject i { display: inline-block; flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; }
+.sf-timing-cell { position: relative; isolation: isolate; width: 100%; min-width: 27px; height: 32px; border: 1px solid var(--border-color); border-radius: 4px; background: transparent; color: var(--text-dark); font-size: .75rem; }
+.sf-timing-cell::before { content: ''; position: absolute; inset: 0; border-radius: 3px; background: var(--cell-color); opacity: var(--cell-opacity); z-index: -1; }
+.sf-timing-cell:disabled { color: var(--text-light); }
+.sf-timing-cell[aria-pressed="true"], .sf-timing-cell:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sf-timing-cell:not(:disabled):hover { border-color: var(--primary); }
+.sf-timing-details th { font-weight: 500; color: var(--text-light); }
+.sf-timing-details td { padding-top: 12px; padding-bottom: 12px; }
+.sf-timing-notes { min-width: 140px; max-width: 320px; margin-top: 4px; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.sf-hour-insight { padding: 4px 0; }
+.sf-hour-summary { display: flex; gap: clamp(2rem, 7vw, 6rem); padding: 2px 0 24px; }
+.sf-hour-summary > div { display: flex; flex-direction: column; gap: 4px; color: var(--text-light); font-size: .8rem; }
+.sf-hour-summary strong { color: var(--text-dark); font-size: 1.35rem; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.sf-hour-summary-label { font-weight: 600; }
+.sf-hour-graph { display: flex; gap: 12px; margin-bottom: 18px; }
+.sf-hour-axis { height: 180px; display: flex; flex-direction: column; justify-content: space-between; text-align: right; font-size: .7rem; color: var(--text-light); font-variant-numeric: tabular-nums; min-width: 20px; }
+.sf-hour-plot { flex: 1; min-width: 0; position: relative; }
+.sf-hour-grid { position: absolute; inset: 0 0 28px; height: 180px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.sf-hour-grid i { display: block; border-top: 1px solid var(--border-color); }
+.sf-hour-bars { position: relative; height: 180px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: clamp(2px, .45vw, 7px); }
+.sf-hour-column { border: 0; padding: 0; background: transparent; display: flex; flex-direction: column; justify-content: end; align-items: stretch; min-width: 0; cursor: pointer; position: relative; }
+.sf-hour-column-bar { background: var(--primary); opacity: .55; border-radius: 3px 3px 0 0; min-height: 2px; transition: opacity 150ms ease; }
+.sf-hour-column.is-selected .sf-hour-column-bar, .sf-hour-column:hover .sf-hour-column-bar { opacity: 1; }
+.sf-hour-column:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 3px; }
+.sf-hour-column-value { color: var(--text-light); font-size: .7rem; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.sf-hour-column:not(.is-selected) .sf-hour-column-value { visibility: hidden; }
+.sf-hour-labels { display: flex; justify-content: space-between; color: var(--text-light); font-size: .7rem; padding-top: 8px; }
+@media (max-width: 575px) { .sf-hour-summary { gap: 24px; } .sf-hour-summary strong { font-size: 1.1rem; } .sf-hour-axis, .sf-hour-bars, .sf-hour-grid { height: 140px; } .sf-hour-bars { gap: 2px; } }
