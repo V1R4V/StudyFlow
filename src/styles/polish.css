@@ -287,3 +287,44 @@ input, textarea { caret-color: var(--primary); }
 .sf-settings-link { display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px; color: var(--text-light); border-radius: 8px; font-size: 13px; text-decoration: none; }
 .sf-settings-link:hover, .sf-settings-link.active { color: var(--text-dark); background: var(--surface-raised); }
 .sf-settings-page .mantine-InputWrapper-description { margin-bottom: 8px; color: var(--text-light); }
+
+/* Layered slate surfaces: brighter canvas, raised library cards, solid symbols. */
+[data-theme="dark"] {
+  --bg-light: #1c2030;
+  --bg-white: #272c3e;
+  --sidebar-bg: #202435;
+  --surface-quiet: #292f42;
+  --surface-raised: #343b51;
+  --control-bg: #202638;
+  --card-border: #424a62;
+  --border-color: #424a62;
+  --line-soft: #394157;
+  --text-light: #bbc3d7;
+  --muted-strong: #c2c9da;
+  --card-shadow: 0 6px 18px rgb(8 12 24 / 12%);
+}
+.sf-app .card, .sf-app .mantine-Card-root {
+  border-radius: 16px; border: 1px solid var(--card-border);
+  background: var(--bg-white); box-shadow: var(--card-shadow);
+}
+.sf-metric-card { position: relative; overflow: hidden; }
+.sf-metric-content { position: relative; z-index: 1; }
+.sf-app .sf-metric-card { padding: 24px; }
+.sf-metric-card .sf-stats-icon {
+  width: 44px; height: 44px; border-radius: 13px;
+  background: var(--primary-tint); color: var(--primary);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+.sf-metric-card .sf-stats-icon.sf-fi-amber { color: #f5b65e; background: #79552633; }
+.sf-metric-card .sf-stats-icon.sf-fi-green { color: var(--success-text); background: color-mix(in srgb, var(--success-text) 14%, transparent); }
+.sf-metric-card .sf-stats-value { font-size: 2rem; font-weight: 700; }
+.sf-app .sf-card-timer { background: var(--bg-white); border-color: var(--card-border-strong); }
+.sf-card-timer .sf-panel-body { display: flex; flex-direction: column; height: 100%; padding: 0; }
+.sf-streak-chip .sf-icon { color: #e7a246; }
+.sf-card-timer .sf-timer-display { text-shadow: none; }
+@media (max-width: 575px) {
+  .sf-app .sf-metric-card { padding: 16px; }
+  .sf-metric-card .sf-stats-icon { width: 32px; height: 32px; border-radius: 10px; }
+}
+.sf-streak-emblem { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 10px; color: #b56917; background: #f5b65e20; }
+[data-theme="dark"] .sf-streak-emblem { color: #ffc574; background: #f5b65e18; }

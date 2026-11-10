@@ -1,5 +1,6 @@
+import { Card } from '@mantine/core';
 import { SegmentedControl, Select } from '@mantine/core';
-import { Card, Button, Form, Row, Col } from 'react-bootstrap';
+import { Button, Form, Row, Col } from 'react-bootstrap';
 import Icon from './Icon';
 import { useTimer, formatClock } from '../context/TimerContext';
 
@@ -44,8 +45,8 @@ export default function StudyTimer(props) {
   }
 
   return (
-    <Card className="h-100 text-center sf-card-panel sf-card-timer">
-      <Card.Body className="sf-panel-body text-center">
+    <Card withBorder radius="lg" padding="xl" className="h-100 text-center sf-card-panel sf-card-timer">
+      <div className="sf-panel-body text-center">
         <h2 className="h4 mb-1">Smart Timer</h2>
         <p style={{ color: 'var(--muted-strong)' }} className="mb-3">{subtitle}</p>
 
@@ -196,7 +197,7 @@ export default function StudyTimer(props) {
         <div className="visually-hidden" role="status" aria-live="polite">
           {t.liveMessage}
         </div>
-      </Card.Body>
+      </div>
     </Card>
   );
 }

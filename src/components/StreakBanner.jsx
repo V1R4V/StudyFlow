@@ -30,7 +30,7 @@ export default function StreakBanner(props) {
       }}
       className="mb-0"
     >
-      <Icon name="flame" />
+      <span className="sf-streak-emblem"><Icon name="flame" size={22} /></span>
       <span>
         <strong style={{ color: 'var(--text-dark)' }}>{props.streak}-day streak</strong>{' '}
         {props.streak === 1 ? 'going. Every streak starts here.' : 'strong. Keep it rolling.'}

@@ -22,5 +22,5 @@ const icons = {
 export default function Icon({ name, size = 18, className = '' }) {
   const Glyph = icons[name];
   if (!Glyph) return null;
-  return <Glyph size={size} weight={size >= 22 ? 'duotone' : 'regular'} className={`sf-icon ${className}`} aria-hidden="true" focusable="false" />;
+  return <Glyph size={size} weight={['flame', 'calendar', 'clock', 'target', 'book', 'statistics', 'dashboard'].includes(name) ? 'fill' : 'bold'} className={`sf-icon ${className}`} aria-hidden="true" focusable="false" />;
 }
