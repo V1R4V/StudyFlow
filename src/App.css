@@ -4711,3 +4711,33 @@
 .sf-hour-data-grid > div { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border-color); font-size: .8rem; }
 .sf-hour-data-grid span { color: var(--text-light); }
 .sf-hour-data-grid strong { font-variant-numeric: tabular-nums; }
+
+/* Activity charts: compact comparisons with values visible at a glance. */
+.sf-activity-view, .sf-weekday-view { padding: 4px 0; }
+.sf-activity-overview { display: flex; flex-wrap: wrap; gap: 24px clamp(36px, 8vw, 96px); margin-bottom: 26px; }
+.sf-activity-overview > div, .sf-weekday-intro > div { display: flex; flex-direction: column; gap: 3px; }
+.sf-activity-overview span, .sf-weekday-intro span { color: var(--text-light); font-size: .78rem; font-weight: 600; }
+.sf-activity-overview strong, .sf-weekday-intro strong { color: var(--text-dark); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.sf-activity-overview small, .sf-weekday-intro small { color: var(--text-light); font-size: .78rem; }
+.sf-activity-scroll { overflow-x: auto; padding: 5px 0; }
+.sf-activity-plot { position: relative; min-width: max(520px, calc(var(--activity-columns) * 26px + 40px)); height: 200px; padding-left: 42px; }
+.sf-activity-y { position: absolute; left: 0; top: 0; height: 164px; display: flex; flex-direction: column; justify-content: space-between; color: var(--text-light); font-size: .68rem; }
+.sf-activity-grid { position: absolute; left: 42px; right: 0; top: 0; height: 164px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.sf-activity-grid i { border-top: 1px solid var(--border-color); }
+.sf-activity-bars { position: relative; height: 164px; display: grid; grid-template-columns: repeat(var(--activity-columns), minmax(24px, 1fr)); gap: 2px; }
+.sf-activity-bar-button { display: flex; align-items: flex-end; justify-content: center; border: 0; padding: 0 3px; background: transparent; cursor: pointer; }
+.sf-activity-bar { display: block; width: min(100%, 24px); min-height: 2px; background: var(--primary); opacity: .55; border-radius: 3px 3px 0 0; }
+.sf-activity-bar-button[aria-pressed="true"] .sf-activity-bar, .sf-activity-bar-button:hover .sf-activity-bar { opacity: 1; }
+.sf-activity-bar-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.sf-activity-x { display: flex; justify-content: space-between; color: var(--text-light); font-size: .73rem; padding-top: 9px; }
+.sf-activity-caption { margin: 4px 0 0; color: var(--text-light); font-size: .78rem; }
+.sf-weekday-view { display: grid; grid-template-columns: minmax(150px, .7fr) minmax(0, 2fr); gap: 32px; align-items: start; }
+.sf-weekday-intro p { color: var(--text-light); font-size: .8rem; margin: 18px 0 0; max-width: 24ch; }
+.sf-weekday-list { display: grid; gap: 13px; }
+.sf-weekday-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 60px; gap: 12px; align-items: center; font-size: .8rem; }
+.sf-weekday-label { color: var(--text-light); font-weight: 600; }
+.sf-weekday-row strong { text-align: right; font-variant-numeric: tabular-nums; font-size: .8rem; }
+.sf-weekday-track { height: 8px; background: var(--border-color); border-radius: 8px; overflow: hidden; }
+.sf-weekday-fill { height: 100%; background: var(--primary); border-radius: inherit; opacity: .65; }
+.sf-weekday-fill.is-peak { opacity: 1; }
+@media (max-width: 575px) { .sf-weekday-view { grid-template-columns: 1fr; gap: 20px; } .sf-weekday-intro { display: flex; justify-content: space-between; gap: 20px; } .sf-weekday-intro p { margin: 0; } }

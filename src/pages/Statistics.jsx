@@ -310,238 +310,66 @@ function DonutChart({ items, totalLabel, totalValue }) {
   );
 }
 
-// Daily activity bars across `startDate..endDate` (inclusive).
-// Label cadence scales so axes stay readable from 7d to multi-year ranges.
+// Group long ranges into readable buckets while keeping totals exact.
 function DailyActivityChart({ sessions, startDate, days }) {
-  const wrapRef = useRef(null);
-  const [hover, setHover] = useState(null);
-
-  const data = useMemo(() => {
-    const start = new Date(`${startDate}T00:00:00`).getTime();
-    const byDate = new Map();
-    const countByDate = new Map();
-    sessions.forEach(s => {
-      byDate.set(s.date, (byDate.get(s.date) || 0) + getSessionMinutes(s));
-      countByDate.set(s.date, (countByDate.get(s.date) || 0) + 1);
-    });
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const buckets = useMemo(() => {
+    const interval = days <= 31 ? 1 : days <= 90 ? 7 : Math.ceil(days / 28);
     const result = [];
-    for (let i = 0; i < days; i++) {
-      const d = new Date(start + i * MS_PER_DAY);
-      const dateStr = localDateString(d);
-      result.push({
-        date: dateStr,
-        minutes: byDate.get(dateStr) || 0,
-        sessions: countByDate.get(dateStr) || 0,
-        day: d.getDate(),
-        month: d.getMonth() + 1,
-      });
+    for (let offset = 0; offset < days; offset += interval) {
+      const start = shiftDateStr(startDate, offset);
+      const end = shiftDateStr(startDate, Math.min(offset + interval - 1, days - 1));
+      result.push({ start, end, minutes: 0, count: 0 });
     }
+    sessions.forEach(session => {
+      const index = Math.floor((Date.UTC(...session.date.split('-').map((v, i) => Number(v) - (i === 1 ? 1 : 0))) - Date.UTC(...startDate.split('-').map((v, i) => Number(v) - (i === 1 ? 1 : 0)))) / MS_PER_DAY / interval);
+      if (bucketsSafe(index, result.length)) {
+        result[index].minutes += getSessionMinutes(session);
+        result[index].count += 1;
+      }
+    });
     return result;
   }, [sessions, startDate, days]);
-
-  let labelEvery = 1;
-  if (days > 14 && days <= 31) labelEvery = 3;
-  else if (days > 31 && days <= 90) labelEvery = 7;
-  else if (days > 90 && days <= 200) labelEvery = 14;
-  else if (days > 200) labelEvery = Math.ceil(days / 14);
-
-  const max = Math.max(...data.map(d => d.minutes), 60);
-  const chartWidth = 800;
-  const chartHeight = 160;
-  const gap = days <= 14 ? 6 : days <= 31 ? 4 : days <= 90 ? 2 : 1;
-  const barWidth = Math.max(1, (chartWidth - gap * (days - 1)) / days);
-  const gridFractions = [0.25, 0.5, 0.75, 1];
-
-  // Translate the bar's SVG x position back into a pixel offset within the
-  // wrapper so the tooltip floats above the correct bar regardless of how the
-  // SVG scaled to fill its column.
-  function showTooltip(d, barIndex) {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const rect = wrap.getBoundingClientRect();
-    const totalSvgWidth = chartWidth;
-    const xRatio = (barIndex * (barWidth + gap) + barWidth / 2) / totalSvgWidth;
-    const left = xRatio * rect.width;
-    const top = (1 - (max > 0 ? d.minutes / max : 0)) * (chartHeight / (chartHeight + 28)) * rect.height;
-    setHover({
-      date: d.date,
-      minutes: d.minutes,
-      sessions: d.sessions,
-      left,
-      top: Math.max(top, 0),
-    });
-  }
-
+  const max = Math.max(60, ...buckets.map(bucket => bucket.minutes));
+  const peakIndex = buckets.reduce((best, bucket, i) => bucket.minutes > buckets[best].minutes ? i : best, 0);
+  const selected = buckets[selectedIndex] || buckets[peakIndex];
+  const selectedLabel = selected.start === selected.end ? formatShortDate(selected.start) : `${formatShortDate(selected.start)} – ${formatShortDate(selected.end)}`;
   return (
-    <div ref={wrapRef} className="sf-chart-wrap">
-      <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`}
-        width="100%"
-        role="img"
-        aria-label={`Daily study minutes from ${startDate} for ${days} days`}
-        onMouseLeave={() => setHover(null)}
-      >
-        {gridFractions.map(p => (
-          <line
-            key={p}
-            x1={0}
-            x2={chartWidth}
-            y1={chartHeight - chartHeight * p}
-            y2={chartHeight - chartHeight * p}
-            stroke="var(--border-color)"
-            strokeWidth={0.5}
-            strokeDasharray="2 4"
-          />
-        ))}
-        {data.map((d, i) => {
-          const h = max > 0 ? (d.minutes / max) * chartHeight : 0;
-          const x = i * (barWidth + gap);
-          const y = chartHeight - h;
-          const isToday = i === days - 1;
-          const isHovered = hover && hover.date === d.date;
-          const showLabel = i === days - 1 || i === 0 || i % labelEvery === 0;
-          return (
-            <g key={i}>
-              {/* Wider transparent hit area so thin bars are still hoverable.
-                  Touch events show the tooltip on tap for mobile users. */}
-              <rect
-                x={x - gap / 2}
-                y={0}
-                width={barWidth + gap}
-                height={chartHeight}
-                fill="transparent"
-                onMouseEnter={() => showTooltip(d, i)}
-                onMouseMove={() => showTooltip(d, i)}
-                onTouchStart={() => showTooltip(d, i)}
-                onTouchMove={() => showTooltip(d, i)}
-                style={{ cursor: 'pointer', touchAction: 'manipulation' }}
-              />
-              <rect
-                x={x}
-                y={y}
-                width={barWidth}
-                height={Math.max(h, 2)}
-                rx={Math.min(3, barWidth / 2)}
-                fill="var(--primary)"
-                opacity={d.minutes > 0 ? (isHovered ? 1 : 0.78) : 0.15}
-                style={{ transition: 'opacity 0.12s ease' }}
-                pointerEvents="none"
-              />
-              {isToday && (
-                /* Thin ring marks "today" so it's identifiable even when the
-                   bar is the smallest. Opacity alone was misleading. */
-                <rect
-                  x={x - 1.5}
-                  y={Math.max(y - 1.5, 0)}
-                  width={barWidth + 3}
-                  height={Math.max(h, 2) + 3}
-                  rx={Math.min(4, barWidth / 2 + 1.5)}
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth={1.5}
-                  pointerEvents="none"
-                />
-              )}
-              {showLabel && barWidth > 6 && (
-                <text
-                  x={x + barWidth / 2}
-                  y={chartHeight + 18}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontWeight="600"
-                  fill="var(--text-light)"
-                  pointerEvents="none"
-                >
-                  {labelEvery >= 7 ? `${d.month}/${d.day}` : d.day}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      {hover && (
-        <div
-          className="sf-chart-tooltip sf-chart-tooltip-arrow"
-          style={{ left: hover.left, top: hover.top }}
-        >
-          <span className="sf-chart-tooltip-date">{formatPrettyDate(hover.date)}</span>
-          <span className="sf-chart-tooltip-value">
-            {hover.minutes > 0 ? formatDurationMinutes(hover.minutes) : 'No focus time'}
-          </span>
-          {hover.sessions > 0 && (
-            <span className="sf-chart-tooltip-sub">
-              {hover.sessions} {hover.sessions === 1 ? 'session' : 'sessions'}
-            </span>
-          )}
+    <div className="sf-activity-view">
+      <div className="sf-activity-overview"><div><span>{selectedIndex === null ? 'Most study time' : 'Selected period'}</span><strong>{formatDurationMinutes(selected.minutes)}</strong><small>{selectedLabel} · {selected.count} {selected.count === 1 ? 'session' : 'sessions'}</small></div><div><span>Study time</span><strong>{formatDurationMinutes(sessions.reduce((sum, session) => sum + getSessionMinutes(session), 0))}</strong><small>in the selected range</small></div></div>
+      <div className="sf-activity-scroll" role="region" aria-label="Daily activity chart; scroll for all periods" tabIndex={0}>
+        <div className="sf-activity-plot" style={{ '--activity-columns': buckets.length }}>
+          <div className="sf-activity-y" aria-hidden="true"><span>{formatDurationMinutes(max)}</span><span>{formatDurationMinutes(max / 2)}</span><span>0m</span></div>
+          <div className="sf-activity-grid" aria-hidden="true"><i/><i/><i/></div>
+          <div className="sf-activity-bars">{buckets.map((bucket, index) => {
+            const label = bucket.start === bucket.end ? formatShortDate(bucket.start) : `${formatShortDate(bucket.start)} – ${formatShortDate(bucket.end)}`;
+            return <button key={bucket.start} type="button" aria-pressed={(selectedIndex ?? peakIndex) === index} aria-label={`${label}: ${formatDurationMinutes(bucket.minutes)}, ${bucket.count} ${bucket.count === 1 ? 'session' : 'sessions'}`} className="sf-activity-bar-button" onClick={() => setSelectedIndex(index)}><span className="sf-activity-bar" style={{ height: `${bucket.minutes / max * 100}%` }} /></button>;
+          })}</div>
+          <div className="sf-activity-x" aria-hidden="true"><span>{formatShortDate(buckets[0].start)}</span><span>{formatShortDate(buckets[buckets.length - 1].end)}</span></div>
         </div>
-      )}
+      </div>
+      <p className="sf-activity-caption">{days > 31 ? 'Each bar groups consecutive days. ' : 'Each bar represents one day. '}Select a bar for details.</p>
     </div>
   );
 }
 
-// Total minutes per weekday across the filtered range.
+function bucketsSafe(index, length) { return Number.isInteger(index) && index >= 0 && index < length; }
+
 function DayOfWeekChart({ sessions }) {
   const buckets = useMemo(() => {
     const raw = [0, 0, 0, 0, 0, 0, 0];
-    sessions.forEach(s => {
-      if (!s.date) return;
-      const dow = new Date(`${s.date}T00:00:00`).getDay();
-      raw[dow] += getSessionMinutes(s);
+    sessions.forEach(session => {
+      if (session.date) raw[new Date(`${session.date}T00:00:00`).getDay()] += getSessionMinutes(session);
     });
-    const order = [1, 2, 3, 4, 5, 6, 0];
-    return order.map((idx, i) => ({
-      label: DOW_LABELS[i],
-      minutes: raw[idx],
-    }));
+    return [1, 2, 3, 4, 5, 6, 0].map((day, i) => ({ label: DOW_LABELS[i], minutes: raw[day] }));
   }, [sessions]);
-
-  const max = Math.max(...buckets.map(b => b.minutes), 30);
-  const chartWidth = 360;
-  const chartHeight = 140;
-  const gap = 14;
-  const barWidth = (chartWidth - gap * 6) / 7;
-
-  if (sessions.length === 0) {
-    return <div className="text-muted text-center py-4">No sessions in range.</div>;
-  }
-
+  const max = Math.max(1, ...buckets.map(bucket => bucket.minutes));
+  const peak = buckets.find(bucket => bucket.minutes === max);
   return (
-    <svg
-      viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`}
-      width="100%"
-      role="img"
-      aria-label="Study minutes by day of week"
-    >
-      {buckets.map((b, i) => {
-        const h = max > 0 ? (b.minutes / max) * chartHeight : 0;
-        const x = i * (barWidth + gap);
-        const y = chartHeight - h;
-        return (
-          <g key={b.label}>
-            <title>{`${b.label}: ${formatDurationMinutes(b.minutes)}`}</title>
-            <rect
-              x={x}
-              y={y}
-              width={barWidth}
-              height={Math.max(h, 2)}
-              rx={4}
-              fill="var(--primary)"
-              opacity={b.minutes > 0 ? 0.85 : 0.15}
-            />
-            <text
-              x={x + barWidth / 2}
-              y={chartHeight + 18}
-              textAnchor="middle"
-              fontSize="11"
-              fontWeight="600"
-              fill="var(--text-light)"
-            >
-              {b.label}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <div className="sf-weekday-view">
+      <div className="sf-weekday-intro"><div><span>Most study time</span><strong>{peak?.label || '–'}</strong><small>{peak ? formatDurationMinutes(peak.minutes) : 'No time logged'}</small></div><p>Total focused time by weekday in the selected date range.</p></div>
+      <div className="sf-weekday-list" aria-label="Study time by day of week">{buckets.map(bucket => <div className="sf-weekday-row" key={bucket.label}><span className="sf-weekday-label">{bucket.label}</span><div className="sf-weekday-track" aria-hidden="true"><div className={`sf-weekday-fill${bucket.minutes === max ? ' is-peak' : ''}`} style={{ width: `${bucket.minutes / max * 100}%` }} /></div><strong>{formatDurationMinutes(bucket.minutes)}</strong></div>)}</div>
+    </div>
   );
 }
 
