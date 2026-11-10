@@ -106,6 +106,16 @@ export default function SubjectForm(props) {
             <div
               role="radiogroup"
               aria-label="Subject color"
+              onKeyDown={event => {
+                const steps = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 5, ArrowUp: -5 };
+                if (!(event.key in steps)) return;
+                event.preventDefault();
+                const buttons = [...event.currentTarget.querySelectorAll('[role="radio"]')];
+                const index = buttons.indexOf(document.activeElement);
+                const next = buttons[(index + steps[event.key] + buttons.length) % buttons.length];
+                next.focus();
+                if (next.getAttribute('aria-label') !== 'Custom color') next.click();
+              }}
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, 1fr)',
@@ -119,6 +129,7 @@ export default function SubjectForm(props) {
                   type="button"
                   role="radio"
                   aria-checked={color === c.value}
+                  tabIndex={color === c.value ? 0 : -1}
                   aria-label={c.name}
                   title={c.name}
                   onClick={() => setColor(c.value)}
@@ -126,7 +137,7 @@ export default function SubjectForm(props) {
                   style={{
                     background: c.value,
                     boxShadow:
-                      color === c.value ? `0 0 0 3px white, 0 0 0 5px ${c.value}` : 'none',
+                      color === c.value ? `0 0 0 3px var(--bg-white), 0 0 0 5px ${c.value}` : 'none',
                   }}
                 />
               ))}
@@ -134,6 +145,7 @@ export default function SubjectForm(props) {
                 type="button"
                 role="radio"
                 aria-checked={isCustomColor}
+                tabIndex={0}
                 aria-label="Custom color"
                 title="Custom color"
                 onClick={() => colorInputRef.current?.click()}
@@ -141,7 +153,7 @@ export default function SubjectForm(props) {
                 style={{
                   background: isCustomColor ? color : RAINBOW_GRADIENT,
                   boxShadow: isCustomColor
-                    ? `0 0 0 3px white, 0 0 0 5px ${color}`
+                    ? `0 0 0 3px var(--bg-white), 0 0 0 5px ${color}`
                     : 'none',
                   cursor: 'pointer',
                 }}

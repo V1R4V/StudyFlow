@@ -1,3 +1,4 @@
+import { SegmentedControl } from '@mantine/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Container, Button, Offcanvas, Spinner, Dropdown } from 'react-bootstrap';
 import { useSearchParams } from 'react-router-dom';
@@ -284,18 +285,11 @@ export default function Reminders() {
       </header>
 
       <div className="sf-rem-toolbar">
-        <div className="btn-group sf-rem-views" role="tablist" aria-label="Reminder views">
-          {VIEWS.map(v => (
-            <button key={v.key} type="button" role="tab" aria-selected={view === v.key}
-              className={`btn btn-sm sf-rem-view ${view === v.key ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => setParam('view', v.key === DEFAULT_VIEW ? null : v.key)}>
-              {v.label}
-              {counts[v.key] > 0 && (
-                <span className={`sf-rem-count${v.key === 'today' && overdue.length > 0 ? ' is-alert' : ''}`}>{counts[v.key]}</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="sf-segmented sf-rem-views" aria-label="Reminder views" withItemsBorders={false}
+          value={view} onChange={value => setParam('view', value === DEFAULT_VIEW ? null : value)}
+          data={VIEWS.map(v => ({ value: v.key, label: <span>{v.label}{counts[v.key] > 0 && <span className={`sf-rem-count${v.key === 'today' && overdue.length > 0 ? ' is-alert' : ''}`}>{counts[v.key]}</span>}</span> }))}
+        />
         <div className="sf-rem-filterbar">
           {filterSubject && (
             <FilterPill label="Subject" onRemove={() => setFilters(f => ({ ...f, subjectId: null }))}>

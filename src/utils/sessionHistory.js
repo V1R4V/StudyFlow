@@ -1,4 +1,5 @@
 import { recordedSessionTiming } from './sessionTiming.js';
+import { sessionTimeZone, zonedDateTimeInput } from './timeZone.js';
 import { getSessionMinutes, localDateString, shiftDateStr } from './sessions.js';
 import { weekStartStr } from './plan.js';
 
@@ -27,19 +28,23 @@ export function timestampMillis(timestamp) {
   return null;
 }
 
-export function formatSessionTimeRange(session, locale) {
+export function formatSessionTimeRange(session, locale, timeZone = sessionTimeZone()) {
   const timing = recordedSessionTiming(session);
   if (timing) {
-    const overnight = localDateString(timing.startedAt) !== localDateString(timing.endedAt);
+    const startDate = zonedDateTimeInput(timing.startedAt, timeZone).slice(0, 10);
+    const endDate = zonedDateTimeInput(timing.endedAt, timeZone).slice(0, 10);
+    const overnight = startDate !== endDate || (session.date && startDate !== session.date);
     const formatter = new Intl.DateTimeFormat(locale, {
-      ...(overnight ? { month: 'short', day: 'numeric' } : {}), hour: 'numeric', minute: '2-digit',
+      timeZone, ...(overnight ? { month: 'short', day: 'numeric' } : {}), hour: 'numeric', minute: '2-digit',
     });
     return formatter.formatRange(new Date(timing.startedAt), new Date(timing.endedAt));
   }
   const end = timestampMillis(session.createdAt);
   // A changed date or an imported session has no trustworthy clock range.
   if (end === null || (session.date && localDateString(end) !== session.date)) return null;
-  const formatter = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });
+  const start = end - sessionDurationSeconds(session) * 1000;
+  const includeDate = [start, end].some(instant => zonedDateTimeInput(instant, timeZone).slice(0, 10) !== localDateString(end));
+  const formatter = new Intl.DateTimeFormat(locale, { timeZone, ...(includeDate ? { month: 'short', day: 'numeric' } : {}), hour: 'numeric', minute: '2-digit' });
   return formatter.formatRange(new Date(end - sessionDurationSeconds(session) * 1000), new Date(end));
 }
 

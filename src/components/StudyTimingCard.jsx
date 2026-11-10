@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
+import { useTimeZone } from '../hooks/useTimeZone';
 import { Link } from 'react-router-dom';
 import { Button, Card, Form, Table } from 'react-bootstrap';
 import { studyTimingSummary, hourLabel, formatRecordedDateTime } from '../utils/sessionTiming';
 import { formatSessionDuration, sessionDurationSeconds } from '../utils/sessionHistory';
 
 export default function StudyTimingCard({ sessions, subjects }) {
+  const { timeZone } = useTimeZone();
   const [subjectKey, setSubjectKey] = useState('all');
   const [selectedHour, setSelectedHour] = useState(null);
   const [showAll, setShowAll] = useState(false);
-  const summary = useMemo(() => studyTimingSummary(sessions, subjects), [sessions, subjects]);
+  const summary = useMemo(() => studyTimingSummary(sessions, subjects, timeZone), [sessions, subjects, timeZone]);
   const activeKey = summary.subjects.some(s => s.key === subjectKey) ? subjectKey : 'all';
   const rows = summary.subjects.filter(s => activeKey === 'all' || s.key === activeKey);
   const matching = summary.recorded.filter(row => (activeKey === 'all' || row.subject.key === activeKey)
@@ -27,7 +29,7 @@ export default function StudyTimingCard({ sessions, subjects }) {
     <Card className="mb-4 sf-study-timing">
       <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>When &amp; what you study</span>
-        <span className="small text-muted">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
+        <span className="small text-muted">{timeZone}</span>
       </Card.Header>
       <Card.Body>
         <div className="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">

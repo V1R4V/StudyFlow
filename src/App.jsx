@@ -9,6 +9,7 @@ import { StudyDataProvider } from './context/StudyDataContext';
 import { RemindersProvider } from './context/RemindersContext';
 import Layout from './components/Layout';
 
+const Settings = lazy(() => import('./pages/Settings'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CommandCenter = lazy(() => import('./pages/CommandCenter'));
 const Sessions = lazy(() => import('./pages/Sessions'));
@@ -106,6 +107,7 @@ function AppRoutes() {
           <Route path="sessions" element={<Sessions />} />
           <Route path="statistics" element={<Statistics />} />
           <Route path="reminders" element={<Reminders />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

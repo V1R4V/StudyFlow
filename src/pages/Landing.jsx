@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Button } from 'react-bootstrap';
-import heroImg from '../assets/hero.png';
+import timerPreview from '../assets/timer-preview.png';
+import Icon from '../components/Icon';
 
 /* ------------------------------------------------------------------ *
  * Icons — stroke style matches the rest of the app (Sidebar/Login).  *
@@ -12,94 +13,39 @@ const IconBrand = () => (
   </svg>
 );
 
-const IconTimer = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="13" r="8" />
-    <path d="M12 9v4l2.5 2" />
-    <path d="M9 2h6" />
-  </svg>
-);
-
-const IconSubjects = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-    <path d="M8 4v16" />
-    <path d="M12 9h4" />
-    <path d="M12 13h4" />
-  </svg>
-);
-
-const IconChart = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 20V10" />
-    <path d="M10 20V4" />
-    <path d="M16 20v-7" />
-    <path d="M22 20H2" />
-  </svg>
-);
-
-const IconFlame = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.2.4-2 1-2.8C9 9 9 11 11 11c0-2 1-4-1-7 2 1 3 2.5 3 4" />
-    <path d="M7 14a5 5 0 0 0 10 0c0-1.5-.6-2.8-1.5-4" />
-  </svg>
-);
-
-const IconHistory = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-    <path d="M3 4v4h4" />
-    <path d="M12 8v4l3 2" />
-  </svg>
-);
-
-const IconExport = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 15V3" />
-    <path d="M8 7l4-4 4 4" />
-    <path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />
-  </svg>
-);
-
-const IconCheck = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 10.5l3.5 3.5L16 5.5" />
-  </svg>
-);
-
 const FEATURES = [
   {
-    icon: <IconTimer />,
+    icon: <Icon name="clock" size={22} />,
     tone: 'blue',
     title: 'Deep Work Timer',
     body: 'A distraction-free focus timer built for long, uninterrupted study blocks. Log a distraction without breaking flow.',
   },
   {
-    icon: <IconSubjects />,
+    icon: <Icon name="book" size={22} />,
     tone: 'violet',
     title: 'Organize by Subject',
     body: 'Group every session under color-coded subjects so you always know where your hours are really going.',
   },
   {
-    icon: <IconHistory />,
+    icon: <Icon name="clock" size={22} />,
     tone: 'teal',
     title: 'Session History',
     body: 'Every block is saved automatically. Revisit, filter, and reflect on exactly how each study day unfolded.',
   },
   {
-    icon: <IconChart />,
+    icon: <Icon name="statistics" size={22} />,
     tone: 'green',
     title: 'Analytics & Insights',
     body: 'Weekly trends, hour-of-day heatmaps, study-debt and what-if planning turn raw minutes into a plan.',
   },
   {
-    icon: <IconFlame />,
+    icon: <Icon name="flame" size={22} />,
     tone: 'amber',
     title: 'Streaks & Goals',
     body: 'Keep momentum with daily streaks and goal tracking that reward consistency over cramming.',
   },
   {
-    icon: <IconExport />,
+    icon: <Icon name="download" size={22} />,
     tone: 'rose',
     title: 'Import & Export',
     body: 'Bring history in or take it with you. CSV import and export keep your data portable and yours.',
@@ -199,7 +145,6 @@ export default function Landing() {
           <Container>
             <Row className="align-items-center g-5">
               <Col lg={6}>
-                <span className="sf-eyebrow">Deep work, measured.</span>
                 <h1 className="sf-hero-title">
                   Turn scattered study time into <span className="sf-grad">focused progress</span>.
                 </h1>
@@ -225,23 +170,10 @@ export default function Landing() {
               </Col>
 
               <Col lg={6}>
-                <div className="sf-hero-art">
-                  <img src={heroImg} alt="" className="sf-hero-img" aria-hidden="true" />
-
-                  {/* Floating stat cards layered over the art */}
-                  <div className="sf-float-card sf-float-card-a">
-                    <div className="sf-float-label">This week</div>
-                    <div className="sf-float-value">18h 42m</div>
-                    <div className="sf-float-trend">▲ 12% vs last week</div>
-                  </div>
-                  <div className="sf-float-card sf-float-card-b">
-                    <div className="sf-float-streak"><IconFlame /></div>
-                    <div>
-                      <div className="sf-float-value sf-float-value-sm">12-day streak</div>
-                      <div className="sf-float-label">Keep it going</div>
-                    </div>
-                  </div>
-                </div>
+                <figure className="sf-product-preview">
+                  <img src={timerPreview} alt="StudyFlow focus timer with Pomodoro, custom, stopwatch and break modes, a subject selector, and Start Session control." width="554" height="587" fetchPriority="high" />
+                  <figcaption>A focused workspace. Sample subject shown.</figcaption>
+                </figure>
               </Col>
             </Row>
 
@@ -265,7 +197,6 @@ export default function Landing() {
         <section className="sf-section" id="features">
           <Container>
             <div className="sf-section-head">
-              <span className="sf-eyebrow">Everything in one place</span>
               <h2 className="sf-section-title">A complete deep-work workflow</h2>
               <p className="sf-section-sub">
                 From the first focused minute to your end-of-week review, StudyFlow handles the
@@ -293,7 +224,6 @@ export default function Landing() {
         <section className="sf-section sf-section-alt" id="how">
           <Container>
             <div className="sf-section-head">
-              <span className="sf-eyebrow">How it works</span>
               <h2 className="sf-section-title">Three steps to deeper focus</h2>
               <p className="sf-section-sub">
                 No setup ceremony. Start a session in seconds and let the data build itself.
@@ -321,17 +251,16 @@ export default function Landing() {
           <Container>
             <Row className="align-items-center g-5">
               <Col lg={6}>
-                <span className="sf-eyebrow">Insights that actually help</span>
                 <h2 className="sf-section-title sf-text-start">See your effort, then improve it</h2>
                 <p className="sf-section-sub sf-text-start">
                   StudyFlow turns every logged minute into a picture you can act on: when you
                   focus best, which subjects you’re neglecting, and how far you are from your goals.
                 </p>
                 <ul className="sf-check-list">
-                  <li><span aria-hidden="true"><IconCheck /></span>Weekly trends and hour-of-day heatmaps</li>
-                  <li><span aria-hidden="true"><IconCheck /></span>Study-debt tracking and what-if planning</li>
-                  <li><span aria-hidden="true"><IconCheck /></span>Streaks and goals that reward consistency</li>
-                  <li><span aria-hidden="true"><IconCheck /></span>Per-subject breakdowns at a glance</li>
+                  <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Weekly trends and hour-of-day heatmaps</li>
+                  <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Study-debt tracking and what-if planning</li>
+                  <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Streaks and goals that reward consistency</li>
+                  <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Per-subject breakdowns at a glance</li>
                 </ul>
               </Col>
 
@@ -367,7 +296,6 @@ export default function Landing() {
         <section className="sf-section sf-section-alt" id="testimonials">
           <Container>
             <div className="sf-section-head">
-              <span className="sf-eyebrow">Social proof</span>
               <h2 className="sf-section-title">Students get more done with StudyFlow</h2>
             </div>
             <Row className="g-4">
@@ -395,7 +323,6 @@ export default function Landing() {
         <section className="sf-section" id="pricing">
           <Container>
             <div className="sf-section-head">
-              <span className="sf-eyebrow">Pricing</span>
               <h2 className="sf-section-title">Start free, upgrade when you’re ready</h2>
               <p className="sf-section-sub">
                 Everything you need to build a focused study habit is free today. Premium is on the way.
@@ -409,10 +336,10 @@ export default function Landing() {
                   <div className="sf-price-amount">$0<span>/forever</span></div>
                   <p className="sf-price-desc">For students who want to track focus and build a streak.</p>
                   <ul className="sf-check-list">
-                    <li><span aria-hidden="true"><IconCheck /></span>Unlimited focus sessions</li>
-                    <li><span aria-hidden="true"><IconCheck /></span>Subjects, streaks & goals</li>
-                    <li><span aria-hidden="true"><IconCheck /></span>Full analytics dashboard</li>
-                    <li><span aria-hidden="true"><IconCheck /></span>CSV import & export</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Unlimited focus sessions</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Subjects, streaks & goals</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Full analytics dashboard</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>CSV import & export</li>
                   </ul>
                   <Button as={Link} to="/login" variant="primary" className="w-100 sf-btn-lg">
                     Get started free
@@ -427,10 +354,10 @@ export default function Landing() {
                   <div className="sf-price-amount sf-price-amount-muted">Later<span>/stay tuned</span></div>
                   <p className="sf-price-desc">For power users who want more automation and depth.</p>
                   <ul className="sf-check-list sf-check-list-muted">
-                    <li><span aria-hidden="true"><IconCheck /></span>Everything in Free</li>
-                    <li><span aria-hidden="true"><IconCheck /></span>Advanced reports & exports</li>
-                    <li><span aria-hidden="true"><IconCheck /></span>Calendar & integrations</li>
-                    <li><span aria-hidden="true"><IconCheck /></span>Smart focus recommendations</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Everything in Free</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Advanced reports & exports</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Calendar & integrations</li>
+                    <li><span aria-hidden="true"><Icon name="check" size={16} /></span>Smart focus recommendations</li>
                   </ul>
                   <Button variant="outline-primary" className="w-100 sf-btn-lg" disabled>
                     Join the waitlist

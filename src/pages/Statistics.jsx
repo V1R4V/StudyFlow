@@ -1,3 +1,5 @@
+import { SegmentedControl } from '@mantine/core';
+import { useTimeZone } from '../hooks/useTimeZone';
 import StudyTimingCard from '../components/StudyTimingCard';
 import { studyTimingSummary } from '../utils/sessionTiming';
 import { useMemo, useRef, useState } from 'react';
@@ -244,7 +246,6 @@ function DonutChart({ items, totalLabel, totalValue }) {
     );
   }
 
-  let offset = 0;
   return (
     <svg
       viewBox="0 0 200 200"
@@ -266,7 +267,8 @@ function DonutChart({ items, totalLabel, totalValue }) {
         const fraction = item.value / total;
         const dash = fraction * circumference;
         const gap = circumference - dash;
-        const segment = (
+        const offset = items.slice(0, i).reduce((sum, previous) => sum + (previous.value / total) * circumference, 0);
+        return (
           <circle
             key={i}
             cx={cx}
@@ -281,8 +283,6 @@ function DonutChart({ items, totalLabel, totalValue }) {
             strokeLinecap="butt"
           />
         );
-        offset += dash;
-        return segment;
       })}
       <text
         x={cx}
@@ -368,7 +368,7 @@ function DayOfWeekChart({ sessions }) {
   return (
     <div className="sf-weekday-view">
       <div className="sf-weekday-intro"><div><span>Most study time</span><strong>{peak?.label || '–'}</strong><small>{peak ? formatDurationMinutes(peak.minutes) : 'No time logged'}</small></div><p>Total focused time by weekday in the selected date range.</p></div>
-      <div className="sf-weekday-list" aria-label="Study time by day of week">{buckets.map(bucket => <div className="sf-weekday-row" key={bucket.label}><span className="sf-weekday-label">{bucket.label}</span><div className="sf-weekday-track" aria-hidden="true"><div className={`sf-weekday-fill${bucket.minutes === max ? ' is-peak' : ''}`} style={{ width: `${bucket.minutes / max * 100}%` }} /></div><strong>{formatDurationMinutes(bucket.minutes)}</strong></div>)}</div>
+      <div className="sf-weekday-list" role="group" aria-label="Study time by day of week">{buckets.map(bucket => <div className="sf-weekday-row" key={bucket.label}><span className="sf-weekday-label">{bucket.label}</span><div className="sf-weekday-track" aria-hidden="true"><div className={`sf-weekday-fill${bucket.minutes === max ? ' is-peak' : ''}`} style={{ width: `${bucket.minutes / max * 100}%` }} /></div><strong>{formatDurationMinutes(bucket.minutes)}</strong></div>)}</div>
     </div>
   );
 }
@@ -753,8 +753,9 @@ function WhatIfPlanner({ subjects, sessions, todayStr }) {
 // without a usable timestamp (legacy guest data) are skipped. A small note
 // surfaces this so the chart never silently undercounts.
 function HourOfDayChart({ sessions }) {
+  const { timeZone } = useTimeZone();
   const [selectedHour, setSelectedHour] = useState(null);
-  const { hourlyStarts, missing, recorded } = useMemo(() => studyTimingSummary(sessions), [sessions]);
+  const { hourlyStarts, missing, recorded } = useMemo(() => studyTimingSummary(sessions, [], timeZone), [sessions, timeZone]);
   const max = Math.max(...hourlyStarts, 0);
   const peak = max ? hourlyStarts.indexOf(max) : null;
   const selected = selectedHour ?? peak;
@@ -779,7 +780,7 @@ function HourOfDayChart({ sessions }) {
           <div className="sf-hour-labels" aria-hidden="true"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
         </div>
       </div>
-      <p className="text-muted small mb-0">Session starts by local time. Select a bar for its count.{missing > 0 && ` ${missing} ${missing === 1 ? 'session has' : 'sessions have'} no recorded start time and ${missing === 1 ? 'is' : 'are'} excluded.`}</p>
+      <p className="text-muted small mb-0">Session starts in {timeZone}. Select a bar for its count.{missing > 0 && ` ${missing} ${missing === 1 ? 'session has' : 'sessions have'} no recorded start time and ${missing === 1 ? 'is' : 'are'} excluded.`}</p>
       <details className="sf-hour-data mt-3"><summary>View hourly data</summary><div className="sf-hour-data-grid">{hourlyStarts.map((count, hour) => <div key={hour}><span>{interval(hour)}</span><strong>{count}</strong></div>)}</div></details>
     </div>
   );
@@ -852,7 +853,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay, onPickWeek }) {
     });
 
     return { weeks: weeksOut, monthLabels: labels, totalMinutes: total, activeDays: active };
-  }, [sessions, todayStr]);
+  }, [sessions, todayStr, cellStride]);
 
   const chartWidth = leftPad + weeksToShow * cellStride;
   const chartHeight = topPad + 7 * cellStride;
@@ -922,11 +923,10 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay, onPickWeek }) {
       ref={wrapRef}
       className="sf-chart-wrap"
       tabIndex={0}
-      role="grid"
+      role="group"
       aria-label="Activity heatmap. Use arrow keys to navigate, Enter to inspect a day."
       onKeyDown={handleKeyDown}
       onBlur={() => { setFocusCell(null); setHover(null); }}
-      style={{ outline: 'none' }}
     >
       <div style={{ overflowX: 'auto' }}>
         <svg
@@ -1030,6 +1030,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay, onPickWeek }) {
       {hover && (
         <div
           className="sf-chart-tooltip sf-chart-tooltip-arrow"
+          role="status"
           style={{ left: hover.left, top: hover.top }}
         >
           <span className="sf-chart-tooltip-date">{formatPrettyDate(hover.date)}</span>
@@ -1060,6 +1061,7 @@ function CalendarHeatmap({ sessions, todayStr, onPickDay, onPickWeek }) {
                 key={m}
                 title={label}
                 aria-label={label}
+                role="img"
                 style={{
                   position: 'relative',
                   width: 14,
@@ -1804,28 +1806,15 @@ export default function Statistics() {
               <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span>{isDay ? 'Sessions on this day' : 'Activity'}</span>
                 {!isDay && (
-                  <ButtonGroup size="sm" aria-label="Activity view">
-                    <Button
-                      variant={
-                        activityView === 'timeline' ? 'primary' : 'outline-secondary'
-                      }
-                      onClick={() => setActivityView('timeline')}
-                    >
-                      Timeline
-                    </Button>
-                    <Button
-                      variant={activityView === 'dow' ? 'primary' : 'outline-secondary'}
-                      onClick={() => setActivityView('dow')}
-                    >
-                      By Day of Week
-                    </Button>
-                    <Button
-                      variant={activityView === 'hour' ? 'primary' : 'outline-secondary'}
-                      onClick={() => setActivityView('hour')}
-                    >
-                      By Hour of Day
-                    </Button>
-                  </ButtonGroup>
+                  <SegmentedControl
+                    className="sf-segmented" aria-label="Activity view"
+                    value={activityView} onChange={setActivityView} withItemsBorders={false}
+                    data={[
+                      { value: 'timeline', label: 'Timeline' },
+                      { value: 'dow', label: 'By Day of Week' },
+                      { value: 'hour', label: 'By Hour of Day' },
+                    ]}
+                  />
                 )}
               </div>
               <span className="small text-muted">

@@ -1,5 +1,7 @@
+import { PasswordInput } from '@mantine/core';
+import Icon from '../components/Icon';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Container, Card, Form, Button, Alert, Tab, Tabs } from 'react-bootstrap';
 import { useAuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -42,6 +44,9 @@ export default function Login() {
   const showPwMeter = tab === 'signup' && password.length > 0;
 
   function friendlyError(err) {
+    if (err.code === 'auth/popup-blocked') return 'Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.';
+    if (err.code === 'auth/unauthorized-domain') return 'Sign-in is not available on this address. For the local preview, open http://localhost:5173/login.';
+    if (err.code === 'auth/network-request-failed') return 'Could not connect. Check your internet connection and try again.';
     if (err.code === 'auth/configuration-not-found') {
       return 'This sign-in method is not enabled in Firebase Console. Enable it under Authentication → Sign-in method.';
     }
@@ -102,6 +107,7 @@ export default function Login() {
 
   return (
     <main id="main-content" className="sf-login-bg" tabIndex={-1}>
+      <Link to="/" className="sf-login-back"><Icon name="chevronLeft" size={16} /> Back to StudyFlow</Link>
       {/* Theme toggle, fixed top-right corner of viewport */}
       <button
         onClick={toggleTheme}
@@ -158,7 +164,7 @@ export default function Login() {
                 className="mb-3 sf-login-tabs"
               >
                 <Tab eventKey="signin" title="Sign In">
-                  <Form onSubmit={handleEmailSubmit} noValidate>
+                  <Form onSubmit={handleEmailSubmit}>
                     <Form.Group className="mb-3" controlId="login-email">
                       <Form.Label>Email address</Form.Label>
                       <Form.Control
@@ -171,14 +177,13 @@ export default function Login() {
                       />
                     </Form.Group>
                     <Form.Group className="mb-4" controlId="login-password">
-                      <Form.Label>Password</Form.Label>
-                      <Form.Control
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                        autoComplete="current-password"
+                      <PasswordInput
+                        id="login-password" label="Password" className="sf-library-field"
+                        placeholder="Your password" value={password}
+                        onChange={e => setPassword(e.target.value)} required autoComplete="current-password"
+                        visibilityToggleFocusable
+                        visibilityToggleButtonProps={{ 'aria-label': 'Toggle password visibility' }}
+                        visibilityToggleIcon={({ reveal }) => <Icon name={reveal ? 'eyeOff' : 'eye'} size={18} />}
                       />
                     </Form.Group>
                     <Button
@@ -193,7 +198,7 @@ export default function Login() {
                 </Tab>
 
                 <Tab eventKey="signup" title="Create Account">
-                  <Form onSubmit={handleEmailSubmit} noValidate>
+                  <Form onSubmit={handleEmailSubmit}>
                     <Form.Group className="mb-3" controlId="signup-email">
                       <Form.Label>Email address</Form.Label>
                       <Form.Control
@@ -206,14 +211,13 @@ export default function Login() {
                       />
                     </Form.Group>
                     <Form.Group className="mb-4" controlId="signup-password">
-                      <Form.Label>Password</Form.Label>
-                      <Form.Control
-                        type="password"
-                        placeholder="At least 8 characters"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
+                      <PasswordInput
+                        id="signup-password" label="Password" className="sf-library-field"
+                        placeholder="At least 8 characters" value={password}
+                        onChange={e => setPassword(e.target.value)} required autoComplete="new-password"
+                        visibilityToggleFocusable
+                        visibilityToggleButtonProps={{ 'aria-label': 'Toggle password visibility' }}
+                        visibilityToggleIcon={({ reveal }) => <Icon name={reveal ? 'eyeOff' : 'eye'} size={18} />}
                         aria-describedby="signup-password-hint"
                       />
                       {showPwMeter && (

@@ -1,4 +1,5 @@
 import { getSessionMinutes, localDateString, sessionMatchesSubject } from './sessions.js';
+import { sessionTimeZone, zonedDateTimeInput } from './timeZone.js';
 
 // Milliseconds since epoch survive Firestore and localStorage unchanged.
 export function recordedSessionTiming(session) {
@@ -29,9 +30,9 @@ export function sessionTimingFields(raw) {
   return { ...timing, date: localDateString(timing.startedAt) };
 }
 
-export function formatRecordedDateTime(milliseconds) {
+export function formatRecordedDateTime(milliseconds, timeZone = sessionTimeZone()) {
   return new Date(milliseconds).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit',
+    timeZone, month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 }
 
@@ -39,7 +40,7 @@ export function hourLabel(hour) {
   return new Date(2026, 0, 1, hour).toLocaleTimeString(undefined, { hour: 'numeric' });
 }
 
-export function studyTimingSummary(sessions, subjects = []) {
+export function studyTimingSummary(sessions, subjects = [], timeZone = sessionTimeZone()) {
   const bySubject = new Map();
   const hourlyMinutes = Array(24).fill(0);
   const hourlyStarts = Array(24).fill(0);
@@ -54,7 +55,7 @@ export function studyTimingSummary(sessions, subjects = []) {
       color: subject?.color || session.subjectColor || '#6b7280', starts: Array(24).fill(0), count: 0,
     });
     const row = bySubject.get(key);
-    const hour = new Date(timing.startedAt).getHours();
+    const hour = Number(zonedDateTimeInput(timing.startedAt, timeZone).slice(11, 13));
     row.starts[hour] += 1;
     row.count += 1;
     hourlyStarts[hour] += 1;
@@ -66,9 +67,11 @@ export function studyTimingSummary(sessions, subjects = []) {
     let cursor = timing.startedAt;
     while (cursor < timing.endedAt) {
       const d = new Date(cursor);
-      const hr = d.getHours();
+      const wall = zonedDateTimeInput(cursor, timeZone);
+      const hr = Number(wall.slice(11, 13));
+      const minute = Number(wall.slice(14, 16));
       // Advance on the absolute timeline, including repeated DST hours.
-      const next = Math.min(timing.endedAt, cursor + (60 - d.getMinutes()) * 60000 - d.getSeconds() * 1000 - d.getMilliseconds());
+      const next = Math.min(timing.endedAt, cursor + (60 - minute) * 60000 - d.getSeconds() * 1000 - d.getMilliseconds());
       hourlyMinutes[hr] += (next - cursor) / 60000 * weight;
       cursor = next;
     }

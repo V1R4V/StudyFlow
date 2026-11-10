@@ -172,17 +172,18 @@ export default function ReminderComposer({ open, onOpenChange, onAdd, subjects, 
           placeholder={compact ? 'Remind me to…' : `Remind me to… try “Quiz tomorrow 3pm ${example} !!”`}
           aria-label="Reminder. Dates, times, #subject and ! priority are recognized as you type."
           aria-autocomplete="list"
-          aria-expanded={suggestions.length > 0}
+          aria-controls={suggestions.length > 0 ? `${titleId}-suggestions` : undefined}
+          aria-activedescendant={suggestions.length > 0 ? `${titleId}-option-${Math.min(activeSuggestion, suggestions.length - 1)}` : undefined}
           onChange={event => { update({ text: event.target.value.replace(/\n/g, ' ') }); setCaret(event.target.selectionStart); setActiveSuggestion(0); }}
           onSelect={event => setCaret(event.target.selectionStart)}
           onKeyDown={onTitleKeyDown}
         />
         {suggestions.length > 0 && (
-          <div className="sf-rem-suggest" role="listbox" aria-label="Subjects">
+          <div id={`${titleId}-suggestions`} className="sf-rem-suggest" role="listbox" aria-label="Subjects">
             {suggestions.map((s, i) => (
-              <button key={subjectRefId(s)} type="button" role="option" aria-selected={i === activeSuggestion}
+              <button id={`${titleId}-option-${i}`} key={subjectRefId(s)} type="button" role="option" aria-selected={i === activeSuggestion}
                 className={`sf-rem-option${i === activeSuggestion ? ' is-active' : ''}`}
-                onMouseDown={event => { event.preventDefault(); pickSubject(s); }}>
+                onMouseDown={event => event.preventDefault()} onClick={() => pickSubject(s)}>
                 <span className="sf-rem-option-label"><span className="sf-rem-dot" style={{ background: s.color }} aria-hidden="true" /> {s.name}</span>
               </button>
             ))}

@@ -43,7 +43,7 @@ export default function WeeklyTrendCard({ weekly, selectedDate, onSelectDate }) 
           <span className="sf-trend-total">{formatStudyTime(totalMinutes)}</span>
           <span className="text-muted">studied this week</span>
         </div>
-        <div className="sf-trend-chart mt-3" aria-label={`Study time for ${formatWeekRange(weekly.start)}`}>
+        <div className="sf-trend-chart mt-3" role="group" aria-label={`Study time for ${formatWeekRange(weekly.start)}`}>
           <div className="sf-trend-axis" aria-hidden="true">
             {[ceiling, ceiling / 2, 0].map(tick => <span key={tick}>{unit === 'hours' ? Number((tick / 60).toFixed(1)) : tick}</span>)}
           </div>

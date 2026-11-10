@@ -1,6 +1,14 @@
+import { MantineProvider, createTheme } from '@mantine/core';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext(null);
+const componentTheme = createTheme({
+  fontFamily: "'Plus Jakarta Sans', sans-serif",
+  primaryColor: 'indigo',
+  defaultRadius: 'md',
+  respectReducedMotion: true,
+  focusRing: 'auto',
+});
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
@@ -24,7 +32,7 @@ export function ThemeProvider({ children }) {
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
+      <MantineProvider theme={componentTheme} forceColorScheme={theme}>{children}</MantineProvider>
     </ThemeContext.Provider>
   );
 }

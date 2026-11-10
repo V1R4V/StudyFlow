@@ -4,80 +4,11 @@ import { useAuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useReminders } from '../context/RemindersContext';
 import { badgeCount } from '../utils/reminders';
-
-const IconDashboard = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="7" height="7" rx="1.5" />
-    <rect x="11" y="2" width="7" height="7" rx="1.5" />
-    <rect x="2" y="11" width="7" height="7" rx="1.5" />
-    <rect x="11" y="11" width="7" height="7" rx="1.5" />
-  </svg>
-);
-
-const IconSubjects = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-    <path d="M7 4v12" />
-    <path d="M10 8h4" />
-    <path d="M10 11h4" />
-  </svg>
-);
-
-const IconSessions = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="7.5" />
-    <path d="M10 6v4l2.5 2.5" />
-  </svg>
-);
-
-const IconStatistics = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 17V11" />
-    <path d="M8 17V7" />
-    <path d="M13 17V13" />
-    <path d="M18 17V4" />
-  </svg>
-);
-
-const IconReminders = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 8a5 5 0 0 1 10 0c0 4.5 2 6 2 6H3s2-1.5 2-6" />
-    <path d="M8.5 17a1.75 1.75 0 0 0 3 0" />
-  </svg>
-);
-
-const IconCommand = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="7.5" />
-    <path d="M10 2.5v3M10 14.5v3M2.5 10h3M14.5 10h3" />
-    <circle cx="10" cy="10" r="2.25" />
-  </svg>
-);
+import Icon from './Icon';
 
 const IconBrand = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
     <path d="M12 1.5l2.6 8.4L23 12l-8.4 2.1L12 23l-2.1-8.9L1 12l8.9-2.1L12 1.5z" />
-  </svg>
-);
-
-const IconSun = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="10" cy="10" r="4" />
-    <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" />
-  </svg>
-);
-
-const IconMoon = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17.5 11.5A7.5 7.5 0 0 1 8.5 2.5a7.5 7.5 0 1 0 9 9z" />
-  </svg>
-);
-
-const IconSignOut = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
   </svg>
 );
 
@@ -95,12 +26,12 @@ const IconGrip = () => (
 // Each item has a stable `key` used to look it up; the on-disk order is
 // stored as an array of keys so adding new nav items doesn't break.
 const NAV_ITEMS = {
-  dashboard:  { key: 'dashboard',  to: '/app',            label: 'Dashboard',      icon: <IconDashboard />,  end: true },
-  command:    { key: 'command',    to: '/app/command',    label: 'Command Center', icon: <IconCommand /> },
-  subjects:   { key: 'subjects',   to: '/app/subjects',   label: 'Subjects',       icon: <IconSubjects /> },
-  sessions:   { key: 'sessions',   to: '/app/sessions',   label: 'Sessions',       icon: <IconSessions /> },
-  statistics: { key: 'statistics', to: '/app/statistics', label: 'Statistics',     icon: <IconStatistics /> },
-  reminders:  { key: 'reminders',  to: '/app/reminders',  label: 'Reminders',      icon: <IconReminders /> },
+  dashboard:  { key: 'dashboard',  to: '/app',            label: 'Dashboard',      icon: <Icon name="dashboard" size={18} />,  end: true },
+  command:    { key: 'command',    to: '/app/command',    label: 'Command Center', icon: <Icon name="command" size={18} /> },
+  subjects:   { key: 'subjects',   to: '/app/subjects',   label: 'Subjects',       icon: <Icon name="book" size={18} /> },
+  sessions:   { key: 'sessions',   to: '/app/sessions',   label: 'Sessions',       icon: <Icon name="clock" size={18} /> },
+  statistics: { key: 'statistics', to: '/app/statistics', label: 'Statistics',     icon: <Icon name="statistics" size={18} /> },
+  reminders:  { key: 'reminders',  to: '/app/reminders',  label: 'Reminders',      icon: <Icon name="bell" size={18} /> },
 };
 const DEFAULT_ORDER = ['dashboard', 'command', 'subjects', 'sessions', 'statistics', 'reminders'];
 const NAV_ORDER_KEY = 'sf-nav-order';
@@ -223,6 +154,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="sf-sidebar-footer">
+        <NavLink to="/app/settings" className="sf-settings-link"><Icon name="settings" size={18} /> Settings</NavLink>
         {user ? (
           <div className="sf-user-section">
             <div className="sf-user-avatar" aria-hidden="true">
@@ -239,7 +171,7 @@ export default function Sidebar() {
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
             >
-              {theme === 'dark' ? <IconSun /> : <IconMoon />}
+              {theme === 'dark' ? <Icon name="sun" size={18} /> : <Icon name="moon" size={18} />}
             </button>
             <button
               onClick={handleSignOut}
@@ -247,7 +179,7 @@ export default function Sidebar() {
               aria-label="Sign out"
               title="Sign out"
             >
-              <IconSignOut />
+              <Icon name="signOut" size={18} />
             </button>
           </div>
         ) : (
@@ -258,7 +190,7 @@ export default function Sidebar() {
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
             >
-              {theme === 'dark' ? <IconSun /> : <IconMoon />}
+              {theme === 'dark' ? <Icon name="sun" size={18} /> : <Icon name="moon" size={18} />}
             </button>
             <NavLink to="/login" className="sf-signin-btn">
               Sign In

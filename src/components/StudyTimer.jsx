@@ -1,4 +1,5 @@
-import { Card, Button, Form, Row, Col, ToggleButton, ToggleButtonGroup } from 'react-bootstrap';
+import { SegmentedControl, Select } from '@mantine/core';
+import { Card, Button, Form, Row, Col } from 'react-bootstrap';
 import Icon from './Icon';
 import { useTimer, formatClock } from '../context/TimerContext';
 
@@ -49,25 +50,12 @@ export default function StudyTimer(props) {
         <p style={{ color: 'var(--muted-strong)' }} className="mb-3">{subtitle}</p>
 
         <div role="group" aria-label="Timer mode" className="mb-3">
-          <ToggleButtonGroup
-            type="radio"
-            name="timer-mode"
-            value={t.mode}
-            onChange={t.applyMode}
-            className="w-100"
-          >
-            {MODES.map(m => (
-              <ToggleButton
-                key={m.value}
-                id={`timer-mode-${m.value}`}
-                value={m.value}
-                variant={t.mode === m.value ? 'primary' : 'outline-primary'}
-                disabled={t.isRunning}
-              >
-                {m.label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+          <SegmentedControl
+            name="timer-mode" value={t.mode} onChange={t.applyMode}
+            disabled={t.isRunning} fullWidth withItemsBorders={false}
+            data={MODES.map(({ value, label }) => ({ value, label }))}
+            className="sf-segmented" aria-label="Timer mode"
+          />
           <div className="small mt-1" style={{ color: 'var(--muted-strong)' }}>
             {activeMode?.sub}
           </div>
@@ -147,23 +135,16 @@ export default function StudyTimer(props) {
             Breaks are tracked separately and never count toward your study hours.
           </div>
         ) : (
-          <Form.Group controlId="timer-subject" className="mb-3 text-start">
-            <Form.Label className="small mb-1" style={{ color: 'var(--muted-strong)' }}>
-              Subject
-            </Form.Label>
-            <Form.Select
-              value={t.subjectId}
-              onChange={e => t.setSubjectId(e.target.value)}
-              disabled={t.isRunning}
-            >
-              {(!props.subjects || props.subjects.length === 0) && (
-                <option value="">No subjects yet, add one first</option>
-              )}
-              {props.subjects && props.subjects.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+          <Select
+            id="timer-subject" label="Subject" className="sf-library-field mb-3 text-start"
+            placeholder="Choose a subject" searchable allowDeselect={false}
+            nothingFoundMessage="No matching subjects"
+            value={t.subjectId ? String(t.subjectId) : (props.subjects?.[0] ? String(props.subjects[0].id) : null)}
+            onChange={value => t.setSubjectId(value || '')}
+            disabled={t.isRunning || !props.subjects?.length}
+            data={(props.subjects || []).map(s => ({ value: String(s.id), label: s.name }))}
+            comboboxProps={{ withinPortal: true, transitionProps: { transition: 'fade', duration: 120 } }}
+          />
         )}
 
         {t.error && (

@@ -87,27 +87,27 @@ export default function Dashboard() {
           <StreakBanner streak={streak} />
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedDate(previousDay)} aria-label="Previous day">‹</Button>
+          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedDate(previousDay)} aria-label="Previous day"><Icon name="chevronLeft" size={16} /></Button>
           <Button variant={isToday ? 'primary' : 'outline-secondary'} size="sm" onClick={() => setSelectedDate(today)} disabled={isToday}>Today</Button>
           <Form.Control type="date" size="sm" value={selectedDate} max={today}
             onChange={event => { if (event.target.value && event.target.value <= today) setSelectedDate(event.target.value); }}
             style={{ width: 160 }} aria-label="Pick a day" />
-          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedDate(nextDay)} disabled={nextDay > today} aria-label="Next day">›</Button>
+          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedDate(nextDay)} disabled={nextDay > today} aria-label="Next day"><Icon name="chevronRight" size={16} /></Button>
         </div>
       </div>
 
-      <Row className="g-3 mb-4">
-        <Col md={6} lg={3}>
+      <Row className="g-3 mb-4 sf-dashboard-kpis">
+        <Col xs={6} lg={3}>
           <StatsCard title={isToday ? "Today's Focus" : 'Daily Focus'} value={formatStudyTime(dayMinutes)}
             icon={<Icon name="clock" size={24} />} tone="blue" subtitle={focusSubtitle}
             subtitleColor={focusDifference >= 0 && dayMinutes > 0 ? 'var(--success-text)' : 'var(--muted-strong)'} />
         </Col>
-        <Col md={6} lg={3}>
+        <Col xs={6} lg={3}>
           <StatsCard title="Daily Streak" value={streak} unit={streak === 1 ? 'day' : 'days'}
             icon={<Icon name="flame" size={24} />} tone="amber"
             subtitle={streak > 0 ? 'Active days in a row' : isToday ? 'Study today to start' : 'No streak on this day'} />
         </Col>
-        <Col md={6} lg={3}>
+        <Col xs={6} lg={3}>
           <StatsCard title={isToday ? "Today's Schedule" : 'Daily Schedule'}
             value={plannedMinutes > 0 ? `${schedulePct}%` : 'Open'}
             icon={<Icon name="calendar" size={24} />} tone="green"
@@ -115,7 +115,7 @@ export default function Dashboard() {
             subtitle={plannedMinutes > 0 ? scheduleLeft > 0 ? `${formatStudyTime(scheduleLeft)} left of ${formatStudyTime(plannedMinutes)}` : 'All scheduled subjects complete'
               : dayMinutes > 0 ? 'Your study still counts toward goals' : 'Study anytime or plan your day'} />
         </Col>
-        <Col md={6} lg={3}>
+        <Col xs={6} lg={3}>
           <StatsCard title="Weekly Goal Progress" value={weekly.goalMinutes > 0 ? `${weekly.goalPct}%` : formatStudyTime(weekly.totalMinutes)}
             icon={<Icon name="target" size={24} />} tone="violet"
             progress={weekly.goalMinutes > 0 ? weekly.goalPct : undefined}

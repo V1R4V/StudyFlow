@@ -1,3 +1,4 @@
+import { useTimeZone } from '../hooks/useTimeZone';
 import { recordedSessionTiming, sessionTimingFields, timingValidationError } from '../utils/sessionTiming';
 import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -122,13 +123,9 @@ function triggerDownload(filename, text) {
 }
 
 function Stars({ rating }) {
-  const n = Math.min(5, Math.max(0, Math.round(Number(rating) || 0)));
-  return (
-    <span style={{ fontSize: 14, whiteSpace: 'nowrap' }} aria-label={`Focus rating: ${n} of 5`}>
-      <span aria-hidden="true" style={{ color: 'var(--warning-text)' }}>{'★'.repeat(n)}</span>
-      <span aria-hidden="true" style={{ color: '#9ca3af' }}>{'★'.repeat(5 - n)}</span>
-    </span>
-  );
+  const value = Math.max(0, Math.min(5, Number(rating) || 0));
+  if (!value) return <span className="text-muted">Not rated</span>;
+  return <span className="sf-rating" role="img" aria-label={`Focus ${value} out of 5`}><Icon name="star" size={15} /><span>{value}<span className="text-muted"> / 5</span></span></span>;
 }
 
 const DATE_RANGES = [
@@ -223,6 +220,7 @@ function groupLabel(key, grouping) {
 }
 
 export default function Sessions() {
+  const { timeZone } = useTimeZone();
   const { subjects, sessions, updateSession, deleteSession, addSession } = useStudyData();
   const todayStr = localDateString();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -462,14 +460,14 @@ export default function Sessions() {
   function renderRow(s) {
     const subj = subjects.find(sub => sessionMatchesSubject(s, sub));
     const color = subj?.color || s.subjectColor || '#6b7280';
-    const timeRange = formatSessionTimeRange(s);
+    const timeRange = formatSessionTimeRange(s, undefined, timeZone);
     return (
       <tr key={s.id}>
         <td>
           <div className="sf-session-date">{formatFriendlyDate(s.date)}</div>
           {!timeRange && <div className="text-muted small">Times not recorded</div>}
           {timeRange && (
-            <div className="sf-session-time text-muted small">{timeRange}{!recordedSessionTiming(s) && ' (estimated)'}</div>
+            <div className="sf-session-time text-muted small" title={timeZone}>{timeRange}{!recordedSessionTiming(s) && ' (estimated)'}</div>
           )}
         </td>
         <td>
@@ -549,7 +547,7 @@ export default function Sessions() {
         <div>
           <h1 className="mb-1">Sessions</h1>
           <p className="text-muted mb-0">
-            Full session history. Review and correct times, ratings, or notes anytime.
+            Review and correct times, ratings, or notes. Times shown in {timeZone}.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap">

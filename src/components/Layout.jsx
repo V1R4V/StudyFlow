@@ -1,8 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import EndSessionModal from './EndSessionModal';
+import { lazy, Suspense } from 'react';
 import ReminderAlerts from './ReminderAlerts';
 import { useTimer } from '../context/TimerContext';
+
+const EndSessionModal = lazy(() => import('./EndSessionModal'));
 
 export default function Layout() {
   const { pendingSession, saveSession, discardSession } = useTimer();
@@ -15,17 +17,19 @@ export default function Layout() {
       </main>
       <ReminderAlerts />
       {pendingSession && (
-        <EndSessionModal
-          show={true}
-          minutes={pendingSession.minutes}
-          seconds={pendingSession.seconds}
-          initialStartedAt={pendingSession.startedAt}
-          initialEndedAt={pendingSession.endedAt}
-          requireTiming={true}
-          initialDistractions={pendingSession.distractions}
-          onSave={saveSession}
-          onDiscard={discardSession}
-        />
+        <Suspense fallback={<div role="status" className="sf-review-loading">Opening session review…</div>}>
+          <EndSessionModal
+            show={true}
+            minutes={pendingSession.minutes}
+            seconds={pendingSession.seconds}
+            initialStartedAt={pendingSession.startedAt}
+            initialEndedAt={pendingSession.endedAt}
+            requireTiming={true}
+            initialDistractions={pendingSession.distractions}
+            onSave={saveSession}
+            onDiscard={discardSession}
+          />
+        </Suspense>
       )}
     </div>
   );

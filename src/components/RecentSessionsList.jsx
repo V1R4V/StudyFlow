@@ -100,6 +100,7 @@ export default function RecentSessionsList(props) {
                   <div className="sf-session-dur">{formatDuration(getSessionSeconds(s))}</div>
                   <div
                     className="sf-focus-meter"
+                    role="img"
                     aria-label={`Focus rating ${rating} out of 5`}
                   >
                     {[1, 2, 3, 4, 5].map(n => (

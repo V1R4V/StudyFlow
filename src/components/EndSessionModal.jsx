@@ -1,7 +1,11 @@
+import { DateTimePicker } from '@mantine/dates';
+import Icon from './Icon';
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { localDateString } from '../utils/sessions';
-import { localDateTimeInput, timingValidationError } from '../utils/sessionTiming';
+import { timingValidationError } from '../utils/sessionTiming';
+import { useTimeZone } from '../hooks/useTimeZone';
+import { zonedDateTimeInput, parseZonedDateTime, deviceTimeZone } from '../utils/timeZone';
 
 const MAX_NOTES = 500;
 const MAX_HOURS = 24;
@@ -44,16 +48,19 @@ function formatTrackedHint(totalSeconds) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-const minuteInput = value => localDateTimeInput(value).slice(0, 16);
+const minuteInput = (value, timeZone) => zonedDateTimeInput(value, timeZone).slice(0, 16);
 
 export default function EndSessionModal(props) {
+  const { timeZone: preferenceTimeZone } = useTimeZone();
+  // Keep the editing zone stable if another tab changes Settings mid-review.
+  const [timeZone] = useState(preferenceTimeZone);
   const trackedSeconds = trackedSecondsFromProps(props);
   const trackedHM = splitHM(trackedSeconds);
 
   const [rating, setRating] = useState(() => clampRating(props.initialRating ?? 4));
   const [notes, setNotes] = useState(props.initialNotes || '');
-  const [startInput, setStartInput] = useState(() => minuteInput(props.initialStartedAt));
-  const [endInput, setEndInput] = useState(() => minuteInput(props.initialEndedAt));
+  const [startInput, setStartInput] = useState(() => minuteInput(props.initialStartedAt, timeZone));
+  const [endInput, setEndInput] = useState(() => minuteInput(props.initialEndedAt, timeZone));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [date, setDate] = useState(props.initialDate || todayISO());
@@ -73,10 +80,10 @@ export default function EndSessionModal(props) {
 
   const hasTiming = Boolean(startInput || endInput || props.requireTiming || props.initialStartedAt || props.initialEndedAt);
   // Preserve exact instants (including repeated DST hours) until edited.
-  const startedAt = startInput === minuteInput(props.initialStartedAt)
-    ? props.initialStartedAt : new Date(startInput).getTime();
-  const endedAt = endInput === minuteInput(props.initialEndedAt)
-    ? props.initialEndedAt : new Date(endInput).getTime();
+  const startedAt = startInput === minuteInput(props.initialStartedAt, timeZone)
+    ? props.initialStartedAt : parseZonedDateTime(startInput, timeZone, props.initialStartedAt);
+  const endedAt = endInput === minuteInput(props.initialEndedAt, timeZone)
+    ? props.initialEndedAt : parseZonedDateTime(endInput, timeZone, props.initialEndedAt);
   const effectiveSeconds = isOverridden ? hours * 3600 + minutes * 60 : trackedSeconds;
   const timingError = hasTiming ? timingValidationError(startedAt, endedAt, effectiveSeconds) : '';
   const durationError = effectiveSeconds <= 0 || effectiveSeconds > 86400
@@ -115,7 +122,16 @@ export default function EndSessionModal(props) {
 
   return (
     <Modal show={props.show} onHide={saving ? undefined : props.onDiscard} centered scrollable backdrop={saving ? 'static' : true} keyboard={!saving}>
-      <Form onSubmit={handleSubmit} className="d-flex flex-column" style={{ minHeight: 0 }}>
+      <Form
+        onSubmit={handleSubmit}
+        onKeyDownCapture={event => {
+          // Let the calendar handle Escape without discarding the session underneath it.
+          if (event.key === 'Escape' && event.currentTarget.querySelector('[data-dates-dropdown]')) {
+            event.preventDefault();
+          }
+        }}
+        className="d-flex flex-column" style={{ minHeight: 0 }}
+      >
         <Modal.Header closeButton={!saving}>
           <Modal.Title>{props.title || 'Session Complete'}</Modal.Title>
         </Modal.Header>
@@ -124,25 +140,41 @@ export default function EndSessionModal(props) {
           <fieldset className="mb-4" disabled={saving}>
             <legend className="form-label">Session start &amp; end</legend>
             <p className="small text-muted mb-2">
-              Review or correct when you studied. Times shown in {Intl.DateTimeFormat().resolvedOptions().timeZone}.
+              Review or correct when you studied. Times shown in {timeZone}.
             </p>
-            <Form.Group controlId="session-started-at" className="mb-2">
-              <Form.Label>Started</Form.Label>
-              <Form.Control type="datetime-local" step="60" value={startInput}
-                required={hasTiming} onChange={e => setStartInput(e.target.value)} />
-            </Form.Group>
-            <Form.Group controlId="session-ended-at">
-              <Form.Label>Ended</Form.Label>
-              <Form.Control type="datetime-local" step="60" value={endInput}
-                required={hasTiming} onChange={e => setEndInput(e.target.value)} />
-            </Form.Group>
+            <div className="sf-session-endpoints">
+              <DateTimePicker
+                id="session-started-at" label="Started" className="sf-library-field"
+                value={startInput ? startInput.replace('T', ' ') + ':00' : null}
+                onChange={value => setStartInput(value ? value.replace(' ', 'T').slice(0, 16) : '')}
+                valueFormat="MMM D, YYYY · h:mm A" placeholder="Choose start date & time"
+                nextLabel="Next month" previousLabel="Previous month"
+                submitButtonProps={{ 'aria-label': 'Apply date and time' }}
+                leftSection={<Icon name="calendar" size={17} />} withSeconds={false}
+                timePickerProps={{ format: '12h', hoursInputLabel: 'Start hour', minutesInputLabel: 'Start minute', amPmInputLabel: 'Start AM or PM' }}
+                popoverProps={{ withinPortal: false }} disabled={saving}
+                clearable={!props.requireTiming} clearButtonProps={{ 'aria-label': 'Clear start time' }}
+              />
+              <DateTimePicker
+                id="session-ended-at" label="Ended" className="sf-library-field"
+                value={endInput ? endInput.replace('T', ' ') + ':00' : null}
+                onChange={value => setEndInput(value ? value.replace(' ', 'T').slice(0, 16) : '')}
+                valueFormat="MMM D, YYYY · h:mm A" placeholder="Choose end date & time"
+                nextLabel="Next month" previousLabel="Previous month"
+                submitButtonProps={{ 'aria-label': 'Apply date and time' }}
+                leftSection={<Icon name="calendar" size={17} />} withSeconds={false}
+                timePickerProps={{ format: '12h', hoursInputLabel: 'End hour', minutesInputLabel: 'End minute', amPmInputLabel: 'End AM or PM' }}
+                popoverProps={{ withinPortal: false }} disabled={saving}
+                clearable={!props.requireTiming} clearButtonProps={{ 'aria-label': 'Clear end time' }}
+              />
+            </div>
             {!props.initialStartedAt && <Form.Text className="text-muted">
               Start and end were not recorded for this session. Enter them if you know them.
             </Form.Text>}
             {timingError && <div className="small text-danger mt-2" role="alert">{timingError}</div>}
             {hasTiming && !timingError && <Form.Text className="text-muted">
               Session window: {formatTrackedHint((endedAt - startedAt) / 1000)} including pauses.
-              Credited to the start date. Focused time below is tracked separately.
+              Credited to {localDateString(startedAt)} in {deviceTimeZone()}. Focused time below is tracked separately.
             </Form.Text>}
           </fieldset>
           <Form.Group className="mb-4">
