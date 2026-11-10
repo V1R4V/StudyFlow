@@ -4700,3 +4700,14 @@
 .sf-hour-column:not(.is-selected) .sf-hour-column-value { visibility: hidden; }
 .sf-hour-labels { display: flex; justify-content: space-between; color: var(--text-light); font-size: .7rem; padding-top: 8px; }
 @media (max-width: 575px) { .sf-hour-summary { gap: 24px; } .sf-hour-summary strong { font-size: 1.1rem; } .sf-hour-axis, .sf-hour-bars, .sf-hour-grid { height: 140px; } .sf-hour-bars { gap: 2px; } }
+
+/* Keep hourly data legible and reachable on touch screens. */
+.sf-hour-graph { overflow-x: auto; padding-bottom: 4px; }
+.sf-hour-plot { min-width: 580px; }
+.sf-hour-column { min-width: 24px; }
+.sf-hour-column-value { position: absolute; bottom: calc(var(--bar-height, 0%) + 3px); left: 50%; transform: translateX(-50%); }
+.sf-hour-data summary { cursor: pointer; color: var(--text-dark); font-weight: 600; font-size: .85rem; }
+.sf-hour-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0 24px; margin-top: 12px; }
+.sf-hour-data-grid > div { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border-color); font-size: .8rem; }
+.sf-hour-data-grid span { color: var(--text-light); }
+.sf-hour-data-grid strong { font-variant-numeric: tabular-nums; }

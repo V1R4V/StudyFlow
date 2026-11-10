@@ -1,6 +1,7 @@
 import StudyTimingCard from '../components/StudyTimingCard';
 import { studyTimingSummary } from '../utils/sessionTiming';
 import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Form, Button, ButtonGroup } from 'react-bootstrap';
 import HelpTip from '../components/HelpTip';
 import { useStudyData } from '../context/StudyDataContext';
@@ -939,11 +940,11 @@ function HourOfDayChart({ sessions }) {
         <div><span className="sf-hour-summary-label">Recorded starts</span><strong>{recorded.length}</strong><span>in this date range</span></div>
       </div>
       <div className="sf-hour-graph" role="group" aria-label="Session starts by hour. Select an hour to see its count.">
-        <div className="sf-hour-axis" aria-hidden="true"><span>{max}</span><span>{Math.round(max / 2)}</span><span>0</span></div>
+        <div className="sf-hour-axis" aria-hidden="true"><span>{max}</span><span>{max / 2}</span><span>0</span></div>
         <div className="sf-hour-plot">
           <div className="sf-hour-grid" aria-hidden="true"><i/><i/><i/></div>
           <div className="sf-hour-bars">{hourlyStarts.map((count, hour) => (
-            <button type="button" key={hour} className={`sf-hour-column${selected === hour ? ' is-selected' : ''}`} onClick={() => setSelectedHour(hour)} aria-pressed={selected === hour} aria-label={`${interval(hour)}: ${count} ${count === 1 ? 'session' : 'sessions'} started`}>
+            <button type="button" key={hour} className={`sf-hour-column${selected === hour ? ' is-selected' : ''}`} style={{ '--bar-height': `${max ? count / max * 100 : 0}%` }} onClick={() => setSelectedHour(hour)} aria-pressed={selected === hour} aria-label={`${interval(hour)}: ${count} ${count === 1 ? 'session' : 'sessions'} started`}>
               <span className="sf-hour-column-value">{count || ''}</span><span className="sf-hour-column-bar" style={{ height: `${max ? count / max * 100 : 0}%` }} />
             </button>
           ))}</div>
@@ -951,6 +952,7 @@ function HourOfDayChart({ sessions }) {
         </div>
       </div>
       <p className="text-muted small mb-0">Session starts by local time. Select a bar for its count.{missing > 0 && ` ${missing} ${missing === 1 ? 'session has' : 'sessions have'} no recorded start time and ${missing === 1 ? 'is' : 'are'} excluded.`}</p>
+      <details className="sf-hour-data mt-3"><summary>View hourly data</summary><div className="sf-hour-data-grid">{hourlyStarts.map((count, hour) => <div key={hour}><span>{interval(hour)}</span><strong>{count}</strong></div>)}</div></details>
     </div>
   );
 }
@@ -1702,10 +1704,9 @@ export default function Statistics() {
       {isEmpty ? (
         <Card>
           <Card.Body className="text-center py-5">
-            <div className="sf-section-label mb-2">No data yet</div>
-            <div className="text-muted">
-              Track a few sessions and your trends, focus, and goal progress will appear here.
-            </div>
+            <h2 className="h5 mb-2">Your study story starts here</h2>
+            <p className="text-muted mb-3">Complete a session to see your study trends, focus, and goal progress.</p>
+            <Button as={Link} to="/app" variant="primary">Go to your timer</Button>
           </Card.Body>
         </Card>
       ) : (
