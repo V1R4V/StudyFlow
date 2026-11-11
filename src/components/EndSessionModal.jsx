@@ -1,3 +1,6 @@
+import { DateTimePicker } from '@mantine/dates';
+import Icon from './Icon';
+import '../styles/session-calendar.css';
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { localDateString } from '../utils/sessions';
@@ -119,7 +122,9 @@ export default function EndSessionModal(props) {
 
   return (
     <Modal show={props.show} onHide={saving ? undefined : props.onDiscard} centered scrollable backdrop={saving ? 'static' : true} keyboard={!saving}>
-      <Form onSubmit={handleSubmit} className="d-flex flex-column" style={{ minHeight: 0 }}>
+      <Form onKeyDownCapture={event => {
+        if (event.key === 'Escape' && event.currentTarget.querySelector('[data-dates-dropdown]')) event.preventDefault();
+      }} onSubmit={handleSubmit} className="d-flex flex-column" style={{ minHeight: 0 }}>
         <Modal.Header closeButton={!saving}>
           <Modal.Title>{props.title || 'Session Complete'}</Modal.Title>
         </Modal.Header>
@@ -130,16 +135,32 @@ export default function EndSessionModal(props) {
             <p className="small text-muted mb-2">
               Review or correct when you studied. Times shown in {timeZone}.
             </p>
-            <Form.Group controlId="session-started-at" className="mb-2">
-              <Form.Label>Started</Form.Label>
-              <Form.Control type="datetime-local" step="60" value={startInput}
-                required={hasTiming} onChange={e => setStartInput(e.target.value)} />
-            </Form.Group>
-            <Form.Group controlId="session-ended-at">
-              <Form.Label>Ended</Form.Label>
-              <Form.Control type="datetime-local" step="60" value={endInput}
-                required={hasTiming} onChange={e => setEndInput(e.target.value)} />
-            </Form.Group>
+            <div className="sf-session-endpoints">
+              <DateTimePicker
+                id="session-started-at" label="Started" className="sf-library-field"
+                value={startInput ? startInput.replace('T', ' ') + ':00' : null}
+                onChange={value => setStartInput(value ? value.replace(' ', 'T').slice(0, 16) : '')}
+                valueFormat="MMM D, YYYY · h:mm A" placeholder="Choose start date & time"
+                nextLabel="Next month" previousLabel="Previous month"
+                submitButtonProps={{ 'aria-label': 'Apply date and time' }}
+                leftSection={<Icon name="calendar" size={17} />} withSeconds={false}
+                timePickerProps={{ format: '12h', hoursInputLabel: 'Start hour', minutesInputLabel: 'Start minute', amPmInputLabel: 'Start AM or PM' }}
+                popoverProps={{ withinPortal: false, classNames: { dropdown: 'sf-session-calendar' } }} disabled={saving}
+                clearable={!props.requireTiming} clearButtonProps={{ 'aria-label': 'Clear start time' }}
+              />
+              <DateTimePicker
+                id="session-ended-at" label="Ended" className="sf-library-field"
+                value={endInput ? endInput.replace('T', ' ') + ':00' : null}
+                onChange={value => setEndInput(value ? value.replace(' ', 'T').slice(0, 16) : '')}
+                valueFormat="MMM D, YYYY · h:mm A" placeholder="Choose end date & time"
+                nextLabel="Next month" previousLabel="Previous month"
+                submitButtonProps={{ 'aria-label': 'Apply date and time' }}
+                leftSection={<Icon name="calendar" size={17} />} withSeconds={false}
+                timePickerProps={{ format: '12h', hoursInputLabel: 'End hour', minutesInputLabel: 'End minute', amPmInputLabel: 'End AM or PM' }}
+                popoverProps={{ withinPortal: false, classNames: { dropdown: 'sf-session-calendar' } }} disabled={saving}
+                clearable={!props.requireTiming} clearButtonProps={{ 'aria-label': 'Clear end time' }}
+              />
+            </div>
             {!props.initialStartedAt && <Form.Text className="text-muted">
               Start and end were not recorded for this session. Enter them if you know them.
             </Form.Text>}

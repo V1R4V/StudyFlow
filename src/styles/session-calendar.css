@@ -1,0 +1,19 @@
+.sf-session-endpoints { display: grid; gap: 14px; margin-block: 14px; }
+.sf-session-endpoints .mantine-Input-input { min-height: 44px; border-radius: 9px; background: var(--control-bg); color: var(--text-dark); border-color: var(--card-border-strong); font-size: .9rem; }
+.sf-session-endpoints .mantine-InputWrapper-label { color: var(--muted-strong); font-weight: 600; margin-bottom: 6px; }
+.sf-session-endpoints .mantine-Input-section { color: var(--muted-strong); }
+.sf-session-calendar { background: #fff; color: #202330; border: 1px solid #ccd2e0; border-radius: 12px; padding: 16px; box-shadow: 0 12px 36px #0003; }
+[data-theme="dark"] .sf-session-calendar { background: #222633; color: #eceef7; border-color: #535d78; }
+.sf-session-calendar .mantine-DateTimePicker-day,
+.sf-session-calendar .mantine-DateTimePicker-calendarHeaderControl,
+.sf-session-calendar .mantine-DateTimePicker-calendarHeaderLevel,
+.sf-session-calendar .mantine-TimePicker-control { color: inherit; }
+.sf-session-calendar .mantine-DateTimePicker-weekday,
+.sf-session-calendar .mantine-DateTimePicker-day[data-outside] { color: #646c7f; opacity: 1; }
+[data-theme="dark"] .sf-session-calendar .mantine-DateTimePicker-weekday,
+[data-theme="dark"] .sf-session-calendar .mantine-DateTimePicker-day[data-outside] { color: #aeb7cc; }
+.sf-session-calendar .mantine-DateTimePicker-day[data-selected],
+.sf-session-calendar .mantine-DateTimePicker-submitButton { background: #929fff; color: #141c3b; }
+.sf-session-calendar .mantine-DateTimePicker-day:hover:not([data-selected]) { background: #899aff25; }
+.sf-session-calendar .mantine-Input-input { background: transparent; color: inherit; border-color: #78829a; }
+.sf-session-calendar button:focus-visible, .sf-session-endpoints button:focus-visible { outline: 2px solid #929fff; outline-offset: 2px; }
