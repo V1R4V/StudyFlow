@@ -1,5 +1,4 @@
 import { DateTimePicker } from '@mantine/dates';
-import Icon from './Icon';
 import '../styles/session-calendar.css';
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
@@ -143,7 +142,7 @@ export default function EndSessionModal(props) {
                 valueFormat="MMM D, YYYY · h:mm A" placeholder="Choose start date & time"
                 nextLabel="Next month" previousLabel="Previous month"
                 submitButtonProps={{ 'aria-label': 'Apply date and time' }}
-                leftSection={<Icon name="calendar" size={17} />} withSeconds={false}
+                leftSection={<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} withSeconds={false}
                 timePickerProps={{ format: '12h', hoursInputLabel: 'Start hour', minutesInputLabel: 'Start minute', amPmInputLabel: 'Start AM or PM' }}
                 popoverProps={{ withinPortal: false, classNames: { dropdown: 'sf-session-calendar' } }} disabled={saving}
                 clearable={!props.requireTiming} clearButtonProps={{ 'aria-label': 'Clear start time' }}
@@ -155,7 +154,7 @@ export default function EndSessionModal(props) {
                 valueFormat="MMM D, YYYY · h:mm A" placeholder="Choose end date & time"
                 nextLabel="Next month" previousLabel="Previous month"
                 submitButtonProps={{ 'aria-label': 'Apply date and time' }}
-                leftSection={<Icon name="calendar" size={17} />} withSeconds={false}
+                leftSection={<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} withSeconds={false}
                 timePickerProps={{ format: '12h', hoursInputLabel: 'End hour', minutesInputLabel: 'End minute', amPmInputLabel: 'End AM or PM' }}
                 popoverProps={{ withinPortal: false, classNames: { dropdown: 'sf-session-calendar' } }} disabled={saving}
                 clearable={!props.requireTiming} clearButtonProps={{ 'aria-label': 'Clear end time' }}
